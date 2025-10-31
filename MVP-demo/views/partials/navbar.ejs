@@ -1,0 +1,84 @@
+<nav class="navbar navbar-expand-lg navbar-dark bg-primary sticky-top shadow">
+  <div class="container">
+    <a class="navbar-brand fw-bold" href="/">
+      <i class="bi bi-hammer"></i> <span class="text-warning">Auction</span> MVP
+    </a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navbarNav">
+      <ul class="navbar-nav me-auto">
+        <li class="nav-item">
+          <a class="nav-link" href="/"><i class="bi bi-house"></i> Trang chủ</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="/search"><i class="bi bi-search"></i> Tìm kiếm</a>
+        </li>
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+            <i class="bi bi-grid"></i> Danh mục
+          </a>
+          <ul class="dropdown-menu">
+            <% if (typeof categories !== 'undefined' && categories && categories.length > 0) { %>
+              <% categories.forEach(cat => { %>
+                <li><a class="dropdown-item" href="/products/category/<%= cat.id %>">
+                  <i class="bi bi-tag"></i> <%= cat.name %>
+                </a></li>
+              <% }); %>
+            <% } else { %>
+              <li><span class="dropdown-item text-muted">Không có danh mục</span></li>
+            <% } %>
+          </ul>
+        </li>
+      </ul>
+      
+      <form class="d-flex me-3" action="/search" method="GET">
+        <input class="form-control me-2" type="search" name="q" placeholder="Tìm sản phẩm..." style="min-width: 250px;">
+        <button class="btn btn-outline-light" type="submit"><i class="bi bi-search"></i></button>
+      </form>
+
+      <ul class="navbar-nav">
+        <% if (user) { %>
+          <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+              <i class="bi bi-person-circle"></i> <%= user.full_name %>
+            </a>
+            <ul class="dropdown-menu dropdown-menu-end">
+              <li>
+                <h6 class="dropdown-header">
+                  <i class="bi bi-shield-check"></i> 
+                  <% if (user.role === 'admin') { %>
+                    <span class="badge bg-danger">Admin</span>
+                  <% } else if (user.role === 'seller') { %>
+                    <span class="badge bg-success">Seller</span>
+                  <% } else { %>
+                    <span class="badge bg-info">Bidder</span>
+                  <% } %>
+                </h6>
+              </li>
+              <li><hr class="dropdown-divider"></li>
+              <li><a class="dropdown-item" href="/profile">
+                <i class="bi bi-person"></i> Hồ sơ của tôi
+              </a></li>
+              <li><hr class="dropdown-divider"></li>
+              <li><a class="dropdown-item text-danger" href="/auth/logout">
+                <i class="bi bi-box-arrow-right"></i> Đăng xuất
+              </a></li>
+            </ul>
+          </li>
+        <% } else { %>
+          <li class="nav-item">
+            <a class="nav-link" href="/auth/login">
+              <i class="bi bi-box-arrow-in-right"></i> Đăng nhập
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="btn btn-warning text-dark ms-2" href="/auth/register">
+              <i class="bi bi-person-plus"></i> Đăng ký
+            </a>
+          </li>
+        <% } %>
+      </ul>
+    </div>
+  </div>
+</nav>
