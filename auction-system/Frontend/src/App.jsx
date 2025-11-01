@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import { authAPI, getAccessToken } from './services/api'
 import GuestHomePage from './pages/GuestHomePage'
-import DashboardPage from './pages/DashboardPage'
+import BidderDashboard from './pages/BidderDashboard'
 import AuctionListPage from './pages/AuctionListPage'
 
 function App() {
@@ -16,12 +16,25 @@ function App() {
   const checkAuth = async () => {
     try {
       // Nếu có access token trong memory, fetch user profile
-      if (getAccessToken()) {
-        const userData = await authAPI.getProfile()
-        setUser(userData)
+      let token = getAccessToken()
+      
+      // Nếu không có access token, thử refresh từ cookie
+      if (!token) {
+        try {
+          const refreshData = await authAPI.refreshToken()
+          token = refreshData.accessToken
+        } catch (refreshError) {
+          console.log('No valid refresh token')
+          setLoading(false)
+          return
+        }
       }
+      
+      // Fetch user profile
+      const userData = await authAPI.getProfile()
+      setUser(userData)
     } catch (error) {
-      console.log('Not authenticated')
+      console.log('Not authenticated:', error)
     } finally {
       setLoading(false)
     }
@@ -43,10 +56,10 @@ function App() {
       <div className="App">
         <Routes>
           {/* Route for the home page */}
-          <Route path="/" element={user ? <DashboardPage user={user} /> : <GuestHomePage />} />
+          <Route path="/" element={user ? <BidderDashboard /> : <GuestHomePage />} />
 
           {/* Route for dashboard */}
-          <Route path="/dashboard" element={user ? <DashboardPage user={user} /> : <GuestHomePage />} />
+          <Route path="/dashboard" element={user ? <BidderDashboard /> : <GuestHomePage />} />
 
           {/* Route for auction list */}
           <Route path="/auctions" element={<AuctionListPage user={user} />} />

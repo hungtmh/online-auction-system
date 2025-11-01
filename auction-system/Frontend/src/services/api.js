@@ -97,6 +97,14 @@ export const authAPI = {
     return data
   },
 
+  refreshToken: async () => {
+    const { data } = await api.post('/auth/refresh')
+    if (data.success) {
+      setAccessToken(data.accessToken)
+    }
+    return data
+  },
+
   logout: async () => {
     await api.post('/auth/logout')
     clearAccessToken()
