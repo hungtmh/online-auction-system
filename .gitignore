@@ -1,0 +1,48 @@
+# Dependencies
+node_modules/
+
+# Environment variables (CHỨA API KEYS - TUYỆT ĐỐI KHÔNG PUSH!)
+.env
+.env.local
+.env.production
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# Editor
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# Build output
+dist/
+build/
+dist-ssr/
+
+# Temporary files
+temp/
+tmp/
+*.tmp
+
+# Database
+*.sqlite
+*.sqlite3
+*.db
+
+# Coverage
+coverage/
+.nyc_output/
