@@ -3,7 +3,7 @@ import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-this-in-production'
-const JWT_EXPIRES_IN = '15m'
+const JWT_EXPIRES_IN = '15m'  // ← TEST: Token hết hạn sau 1 phút (production: '15m')
 const REFRESH_TOKEN_EXPIRES_IN = '7d'
 
 function generateAccessToken(userId, email) {

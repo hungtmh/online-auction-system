@@ -45,29 +45,37 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config
 
-    // Nếu token hết hạn và chưa retry
-    if (error.response?.status === 401 && 
-        error.response?.data?.code === 'TOKEN_EXPIRED' &&
-        !originalRequest._retry) {
-      
+    // Nếu lỗi 401, chưa retry, và không phải request refresh
+    if (
+      error.response?.status === 401 && 
+      !originalRequest._retry &&
+      !originalRequest.url?.includes('/auth/refresh') &&
+      !originalRequest.url?.includes('/auth/login')
+    ) {
       originalRequest._retry = true
 
       try {
-        // Gọi API refresh token
+        console.log('🔄 Access token hết hạn, đang refresh...')
+        
+        // Gọi API refresh token (cookie tự động gửi)
         const { data } = await axios.post(
           `${API_URL}/auth/refresh`,
           {},
           { withCredentials: true }
         )
 
-        // Lưu access token mới
-        setAccessToken(data.accessToken)
+        if (data.success && data.accessToken) {
+          // Lưu access token mới
+          setAccessToken(data.accessToken)
+          console.log('✅ Đã refresh access token thành công')
 
-        // Retry request ban đầu với token mới
-        originalRequest.headers.Authorization = `Bearer ${data.accessToken}`
-        return api(originalRequest)
+          // Retry request ban đầu với token mới
+          originalRequest.headers.Authorization = `Bearer ${data.accessToken}`
+          return api(originalRequest)
+        }
       } catch (refreshError) {
-        // Refresh token cũng hết hạn -> logout
+        // Refresh token hết hạn → Đăng xuất
+        console.error('❌ Refresh token hết hạn, vui lòng đăng nhập lại')
         clearAccessToken()
         window.location.href = '/'
         return Promise.reject(refreshError)
