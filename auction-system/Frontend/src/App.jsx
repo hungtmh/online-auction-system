@@ -1,9 +1,14 @@
 import React, { useState, useEffect } from 'react'
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { authAPI, getAccessToken } from './services/api'
 import GuestHomePage from './pages/GuestHomePage'
 import BidderDashboard from './pages/BidderDashboard'
+import SellerDashboard from './pages/SellerDashboard'
+import AdminDashboard from './pages/AdminDashboard'
 import AuctionListPage from './pages/AuctionListPage'
+import AuthCallback from './pages/AuthCallback'
+import LoginPage from './pages/LoginPage'
+import RegisterPage from './pages/RegisterPage'
 
 function App() {
   const [user, setUser] = useState(null)
@@ -51,23 +56,71 @@ function App() {
     )
   }
 
+  // ═══════════════════════════════════════════════════════════
+  // ROUTING THEO ROLE - MỖI NGƯỜI 1 PHÂN HỆ
+  // ═══════════════════════════════════════════════════════════
+  const getDashboardByRole = () => {
+    if (!user) return <GuestHomePage />
+    
+    switch (user.role) {
+      case 'admin':
+        return <AdminDashboard />      // Thắng phụ trách
+      case 'seller':
+        return <SellerDashboard />     // Cường phụ trách
+      case 'bidder':
+        return <BidderDashboard />     // Khoa phụ trách
+      default:
+        return <GuestHomePage />       // Khải phụ trách
+    }
+  }
+
   return (
     <Router>
       <div className="App">
         <Routes>
-          {/* Route for the home page */}
-          <Route path="/" element={user ? <BidderDashboard /> : <GuestHomePage />} />
+          {/* Auth routes - Trang đăng nhập/đăng ký riêng */}
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
 
-          {/* Route for dashboard */}
-          <Route path="/dashboard" element={user ? <BidderDashboard /> : <GuestHomePage />} />
+          {/* OAuth callback route */}
+          <Route path="/auth/callback" element={<AuthCallback />} />
 
-          {/* Route for auction list */}
+          {/* Route chính - redirect theo role */}
+          <Route path="/" element={getDashboardByRole()} />
+          
+          {/* Dashboard route - redirect theo role */}
+          <Route path="/dashboard" element={getDashboardByRole()} />
+
+          {/* Route riêng cho từng role (nếu muốn truy cập trực tiếp) */}
+          <Route 
+            path="/admin" 
+            element={user?.role === 'admin' ? <AdminDashboard /> : <Navigate to="/" />} 
+          />
+          <Route 
+            path="/seller" 
+            element={user?.role === 'seller' ? <SellerDashboard /> : <Navigate to="/" />} 
+          />
+          <Route 
+            path="/bidder" 
+            element={user?.role === 'bidder' ? <BidderDashboard /> : <Navigate to="/" />} 
+          />
+
+          {/* Route for auction list - Tất cả user đều xem được */}
           <Route path="/auctions" element={<AuctionListPage user={user} />} />
 
-          {/* 404 Route for unmatched paths */}
+          {/* 404 Route */}
           <Route path="*" element={
             <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
-              <h1 className="text-2xl font-semibold text-gray-600">404 - Page Not Found</h1>
+              <div className="text-center">
+                <h1 className="text-6xl font-bold text-gray-300">404</h1>
+                <p className="text-2xl font-semibold text-gray-600 mt-4">Page Not Found</p>
+                <button
+                  onClick={() => window.location.href = '/'}
+                  className="mt-6 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition"
+                >
+                  Về trang chủ
+                </button>
+              </div>
             </div>
           } />
         </Routes>

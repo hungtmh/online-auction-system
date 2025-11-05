@@ -40,8 +40,24 @@ export const register = async (req, res) => {
       return res.status(400).json({ success: false, message: error.message })
     }
 
-    // Supabase tự động gửi email verification
-    console.log(`📧 Email verification sent to: ${email}`)
+    // ═══════════════════════════════════════════════════════════
+    // GỬI EMAIL VERIFICATION NGAY SAU KHI TẠO USER
+    // ═══════════════════════════════════════════════════════════
+    try {
+      const { error: resendError } = await supabase.auth.resend({
+        type: 'signup',
+        email: email
+      })
+
+      if (resendError) {
+        console.error('❌ Lỗi gửi email verification:', resendError.message)
+      } else {
+        console.log(`✅ Email verification đã gửi tới: ${email}`)
+      }
+    } catch (emailError) {
+      console.error('❌ Lỗi gửi email:', emailError)
+      // Không block việc đăng ký, email có thể gửi lại sau
+    }
 
     res.status(201).json({
       success: true,
@@ -98,6 +114,13 @@ export const login = async (req, res) => {
     const accessToken = generateAccessToken(user.id, email)
     const refreshToken = generateRefreshToken(user.id)
 
+    // Lấy role từ bảng profiles
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+
     res.cookie('refreshToken', refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
@@ -109,7 +132,12 @@ export const login = async (req, res) => {
       success: true,
       message: 'Đăng nhập thành công',
       accessToken,
-      user: { id: user.id, email: user.email, full_name: user.user_metadata?.full_name }
+      user: { 
+        id: user.id, 
+        email: user.email, 
+        full_name: user.user_metadata?.full_name,
+        role: profile?.role || 'bidder'  // ← THÊM ROLE
+      }
     })
   } catch (error) {
     console.error('Login error:', error)

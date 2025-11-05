@@ -2,7 +2,12 @@ import express from 'express'
 import cors from 'cors'
 import dotenv from 'dotenv'
 import cookieParser from 'cookie-parser'
+import passport from './config/passport.js'
 import authRoutes from './routes/auth.js'
+import guestRoutes from './routes/guest.js'
+import bidderRoutes from './routes/bidder.js'
+import sellerRoutes from './routes/seller.js'
+import adminRoutes from './routes/admin.js'
 
 dotenv.config()
 
@@ -15,14 +20,22 @@ app.use(cors({
   credentials: true // Cho phép gửi cookies
 }))
 app.use(express.json())
+app.use(express.urlencoded({ extended: true }))
 app.use(cookieParser()) // Parse cookies cho refresh token
 
-// Routes
-app.use('/api/auth', authRoutes)
-app.use(express.urlencoded({ extended: true }))
+// ═══════════════════════════════════════════════════
+// PASSPORT OAUTH (Google, Facebook)
+// ═══════════════════════════════════════════════════
+app.use(passport.initialize())
 
-// Routes
-// TODO: Thêm routes cho products, bids, categories, etc.
+// ═══════════════════════════════════════════════════
+// ROUTES - PHÂN CÔNG THEO TỪNG NGƯỜI
+// ═══════════════════════════════════════════════════
+app.use('/api/auth', authRoutes)     // Auth routes (CHUNG)
+app.use('/api/guest', guestRoutes)   // Guest routes (KHẢI)
+app.use('/api/bidder', bidderRoutes) // Bidder routes (KHOA)
+app.use('/api/seller', sellerRoutes) // Seller routes (CƯỜNG)
+app.use('/api/admin', adminRoutes)   // Admin routes (THẮNG)
 
 // Health check
 app.get('/api/health', (req, res) => {

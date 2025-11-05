@@ -1,10 +1,8 @@
 import { useState } from 'react'
-import Login from '../Auth/Login'
-import Register from '../Auth/Register'
+import { useNavigate } from 'react-router-dom'
 
 function GuestHomePageContent() {
-  const [showLogin, setShowLogin] = useState(false)
-  const [showRegister, setShowRegister] = useState(false)
+  const navigate = useNavigate()
   const [products, setProducts] = useState([]) // Khởi tạo products là mảng rỗng
   // TODO: Fetch products từ Backend API /api/products
 
@@ -41,13 +39,13 @@ function GuestHomePageContent() {
             {/* Auth buttons */}
             <div className="flex items-center gap-3">
               <button
-                onClick={() => setShowLogin(true)}
+                onClick={() => navigate('/login')}
                 className="px-6 py-2 text-blue-600 font-medium hover:text-blue-700 transition"
               >
                 Đăng nhập
               </button>
               <button
-                onClick={() => setShowRegister(true)}
+                onClick={() => navigate('/register')}
                 className="px-6 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white font-medium rounded-lg hover:from-blue-600 hover:to-blue-700 transition shadow-md hover:shadow-lg"
               >
                 Đăng ký
@@ -68,7 +66,7 @@ function GuestHomePageContent() {
           </p>
           <div className="flex justify-center gap-4">
             <button
-              onClick={() => setShowRegister(true)}
+              onClick={() => navigate('/register')}
               className="px-8 py-4 bg-white text-blue-600 font-bold rounded-lg hover:bg-gray-100 transition shadow-xl hover:shadow-2xl transform hover:-translate-y-1"
             >
               Bắt đầu ngay
@@ -174,7 +172,7 @@ function GuestHomePageContent() {
                       </div>
                     </div>
                     <button
-                      onClick={() => setShowLogin(true)}
+                      onClick={() => navigate('/login')}
                       className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition font-medium"
                     >
                       Đấu giá ngay
@@ -205,7 +203,7 @@ function GuestHomePageContent() {
                       </div>
                     </div>
                     <button
-                      onClick={() => setShowLogin(true)}
+                      onClick={() => navigate('/login')}
                       className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition"
                     >
                       Đăng nhập để đấu giá
@@ -226,7 +224,7 @@ function GuestHomePageContent() {
             Tham gia ngay hôm nay để trải nghiệm đấu giá trực tuyến tuyệt vời nhất!
           </p>
           <button
-            onClick={() => setShowRegister(true)}
+            onClick={() => navigate('/register')}
             className="px-10 py-4 bg-white text-blue-600 font-bold text-lg rounded-lg hover:bg-gray-100 transition shadow-xl hover:shadow-2xl transform hover:-translate-y-1"
           >
             Đăng ký miễn phí
@@ -274,27 +272,6 @@ function GuestHomePageContent() {
           </div>
         </div>
       </footer>
-
-      {/* Modals */}
-      {showLogin && (
-        <Login
-          onClose={() => setShowLogin(false)}
-          onSwitchToRegister={() => {
-            setShowLogin(false)
-            setShowRegister(true)
-          }}
-        />
-      )}
-
-      {showRegister && (
-        <Register
-          onClose={() => setShowRegister(false)}
-          onSwitchToLogin={() => {
-            setShowRegister(false)
-            setShowLogin(true)
-          }}
-        />
-      )}
     </div>
   )
 }
