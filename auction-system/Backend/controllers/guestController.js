@@ -23,20 +23,21 @@ export const getProducts = async (req, res) => {
 
     const offset = (page - 1) * limit
 
+    let selectStr = `
+      *,
+      categories (
+        id,
+        name,
+        parent_id
+      )
+    `
+
     let query = supabase
       .from('products')
-      .select(`
-        *,
-        categories (
-          id,
-          name,
-          parent_id
-        ),
-        bids (count)
-      `)
+      .select(selectStr, { count: 'exact' })
       .eq('status', status)
       .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1)
+      .range(offset, offset + parseInt(limit) - 1)
 
     // Lọc theo danh mục nếu có
     if (category) {
