@@ -5,9 +5,11 @@ Backend API cho hệ thống đấu giá trực tuyến, sử dụng Node.js + E
 ## 📋 Cài đặt
 
 ### 1. Cài dependencies
+
 ```bash
 cd Backend
 npm install
+npm install passport passport-google-oauth20
 ```
 
 ### 2. Cấu hình Environment Variables
@@ -30,7 +32,8 @@ NODE_ENV=development
 FRONTEND_URL=http://localhost:5173
 ```
 
-**⚠️ LƯU Ý:** 
+**⚠️ LƯU Ý:**
+
 - Lấy `SUPABASE_SERVICE_KEY` từ: Supabase Dashboard → Settings → API → `service_role` key
 - **KHÔNG** commit file `.env` lên Git!
 
@@ -55,11 +58,13 @@ Server sẽ chạy tại: **http://localhost:5000**
 ## 🔌 API Endpoints
 
 ### 1. Health Check
+
 ```
 GET /api/health
 ```
 
 **Response:**
+
 ```json
 {
   "status": "OK",
@@ -71,12 +76,14 @@ GET /api/health
 ---
 
 ### 2. Đăng ký (Register)
+
 ```
 POST /api/auth/register
 Content-Type: application/json
 ```
 
 **Request Body:**
+
 ```json
 {
   "email": "user@example.com",
@@ -86,6 +93,7 @@ Content-Type: application/json
 ```
 
 **Response Success (201):**
+
 ```json
 {
   "message": "Đăng ký thành công!",
@@ -102,6 +110,7 @@ Content-Type: application/json
 ```
 
 **Response Error (400):**
+
 ```json
 {
   "error": "Email đã được sử dụng!"
@@ -111,12 +120,14 @@ Content-Type: application/json
 ---
 
 ### 3. Đăng nhập (Login)
+
 ```
 POST /api/auth/login
 Content-Type: application/json
 ```
 
 **Request Body:**
+
 ```json
 {
   "email": "user@example.com",
@@ -125,6 +136,7 @@ Content-Type: application/json
 ```
 
 **Response Success (200):**
+
 ```json
 {
   "message": "Đăng nhập thành công!",
@@ -141,6 +153,7 @@ Content-Type: application/json
 ```
 
 **Response Error (401):**
+
 ```json
 {
   "error": "Email hoặc mật khẩu không đúng!"
@@ -150,12 +163,14 @@ Content-Type: application/json
 ---
 
 ### 4. Lấy thông tin Profile (Protected)
+
 ```
 GET /api/auth/profile
 Authorization: Bearer <token>
 ```
 
 **Response Success (200):**
+
 ```json
 {
   "user": {
@@ -171,6 +186,7 @@ Authorization: Bearer <token>
 ```
 
 **Response Error (401):**
+
 ```json
 {
   "error": "Vui lòng đăng nhập để tiếp tục!"
@@ -182,11 +198,13 @@ Authorization: Bearer <token>
 ## 🧪 Test API với cURL
 
 ### Test Health:
+
 ```bash
 curl http://localhost:5000/api/health
 ```
 
 ### Test Register:
+
 ```bash
 curl -X POST http://localhost:5000/api/auth/register \
   -H "Content-Type: application/json" \
@@ -194,6 +212,7 @@ curl -X POST http://localhost:5000/api/auth/register \
 ```
 
 ### Test Login:
+
 ```bash
 curl -X POST http://localhost:5000/api/auth/login \
   -H "Content-Type: application/json" \
@@ -201,6 +220,7 @@ curl -X POST http://localhost:5000/api/auth/login \
 ```
 
 ### Test Profile (cần token):
+
 ```bash
 curl http://localhost:5000/api/auth/profile \
   -H "Authorization: Bearer YOUR_TOKEN_HERE"
@@ -241,18 +261,21 @@ Backend/
 ## 🐛 Troubleshooting
 
 ### Lỗi: "Cannot find module"
+
 ```bash
 # Đảm bảo đã cài dependencies
 npm install
 ```
 
 ### Lỗi: "Supabase connection failed"
+
 ```bash
 # Kiểm tra SUPABASE_URL và SUPABASE_SERVICE_KEY trong .env
 # Đảm bảo đã tạo bảng users trên Supabase
 ```
 
 ### Lỗi: "Port 5000 already in use"
+
 ```bash
 # Đổi PORT trong .env thành số khác, ví dụ 5001
 PORT=5001
