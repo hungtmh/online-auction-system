@@ -1,9 +1,10 @@
 import { supabase } from '../config/supabase.js'
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
+import { generateOTP, sendOTPEmail, saveOTP, verifyOTP, cleanupOldOTP } from '../utils/otpHelper.js'
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-this-in-production'
-const JWT_EXPIRES_IN = '15m'  // ← TEST: Token hết hạn sau 1 phút (production: '15m')
+const JWT_EXPIRES_IN = '15m'
 const REFRESH_TOKEN_EXPIRES_IN = '7d'
 
 function generateAccessToken(userId, email) {
@@ -16,7 +17,7 @@ function generateRefreshToken(userId) {
 
 export const register = async (req, res) => {
   try {
-    const { email, password, full_name } = req.body
+    const { email, password, full_name, address } = req.body
 
     if (!email || !password || !full_name) {
       return res.status(400).json({ success: false, message: 'Vui lòng điền đầy đủ thông tin' })
@@ -26,43 +27,74 @@ export const register = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Mật khẩu phải có ít nhất 6 ký tự' })
     }
 
+    // Kiểm tra email đã tồn tại chưa
+    const { data: existingProfile } = await supabase
+      .from('profiles')
+      .select('email')
+      .eq('email', email)
+      .single()
+
+    if (existingProfile) {
+      return res.status(400).json({ success: false, message: 'Email đã được đăng ký' })
+    }
+
     const hashedPassword = await bcrypt.hash(password, 10)
 
-    // Tạo user với email confirmation bắt buộc
+    // Tạo user với email confirmation = false (chưa verify)
     const { data, error } = await supabase.auth.admin.createUser({
       email,
       password,
-      email_confirm: false,  // Bắt buộc xác nhận email
-      user_metadata: { full_name, password_hash: hashedPassword }
+      email_confirm: false,  // Chưa verify, sẽ dùng OTP
+      user_metadata: { full_name, password_hash: hashedPassword, address }
     })
 
     if (error) {
+      if (error.message.includes('already been registered')) {
+        return res.status(400).json({ success: false, message: 'Email đã được đăng ký' })
+      }
       return res.status(400).json({ success: false, message: error.message })
     }
 
-    // ═══════════════════════════════════════════════════════════
-    // GỬI EMAIL VERIFICATION NGAY SAU KHI TẠO USER
-    // ═══════════════════════════════════════════════════════════
-    try {
-      const { error: resendError } = await supabase.auth.resend({
-        type: 'signup',
-        email: email
-      })
+    // Tạo profile trong database
+    await supabase.from('profiles').insert({
+      id: data.user.id,
+      email,
+      full_name,
+      address: address || null,
+      role: 'bidder'
+    })
 
-      if (resendError) {
-        console.error('❌ Lỗi gửi email verification:', resendError.message)
-      } else {
-        console.log(`✅ Email verification đã gửi tới: ${email}`)
-      }
-    } catch (emailError) {
-      console.error('❌ Lỗi gửi email:', emailError)
-      // Không block việc đăng ký, email có thể gửi lại sau
+    // ═══════════════════════════════════════════════════════════
+    // GỬI OTP QUA EMAIL
+    // ═══════════════════════════════════════════════════════════
+    
+    // Cleanup old OTP
+    await cleanupOldOTP(email)
+    
+    // Tạo OTP mới
+    const otpCode = generateOTP()
+    
+    // Lưu OTP vào database
+    const metadata = {
+      ip: req.ip || req.connection.remoteAddress,
+      userAgent: req.headers['user-agent']
+    }
+    await saveOTP(email, otpCode, 'email_verification', metadata)
+    
+    // Gửi OTP qua email
+    const emailResult = await sendOTPEmail(email, otpCode, 'email_verification')
+    
+    if (!emailResult.success) {
+      console.error('❌ Lỗi gửi OTP email:', emailResult.error)
+      // Không block đăng ký, có thể gửi lại sau
+    } else {
+      console.log(`✅ OTP sent to: ${email}`)
     }
 
     res.status(201).json({
       success: true,
-      message: 'Đăng ký thành công! Vui lòng kiểm tra email để xác nhận tài khoản.',
-      requireEmailVerification: true,
+      message: 'Đăng ký thành công! Vui lòng kiểm tra email để lấy mã OTP.',
+      requireOTPVerification: true,
       email: email
     })
   } catch (error) {
@@ -79,15 +111,25 @@ export const login = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Vui lòng điền đầy đủ thông tin' })
     }
 
-    const { data: { users }, error: listError } = await supabase.auth.admin.listUsers()
-    if (listError) {
-      return res.status(500).json({ success: false, message: 'Lỗi server' })
-    }
+    // Tìm user qua profiles table (tránh listUsers gây lỗi database)
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('id, email, full_name, role')
+      .eq('email', email)
+      .single()
 
-    const user = users.find(u => u.email === email)
-    if (!user) {
+    if (profileError || !profile) {
       return res.status(401).json({ success: false, message: 'Email hoặc mật khẩu không đúng' })
     }
+
+    // Lấy thông tin auth user
+    const { data: authData, error: authError } = await supabase.auth.admin.getUserById(profile.id)
+    
+    if (authError || !authData.user) {
+      return res.status(401).json({ success: false, message: 'Email hoặc mật khẩu không đúng' })
+    }
+
+    const user = authData.user
 
     // Kiểm tra email đã verified chưa
     if (!user.email_confirmed_at) {
@@ -114,13 +156,6 @@ export const login = async (req, res) => {
     const accessToken = generateAccessToken(user.id, email)
     const refreshToken = generateRefreshToken(user.id)
 
-    // Lấy role từ bảng profiles
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-
     res.cookie('refreshToken', refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
@@ -135,8 +170,8 @@ export const login = async (req, res) => {
       user: { 
         id: user.id, 
         email: user.email, 
-        full_name: user.user_metadata?.full_name,
-        role: profile?.role || 'bidder'  // ← THÊM ROLE
+        full_name: profile.full_name || user.user_metadata?.full_name,
+        role: profile.role || 'bidder'
       }
     })
   } catch (error) {
@@ -211,16 +246,25 @@ export const resendVerification = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Vui lòng cung cấp email' })
     }
 
-    // Tìm user
-    const { data: { users }, error: listError } = await supabase.auth.admin.listUsers()
-    if (listError) {
-      return res.status(500).json({ success: false, message: 'Lỗi server' })
-    }
+    // Tìm user qua profiles
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('email', email)
+      .single()
 
-    const user = users.find(u => u.email === email)
-    if (!user) {
+    if (profileError || !profile) {
       return res.status(404).json({ success: false, message: 'Email không tồn tại' })
     }
+
+    // Lấy thông tin auth user
+    const { data: authData, error: authError } = await supabase.auth.admin.getUserById(profile.id)
+    
+    if (authError || !authData.user) {
+      return res.status(404).json({ success: false, message: 'Email không tồn tại' })
+    }
+
+    const user = authData.user
 
     // Kiểm tra đã verified chưa
     if (user.email_confirmed_at) {
@@ -230,14 +274,27 @@ export const resendVerification = async (req, res) => {
       })
     }
 
-    // Gửi lại verification email
-    const { error: resendError } = await supabase.auth.resend({
-      type: 'signup',
-      email: email,
-    })
-
-    if (resendError) {
-      console.error('Resend verification error:', resendError)
+    // ═══════════════════════════════════════════════════════════
+    // GỬI LẠI OTP
+    // ═══════════════════════════════════════════════════════════
+    
+    // Cleanup old OTP
+    await cleanupOldOTP(email)
+    
+    // Tạo OTP mới
+    const otpCode = generateOTP()
+    
+    // Lưu OTP
+    const metadata = {
+      ip: req.ip || req.connection.remoteAddress,
+      userAgent: req.headers['user-agent']
+    }
+    await saveOTP(email, otpCode, 'email_verification', metadata)
+    
+    // Gửi OTP qua email
+    const emailResult = await sendOTPEmail(email, otpCode, 'email_verification')
+    
+    if (!emailResult.success) {
       return res.status(500).json({ 
         success: false, 
         message: 'Không thể gửi email. Vui lòng thử lại sau.' 
@@ -246,10 +303,54 @@ export const resendVerification = async (req, res) => {
 
     res.json({
       success: true,
-      message: 'Email xác nhận đã được gửi lại. Vui lòng kiểm tra hộp thư.'
+      message: 'Mã OTP đã được gửi lại. Vui lòng kiểm tra hộp thư.'
     })
   } catch (error) {
     console.error('Resend verification error:', error)
+    res.status(500).json({ success: false, message: 'Lỗi server' })
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// VERIFY OTP
+// ═══════════════════════════════════════════════════════════
+export const verifyOTPCode = async (req, res) => {
+  try {
+    const { email, otp_code } = req.body
+
+    if (!email || !otp_code) {
+      return res.status(400).json({ success: false, message: 'Vui lòng cung cấp email và mã OTP' })
+    }
+
+    // Verify OTP
+    const result = await verifyOTP(email, otp_code, 'email_verification')
+    
+    if (!result.success) {
+      return res.status(400).json({ success: false, message: result.message })
+    }
+
+    // Tìm user và confirm email
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('email', email)
+      .single()
+
+    if (profile) {
+      // Update email_confirmed_at trong Supabase Auth
+      await supabase.auth.admin.updateUserById(profile.id, {
+        email_confirm: true
+      })
+      
+      console.log(`✅ Email confirmed for: ${email}`)
+    }
+
+    res.json({
+      success: true,
+      message: 'Xác thực email thành công! Bạn có thể đăng nhập ngay.'
+    })
+  } catch (error) {
+    console.error('Verify OTP error:', error)
     res.status(500).json({ success: false, message: 'Lỗi server' })
   }
 }
