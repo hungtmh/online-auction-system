@@ -1,22 +1,23 @@
-﻿import express from "express";
-import passport from "../config/passport.js";
-import jwt from "jsonwebtoken";
-import { register, login, refresh, logout, getProfile, resendVerification } from "../controllers/authController.js";
-import { authenticate } from "../middleware/auth.js";
+﻿import express from 'express'
+import passport from '../config/passport.js'
+import jwt from 'jsonwebtoken'
+import { register, login, refresh, logout, getProfile, resendVerification, verifyOTPCode } from '../controllers/authController.js'
+import { authenticate } from '../middleware/auth.js'
 
-const router = express.Router();
+const router = express.Router()
 
-const JWT_SECRET = process.env.JWT_SECRET || "your-super-secret-jwt-key-change-this-in-production";
+const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-this-in-production'
 
 // ═══════════════════════════════════════════════════════════════════════════
-// TRADITIONAL AUTH (Email + Password)
+// TRADITIONAL AUTH (Email + Password + OTP)
 // ═══════════════════════════════════════════════════════════════════════════
-router.post("/register", register);
-router.post("/login", login);
-router.post("/refresh", refresh);
-router.post("/logout", logout);
-router.get("/profile", authenticate, getProfile);
-router.post("/resend-verification", resendVerification);
+router.post('/register', register)
+router.post('/verify-otp', verifyOTPCode)  // ← NEW: Verify OTP
+router.post('/resend-otp', resendVerification)  // Renamed from resend-verification
+router.post('/login', login)
+router.post('/refresh', refresh)
+router.post('/logout', logout)
+router.get('/profile', authenticate, getProfile)
 
 // ═══════════════════════════════════════════════════════════════════════════
 // GOOGLE OAUTH
