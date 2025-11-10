@@ -6,8 +6,6 @@ import dotenv from "dotenv";
 // Load environment variables
 dotenv.config();
 
-console.log("🔧 Passport instance ID:", passport);
-
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 const GOOGLE_CALLBACK_URL = process.env.GOOGLE_CALLBACK_URL || "http://localhost:5000/api/auth/google/callback";
@@ -30,25 +28,21 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
           const avatar_url = profile.photos[0]?.value;
           let user = null;
 
-          console.log(`🔍 Google OAuth attempt for: ${email}`);
+          //console.log(`🔍 Google OAuth attempt for: ${email}`);
 
           // ═══════════════════════════════════════════════════════════
           // Bước 1: Kiểm tra user đã tồn tại bằng cách query profiles table
           // (tránh dùng listUsers vì có thể bị lỗi database với nhiều users)
           // ═══════════════════════════════════════════════════════════
-          const { data: existingProfile, error: profileError } = await supabase
-            .from("profiles")
-            .select("id, email")
-            .eq("email", email)
-            .single();
+          const { data: existingProfile, error: profileError } = await supabase.from("profiles").select("id, email").eq("email", email).single();
 
           if (existingProfile) {
             // User đã có profile - lấy thông tin từ auth
-            console.log(`✅ Found existing profile for: ${email}`);
+            //console.log(`✅ Found existing profile for: ${email}`);
             const { data: authUser, error: getUserError } = await supabase.auth.admin.getUserById(existingProfile.id);
-            
+
             if (authUser && authUser.user) {
-              console.log(`✅ Existing user logged in via Google: ${email}`);
+              //console.log(`✅ Existing user logged in via Google: ${email}`);
               return done(null, authUser.user);
             }
           }
@@ -57,7 +51,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
           // Bước 2: Nếu không có profile, thử tạo user mới
           // ═══════════════════════════════════════════════════════════
           console.log(`🆕 Creating new user via Google: ${email}`);
-          
+
           const { data, error } = await supabase.auth.admin.createUser({
             email,
             email_confirm: true, // OAuth tự động verify email
@@ -75,20 +69,16 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
             // ═══════════════════════════════════════════════════════════
             if (error.code === "email_exists") {
               console.log(`⚠️ Email exists in auth, trying to fetch and create profile: ${email}`);
-              
+
               // Thử query trực tiếp từ auth.users table
-              const { data: authUsers, error: queryError } = await supabase
-                .from("profiles")
-                .select("id")
-                .eq("email", email)
-                .maybeSingle();
+              const { data: authUsers, error: queryError } = await supabase.from("profiles").select("id").eq("email", email).maybeSingle();
 
               if (!authUsers) {
                 // Thử list users với pagination để tìm user
                 try {
                   const { data: usersList } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 });
                   user = usersList.users.find((u) => u.email === email);
-                  
+
                   if (user) {
                     console.log(`✅ Found user in auth, creating profile: ${email}`);
                     // Tạo profile cho user đã tồn tại
@@ -106,7 +96,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
                 }
               }
             }
-            
+
             console.error("❌ Error creating user:", error);
             return done(error, null);
           }
@@ -130,7 +120,6 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
           }
 
           return done(null, user);
-          
         } catch (error) {
           console.error("❌ Google OAuth error:", error);
           return done(error, null);
