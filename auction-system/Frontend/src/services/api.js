@@ -88,12 +88,19 @@ api.interceptors.response.use(
 
 // Auth API
 export const authAPI = {
-  register: async (email, password, full_name) => {
-    const { data } = await api.post('/auth/register', { email, password, full_name })
-    // Chỉ set token nếu không cần email verification
-    if (data.success && data.accessToken) {
-      setAccessToken(data.accessToken)
-    }
+  register: async (email, password, full_name, address = '') => {
+    const { data } = await api.post('/auth/register', { email, password, full_name, address })
+    // Không set token vì cần verify OTP trước
+    return data
+  },
+
+  verifyOTP: async (email, otp_code) => {
+    const { data } = await api.post('/auth/verify-otp', { email, otp_code })
+    return data
+  },
+
+  resendOTP: async (email) => {
+    const { data } = await api.post('/auth/resend-otp', { email })
     return data
   },
 
@@ -123,9 +130,9 @@ export const authAPI = {
     return data.user
   },
 
+  // Backward compatibility
   resendVerification: async (email) => {
-    const { data } = await api.post('/auth/resend-verification', { email })
-    return data
+    return authAPI.resendOTP(email)
   }
 }
 

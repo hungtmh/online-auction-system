@@ -10,16 +10,47 @@ function LoginPage() {
   const [error, setError] = useState(null)
   const [needsVerification, setNeedsVerification] = useState(false)
   const [resendLoading, setResendLoading] = useState(false)
+  const [showOTPModal, setShowOTPModal] = useState(false)
+  const [otpCode, setOtpCode] = useState('')
+  const [otpLoading, setOtpLoading] = useState(false)
 
   const handleResendVerification = async () => {
     setResendLoading(true)
     try {
-      await authAPI.resendVerification(email)
-      alert('✅ Email xác nhận đã được gửi lại! Vui lòng kiểm tra hộp thư.')
+      await authAPI.resendOTP(email)
+      alert('✅ Mã OTP mới đã được gửi! Vui lòng kiểm tra email.')
+      setShowOTPModal(true)
     } catch (err) {
-      alert('❌ Không thể gửi email. Vui lòng thử lại.')
+      alert('❌ Không thể gửi OTP. Vui lòng thử lại.')
     } finally {
       setResendLoading(false)
+    }
+  }
+
+  const handleVerifyOTP = async (e) => {
+    e.preventDefault()
+    setOtpLoading(true)
+    setError(null)
+
+    if (otpCode.length !== 6) {
+      setError('Mã OTP phải có 6 chữ số')
+      setOtpLoading(false)
+      return
+    }
+
+    try {
+      const data = await authAPI.verifyOTP(email, otpCode)
+
+      if (data.success) {
+        alert('✅ Xác thực thành công! Vui lòng đăng nhập lại.')
+        setShowOTPModal(false)
+        setNeedsVerification(false)
+        setOtpCode('')
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Mã OTP không hợp lệ')
+    } finally {
+      setOtpLoading(false)
     }
   }
 
@@ -35,19 +66,20 @@ function LoginPage() {
       if (data.success) {
         setAccessToken(data.accessToken)
         
+        // ✅ Reload page để App.jsx re-fetch user và route đúng dashboard
         const role = data.user?.role
         switch (role) {
           case 'admin':
-            navigate('/admin')
+            window.location.href = '/admin'
             break
           case 'seller':
-            navigate('/seller')
+            window.location.href = '/seller'
             break
           case 'bidder':
-            navigate('/bidder')
+            window.location.href = '/bidder'
             break
           default:
-            navigate('/dashboard')
+            window.location.href = '/dashboard'
         }
       }
     } catch (err) {
@@ -64,6 +96,80 @@ function LoginPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center p-4">
+      {/* OTP Verification Modal */}
+      {showOTPModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 relative">
+            <button
+              onClick={() => setShowOTPModal(false)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl"
+            >
+              ×
+            </button>
+
+            <div className="text-center mb-8">
+              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <h2 className="text-3xl font-bold text-gray-800 mb-2">Xác thực Email</h2>
+              <p className="text-gray-600">
+                Nhập mã OTP đã gửi đến<br />
+                <strong className="text-blue-600">{email}</strong>
+              </p>
+            </div>
+
+            {error && (
+              <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-6">
+                <p className="text-red-700 text-sm">{error}</p>
+              </div>
+            )}
+
+            <form onSubmit={handleVerifyOTP} className="space-y-6">
+              <div>
+                <label className="block text-gray-700 font-medium mb-2 text-center">
+                  Mã OTP (6 chữ số)
+                </label>
+                <input
+                  type="text"
+                  value={otpCode}
+                  onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  maxLength={6}
+                  required
+                  className="w-full px-4 py-4 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition text-center text-2xl font-bold tracking-widest"
+                  placeholder="000000"
+                  autoFocus
+                />
+                <p className="text-xs text-gray-500 mt-2 text-center">
+                  ⏰ Mã OTP có hiệu lực trong 10 phút
+                </p>
+              </div>
+
+              <button
+                type="submit"
+                disabled={otpLoading || otpCode.length !== 6}
+                className="w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white font-bold py-3 rounded-lg hover:from-blue-600 hover:to-blue-700 transition duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {otpLoading ? 'Đang xác thực...' : 'Xác thực OTP'}
+              </button>
+
+              <div className="text-center">
+                <p className="text-gray-600 text-sm mb-2">Không nhận được mã?</p>
+                <button
+                  type="button"
+                  onClick={handleResendVerification}
+                  disabled={resendLoading}
+                  className="text-blue-600 hover:text-blue-700 font-medium text-sm underline disabled:opacity-50"
+                >
+                  Gửi lại mã OTP
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       <div className="max-w-md w-full">
         {/* Logo/Header */}
         <div className="text-center mb-8">
@@ -107,7 +213,7 @@ function LoginPage() {
                   disabled={resendLoading}
                   className="mt-2 text-sm text-blue-600 hover:text-blue-700 font-medium underline disabled:opacity-50"
                 >
-                  {resendLoading ? 'Đang gửi...' : '📧 Gửi lại email xác nhận'}
+                  {resendLoading ? 'Đang gửi...' : '📧 Gửi mã OTP xác nhận'}
                 </button>
               )}
             </div>
