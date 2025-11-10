@@ -1,13 +1,22 @@
 import { useState, useEffect } from 'react'
 import { authAPI } from '../services/api'
 import { clearAccessToken } from '../services/api'
+import adminAPI from '../services/adminAPI'
+import UserManagement from '../components/Admin/UserManagement'
+import ProductManagement from '../components/Admin/ProductManagement'
+import CategoryManagement from '../components/Admin/CategoryManagement'
+import UpgradeRequests from '../components/Admin/UpgradeRequests'
+import BidManagement from '../components/Admin/BidManagement'
+import SystemSettings from '../components/Admin/SystemSettings'
 
 function AdminDashboard() {
   const [user, setUser] = useState(null)
-  const [activeTab, setActiveTab] = useState('users')
+  const [activeTab, setActiveTab] = useState('overview')
+  const [stats, setStats] = useState(null)
 
   useEffect(() => {
     fetchUserProfile()
+    fetchStats()
   }, [])
 
   const fetchUserProfile = async () => {
@@ -16,6 +25,15 @@ function AdminDashboard() {
       setUser(userData)
     } catch (error) {
       console.error('Error fetching profile:', error)
+    }
+  }
+
+  const fetchStats = async () => {
+    try {
+      const response = await adminAPI.getSystemStats()
+      setStats(response.data)
+    } catch (error) {
+      console.error('Error fetching stats:', error)
     }
   }
 
@@ -63,19 +81,22 @@ function AdminDashboard() {
       <div className="container mx-auto px-4 py-6">
         <div className="bg-white rounded-lg shadow-md">
           <div className="border-b border-gray-200">
-            <nav className="flex space-x-4 px-6">
-              {['users', 'products', 'bids', 'settings'].map((tab) => (
+            <nav className="flex space-x-2 px-6 overflow-x-auto">
+              {['overview', 'users', 'categories', 'products', 'upgrades', 'bids', 'settings'].map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
-                  className={`py-4 px-6 font-medium transition ${
+                  className={`py-4 px-4 font-medium transition whitespace-nowrap ${
                     activeTab === tab
                       ? 'border-b-2 border-red-600 text-red-600'
                       : 'text-gray-500 hover:text-gray-700'
                   }`}
                 >
+                  {tab === 'overview' && '📊 Tổng quan'}
                   {tab === 'users' && '👥 Quản lý Users'}
+                  {tab === 'categories' && '📁 Danh mục'}
                   {tab === 'products' && '📦 Quản lý Sản phẩm'}
+                  {tab === 'upgrades' && '⬆️ Yêu cầu nâng cấp'}
                   {tab === 'bids' && '💰 Quản lý Đấu giá'}
                   {tab === 'settings' && '⚙️ Cài đặt'}
                 </button>
@@ -84,89 +105,50 @@ function AdminDashboard() {
           </div>
 
           <div className="p-6">
-            {activeTab === 'users' && <UsersManagement />}
-            {activeTab === 'products' && <ProductsManagement />}
-            {activeTab === 'bids' && <BidsManagement />}
-            {activeTab === 'settings' && <Settings />}
+            {activeTab === 'overview' && (
+              <div className="space-y-6">
+                <h2 className="text-2xl font-bold text-gray-800">📊 Thống kê hệ thống</h2>
+                {stats ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+                      <div className="text-blue-600 text-3xl mb-2">👥</div>
+                      <div className="text-2xl font-bold text-gray-800">{stats.totalUsers}</div>
+                      <div className="text-sm text-gray-600">Tổng Users</div>
+                    </div>
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-6">
+                      <div className="text-green-600 text-3xl mb-2">📦</div>
+                      <div className="text-2xl font-bold text-gray-800">{stats.totalProducts}</div>
+                      <div className="text-sm text-gray-600">Tổng Sản phẩm</div>
+                    </div>
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
+                      <div className="text-yellow-600 text-3xl mb-2">✅</div>
+                      <div className="text-2xl font-bold text-gray-800">{stats.activeProducts}</div>
+                      <div className="text-sm text-gray-600">Sản phẩm Active</div>
+                    </div>
+                    <div className="bg-purple-50 border border-purple-200 rounded-lg p-6">
+                      <div className="text-purple-600 text-3xl mb-2">💰</div>
+                      <div className="text-2xl font-bold text-gray-800">{stats.totalBids}</div>
+                      <div className="text-sm text-gray-600">Tổng Bids</div>
+                    </div>
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+                      <div className="text-red-600 text-3xl mb-2">⏳</div>
+                      <div className="text-2xl font-bold text-gray-800">{stats.pendingUpgrades || 0}</div>
+                      <div className="text-sm text-gray-600">Yêu cầu chờ duyệt</div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-gray-500">Đang tải thống kê...</div>
+                )}
+              </div>
+            )}
+            {activeTab === 'users' && <UserManagement />}
+            {activeTab === 'categories' && <CategoryManagement />}
+            {activeTab === 'products' && <ProductManagement />}
+            {activeTab === 'upgrades' && <UpgradeRequests />}
+            {activeTab === 'bids' && <BidManagement />}
+            {activeTab === 'settings' && <SystemSettings />}
           </div>
         </div>
-      </div>
-    </div>
-  )
-}
-
-function UsersManagement() {
-  return (
-    <div>
-      <h2 className="text-2xl font-bold mb-4">👥 Quản lý Users</h2>
-      <div className="bg-yellow-50 border-l-4 border-yellow-500 p-4">
-        <p className="text-yellow-700">
-          <strong>🚧 Phần của Thắng:</strong> Quản lý users, xóa, ban, thay đổi role
-        </p>
-        <ul className="mt-2 ml-4 list-disc text-sm text-yellow-600">
-          <li>Danh sách users (bảng + phân trang)</li>
-          <li>Tìm kiếm user theo email/tên</li>
-          <li>Xóa user</li>
-          <li>Ban/Unban user</li>
-          <li>Thay đổi role (bidder ↔ seller ↔ admin)</li>
-        </ul>
-      </div>
-    </div>
-  )
-}
-
-function ProductsManagement() {
-  return (
-    <div>
-      <h2 className="text-2xl font-bold mb-4">📦 Quản lý Sản phẩm</h2>
-      <div className="bg-yellow-50 border-l-4 border-yellow-500 p-4">
-        <p className="text-yellow-700">
-          <strong>🚧 Phần của Thắng:</strong> Duyệt sản phẩm, xóa sản phẩm vi phạm
-        </p>
-        <ul className="mt-2 ml-4 list-disc text-sm text-yellow-600">
-          <li>Danh sách sản phẩm chờ duyệt</li>
-          <li>Duyệt/Từ chối sản phẩm</li>
-          <li>Xóa sản phẩm vi phạm</li>
-          <li>Thống kê sản phẩm</li>
-        </ul>
-      </div>
-    </div>
-  )
-}
-
-function BidsManagement() {
-  return (
-    <div>
-      <h2 className="text-2xl font-bold mb-4">💰 Quản lý Đấu giá</h2>
-      <div className="bg-yellow-50 border-l-4 border-yellow-500 p-4">
-        <p className="text-yellow-700">
-          <strong>🚧 Phần của Thắng:</strong> Xem lịch sử đấu giá, xử lý tranh chấp
-        </p>
-        <ul className="mt-2 ml-4 list-disc text-sm text-yellow-600">
-          <li>Lịch sử đấu giá</li>
-          <li>Xử lý tranh chấp</li>
-          <li>Hủy đấu giá gian lận</li>
-          <li>Thống kê doanh thu</li>
-        </ul>
-      </div>
-    </div>
-  )
-}
-
-function Settings() {
-  return (
-    <div>
-      <h2 className="text-2xl font-bold mb-4">⚙️ Cài đặt hệ thống</h2>
-      <div className="bg-yellow-50 border-l-4 border-yellow-500 p-4">
-        <p className="text-yellow-700">
-          <strong>🚧 Phần của Thắng:</strong> Cấu hình hệ thống
-        </p>
-        <ul className="mt-2 ml-4 list-disc text-sm text-yellow-600">
-          <li>Phí hệ thống (%)</li>
-          <li>Thời gian đấu giá mặc định</li>
-          <li>Email template</li>
-          <li>Backup database</li>
-        </ul>
       </div>
     </div>
   )

@@ -36,18 +36,21 @@ function LoginPage() {
         setAccessToken(data.accessToken)
         
         const role = data.user?.role
+        console.log('🔍 Login successful, role:', role)
+        
+        // Force full page reload để App.jsx fetch lại user data
         switch (role) {
           case 'admin':
-            navigate('/admin')
+            window.location.href = '/admin'
             break
           case 'seller':
-            navigate('/seller')
+            window.location.href = '/seller'
             break
           case 'bidder':
-            navigate('/bidder')
+            window.location.href = '/bidder'
             break
           default:
-            navigate('/dashboard')
+            window.location.href = '/dashboard'
         }
       }
     } catch (err) {

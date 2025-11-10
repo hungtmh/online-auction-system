@@ -228,16 +228,7 @@ export const getAllProducts = async (req, res) => {
 
     let query = supabase
       .from('products')
-      .select(`
-        *,
-        profiles (
-          full_name,
-          email
-        ),
-        categories (
-          name
-        )
-      `)
+      .select('*')
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1)
 
@@ -247,17 +238,21 @@ export const getAllProducts = async (req, res) => {
 
     const { data, error } = await query
 
-    if (error) throw error
+    if (error) {
+      console.error('❌ Supabase error:', error)
+      throw error
+    }
 
     res.json({
       success: true,
-      data: data
+      data: data || []
     })
   } catch (error) {
     console.error('❌ Error getting products:', error)
     res.status(500).json({
       success: false,
-      message: 'Không thể lấy danh sách sản phẩm'
+      message: 'Không thể lấy danh sách sản phẩm',
+      error: error.message
     })
   }
 }
@@ -377,7 +372,7 @@ export const getUpgradeRequests = async (req, res) => {
       .from('upgrade_requests')
       .select(`
         *,
-        profiles (
+        profiles!upgrade_requests_user_id_fkey (
           full_name,
           email,
           role
@@ -386,7 +381,10 @@ export const getUpgradeRequests = async (req, res) => {
       .eq('status', status)
       .order('created_at', { ascending: false })
 
-    if (error) throw error
+    if (error) {
+      console.error('❌ Supabase error:', error)
+      throw error
+    }
 
     res.json({
       success: true,
@@ -424,11 +422,11 @@ export const approveUpgrade = async (req, res) => {
       })
     }
 
-    // Cập nhật role của user
+    // Cập nhật role của user thành 'seller'
     const { error: roleError } = await supabase
       .from('profiles')
       .update({ 
-        role: request.requested_role,
+        role: 'seller',
         updated_at: new Date().toISOString()
       })
       .eq('id', request.user_id)
@@ -440,8 +438,9 @@ export const approveUpgrade = async (req, res) => {
       .from('upgrade_requests')
       .update({ 
         status: 'approved',
-        processed_at: new Date().toISOString(),
-        processed_by: req.user.id
+        reviewed_at: new Date().toISOString(),
+        reviewed_by: req.user.id,
+        updated_at: new Date().toISOString()
       })
       .eq('id', id)
       .select()
@@ -476,8 +475,9 @@ export const rejectUpgrade = async (req, res) => {
       .from('upgrade_requests')
       .update({ 
         status: 'rejected',
-        processed_at: new Date().toISOString(),
-        processed_by: req.user.id
+        reviewed_at: new Date().toISOString(),
+        reviewed_by: req.user.id,
+        updated_at: new Date().toISOString()
       })
       .eq('id', id)
       .select()
@@ -548,6 +548,337 @@ export const getSystemStats = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Không thể lấy thống kê'
+    })
+  }
+}
+
+// ============================================
+// CATEGORY MANAGEMENT - BỔ SUNG MỚI
+// ============================================
+
+/**
+ * @route   GET /api/admin/categories
+ * @desc    Lấy danh sách tất cả categories
+ * @access  Private (Admin)
+ */
+export const getAllCategories = async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('categories')
+      .select('*')
+      .order('name', { ascending: true })
+
+    if (error) throw error
+
+    res.json({
+      success: true,
+      data: data
+    })
+  } catch (error) {
+    console.error('❌ Error getting categories:', error)
+    res.status(500).json({
+      success: false,
+      message: 'Không thể lấy danh sách categories'
+    })
+  }
+}
+
+/**
+ * @route   GET /api/admin/categories/:id
+ * @desc    Chi tiết category
+ * @access  Private (Admin)
+ */
+export const getCategoryById = async (req, res) => {
+  try {
+    const { id } = req.params
+
+    // Lấy category info + đếm số sản phẩm
+    const { data: category, error } = await supabase
+      .from('categories')
+      .select('*')
+      .eq('id', id)
+      .single()
+
+    if (error) throw error
+
+    if (!category) {
+      return res.status(404).json({
+        success: false,
+        message: 'Category không tồn tại'
+      })
+    }
+
+    // Đếm số sản phẩm trong category
+    const { count: productCount } = await supabase
+      .from('products')
+      .select('id', { count: 'exact' })
+      .eq('category_id', id)
+
+    res.json({
+      success: true,
+      data: {
+        ...category,
+        product_count: productCount
+      }
+    })
+  } catch (error) {
+    console.error('❌ Error getting category:', error)
+    res.status(500).json({
+      success: false,
+      message: 'Không thể lấy thông tin category'
+    })
+  }
+}
+
+/**
+ * @route   POST /api/admin/categories
+ * @desc    Tạo category mới
+ * @access  Private (Admin)
+ */
+export const createCategory = async (req, res) => {
+  try {
+    const { name, slug, description, is_active } = req.body
+
+    if (!name || !slug) {
+      return res.status(400).json({
+        success: false,
+        message: 'Thiếu thông tin bắt buộc'
+      })
+    }
+
+    const { data, error } = await supabase
+      .from('categories')
+      .insert([{
+        name,
+        slug,
+        description,
+        is_active: is_active !== undefined ? is_active : true
+      }])
+      .select()
+      .single()
+
+    if (error) {
+      if (error.code === '23505') { // Duplicate slug
+        return res.status(400).json({
+          success: false,
+          message: 'Slug đã tồn tại'
+        })
+      }
+      throw error
+    }
+
+    res.status(201).json({
+      success: true,
+      message: 'Tạo category thành công',
+      data: data
+    })
+  } catch (error) {
+    console.error('❌ Error creating category:', error)
+    res.status(500).json({
+      success: false,
+      message: 'Không thể tạo category'
+    })
+  }
+}
+
+/**
+ * @route   PUT /api/admin/categories/:id
+ * @desc    Cập nhật category
+ * @access  Private (Admin)
+ */
+export const updateCategory = async (req, res) => {
+  try {
+    const { id } = req.params
+    const { name, slug, description, is_active } = req.body
+
+    const updateData = {}
+    if (name !== undefined) updateData.name = name
+    if (slug !== undefined) updateData.slug = slug
+    if (description !== undefined) updateData.description = description
+    if (is_active !== undefined) updateData.is_active = is_active
+    updateData.updated_at = new Date().toISOString()
+
+    const { data, error } = await supabase
+      .from('categories')
+      .update(updateData)
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (error) {
+      if (error.code === '23505') {
+        return res.status(400).json({
+          success: false,
+          message: 'Slug đã tồn tại'
+        })
+      }
+      throw error
+    }
+
+    res.json({
+      success: true,
+      message: 'Cập nhật category thành công',
+      data: data
+    })
+  } catch (error) {
+    console.error('❌ Error updating category:', error)
+    res.status(500).json({
+      success: false,
+      message: 'Không thể cập nhật category'
+    })
+  }
+}
+
+/**
+ * @route   DELETE /api/admin/categories/:id
+ * @desc    Xóa category (không được xóa nếu có sản phẩm)
+ * @access  Private (Admin)
+ */
+export const deleteCategory = async (req, res) => {
+  try {
+    const { id } = req.params
+
+    // Kiểm tra xem có sản phẩm nào trong category không
+    const { count: productCount } = await supabase
+      .from('products')
+      .select('id', { count: 'exact' })
+      .eq('category_id', id)
+
+    if (productCount > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `Không thể xóa category này vì còn ${productCount} sản phẩm`
+      })
+    }
+
+    const { error } = await supabase
+      .from('categories')
+      .delete()
+      .eq('id', id)
+
+    if (error) throw error
+
+    res.json({
+      success: true,
+      message: 'Xóa category thành công'
+    })
+  } catch (error) {
+    console.error('❌ Error deleting category:', error)
+    res.status(500).json({
+      success: false,
+      message: 'Không thể xóa category'
+    })
+  }
+}
+
+// ============================================
+// BID MANAGEMENT
+// ============================================
+
+/**
+ * @route   GET /api/admin/bids
+ * @desc    Lấy lịch sử đấu giá
+ * @access  Private (Admin)
+ */
+export const getBidHistory = async (req, res) => {
+  try {
+    const { status, page = 1, limit = 50 } = req.query
+    const offset = (page - 1) * limit
+
+    let query = supabase
+      .from('bids')
+      .select(`
+        *,
+        bidder:profiles!bidder_id (
+          full_name,
+          email
+        ),
+        product:products!product_id (
+          name,
+          current_price,
+          status
+        )
+      `)
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1)
+
+    const { data, error } = await query
+
+    if (error) {
+      console.error('❌ Supabase error:', error)
+      throw error
+    }
+
+    res.json({
+      success: true,
+      data: data
+    })
+  } catch (error) {
+    console.error('❌ Error getting bid history:', error)
+    res.status(500).json({
+      success: false,
+      message: 'Không thể lấy lịch sử đấu giá',
+      error: error.message
+    })
+  }
+}
+
+/**
+ * @route   POST /api/admin/bids/:id/cancel
+ * @desc    Hủy bid (xử lý gian lận)
+ * @access  Private (Admin)
+ */
+export const cancelBid = async (req, res) => {
+  try {
+    const { id } = req.params
+
+    const { data, error } = await supabase
+      .from('bids')
+      .update({ 
+        is_rejected: true,
+        rejected_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (error) throw error
+
+    res.json({
+      success: true,
+      message: 'Đã hủy bid',
+      data: data
+    })
+  } catch (error) {
+    console.error('❌ Error canceling bid:', error)
+    res.status(500).json({
+      success: false,
+      message: 'Không thể hủy bid'
+    })
+  }
+}
+
+/**
+ * @route   POST /api/admin/bids/:id/resolve-dispute
+ * @desc    Giải quyết tranh chấp bid
+ * @access  Private (Admin)
+ */
+export const resolveDispute = async (req, res) => {
+  try {
+    const { id } = req.params
+    const { resolution } = req.body
+
+    // TODO: Implement dispute resolution logic
+    
+    res.json({
+      success: true,
+      message: 'Đã giải quyết tranh chấp'
+    })
+  } catch (error) {
+    console.error('❌ Error resolving dispute:', error)
+    res.status(500).json({
+      success: false,
+      message: 'Không thể giải quyết tranh chấp'
     })
   }
 }

@@ -32,7 +32,7 @@ export const register = async (req, res) => {
     const { data, error } = await supabase.auth.admin.createUser({
       email,
       password,
-      email_confirm: false,  // Bắt buộc xác nhận email
+      email_confirm: true,  // TỰ ĐỘNG XÁC NHẬN EMAIL (chỉ dùng khi dev)
       user_metadata: { full_name, password_hash: hashedPassword }
     })
 
@@ -79,47 +79,44 @@ export const login = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Vui lòng điền đầy đủ thông tin' })
     }
 
-    const { data: { users }, error: listError } = await supabase.auth.admin.listUsers()
-    if (listError) {
-      return res.status(500).json({ success: false, message: 'Lỗi server' })
-    }
+    console.log('🔍 Login attempt for:', email)
 
-    const user = users.find(u => u.email === email)
-    if (!user) {
-      return res.status(401).json({ success: false, message: 'Email hoặc mật khẩu không đúng' })
-    }
+    // Dùng Supabase Auth để verify email/password
+    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+      email,
+      password
+    })
 
-    // Kiểm tra email đã verified chưa
-    if (!user.email_confirmed_at) {
-      return res.status(403).json({ 
-        success: false, 
-        message: 'Vui lòng xác nhận email trước khi đăng nhập. Kiểm tra hộp thư của bạn.',
-        requireEmailVerification: true
-      })
-    }
-
-    const passwordHash = user.user_metadata?.password_hash
-    if (!passwordHash) {
+    if (authError) {
+      console.error('❌ Auth error:', authError.message)
       return res.status(401).json({ 
         success: false, 
-        message: 'Tài khoản chưa được thiết lập đúng. Vui lòng đăng ký lại.' 
+        message: 'Email hoặc mật khẩu không đúng' 
       })
     }
 
-    const isPasswordValid = await bcrypt.compare(password, passwordHash)
-    if (!isPasswordValid) {
-      return res.status(401).json({ success: false, message: 'Email hoặc mật khẩu không đúng' })
+    const user = authData.user
+    if (!user) {
+      return res.status(401).json({ success: false, message: 'Đăng nhập thất bại' })
     }
+
+    console.log('✅ User authenticated:', user.id, user.email)
 
     const accessToken = generateAccessToken(user.id, email)
     const refreshToken = generateRefreshToken(user.id)
 
     // Lấy role từ bảng profiles
-    const { data: profile } = await supabase
+    console.log('🔍 Fetching profile for user:', user.id)
+    const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('role')
       .eq('id', user.id)
       .single()
+
+    if (profileError) {
+      console.error('❌ Error fetching profile:', profileError)
+    }
+    console.log('✅ Profile data:', profile)
 
     res.cookie('refreshToken', refreshToken, {
       httpOnly: true,
@@ -140,8 +137,9 @@ export const login = async (req, res) => {
       }
     })
   } catch (error) {
-    console.error('Login error:', error)
-    res.status(500).json({ success: false, message: 'Lỗi server' })
+    console.error('❌ Login error:', error.message)
+    console.error('Stack:', error.stack)
+    res.status(500).json({ success: false, message: 'Lỗi server', debug: error.message })
   }
 }
 
