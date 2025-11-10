@@ -68,6 +68,9 @@ function LoginPage() {
         
         // ✅ Reload page để App.jsx re-fetch user và route đúng dashboard
         const role = data.user?.role
+        console.log('🔍 Login successful, role:', role)
+        
+        // Force full page reload để App.jsx fetch lại user data
         switch (role) {
           case 'admin':
             window.location.href = '/admin'
