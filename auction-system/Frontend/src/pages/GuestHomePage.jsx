@@ -1,7 +1,11 @@
-﻿import GuestHomePageContent from '../components/GuestHomePage/GuestHomePageContent'
+﻿import GuestHomePageContent from "../components/GuestHomePage/GuestHomePageContent";
 
 function GuestHomePage() {
-  return <GuestHomePageContent />
+  return (
+    <div>
+      <GuestHomePageContent />
+    </div>
+  );
 }
 
-export default GuestHomePage
+export default GuestHomePage;
