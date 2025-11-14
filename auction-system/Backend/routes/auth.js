@@ -54,7 +54,7 @@ router.get(
     res.redirect(`${process.env.FRONTEND_URL}/auth/callback?token=${accessToken}`);
   }
 );
-console.log("🔍 Passport instance in routes:", passport);
-console.log("📋 Available strategies in routes:", Object.keys(passport._strategies));
+//console.log("🔍 Passport instance in routes:", passport);
+//console.log("📋 Available strategies in routes:", Object.keys(passport._strategies));
 
 export default router;

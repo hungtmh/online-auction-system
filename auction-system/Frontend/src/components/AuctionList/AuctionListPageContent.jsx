@@ -1,24 +1,43 @@
 import { useState, useEffect } from 'react'
-import api from '../../services/api'
+import { useSearchParams } from 'react-router-dom'
+import guestAPI from '../../services/guestAPI'
+import ProductCard from '../GuestHomePage/ProductCard'
 
 function AuctionListPageContent() {
   const [auctions, setAuctions] = useState([])
   const [loading, setLoading] = useState(true)
+  const [total, setTotal] = useState(0)
+  const [searchParams, setSearchParams] = useSearchParams()
+
+  const page = parseInt(searchParams.get('page') || '1', 10)
+  const limit = parseInt(searchParams.get('limit') || '12', 10)
+  const q = searchParams.get('q') || ''
+  const category = searchParams.get('category') || ''
+  const sort = searchParams.get('sort') || ''
 
   useEffect(() => {
     loadAuctions()
-  }, [])
+  }, [page, limit, q, category, sort])
 
   async function loadAuctions() {
+    setLoading(true)
     try {
-      // TODO: Fetch từ Backend API khi có endpoint /api/products
-      // const { data } = await api.get('/products')
-      // setAuctions(data.products)
-      
-      // Tạm thời set empty array
-      setAuctions([])
+      const params = { page, limit }
+      if (category) params.category = category
+      if (sort) params.sort = sort
+
+      let res
+      if (q) {
+        res = await guestAPI.searchProducts(q, params)
+      } else {
+        res = await guestAPI.getProducts(params)
+      }
+
+      // guestAPI returns { data, meta }
+      setAuctions(res?.data || [])
+      setTotal(res?.meta?.total || 0)
     } catch (err) {
-      console.log('Error loading auctions:', err.message)
+      console.log('Error loading auctions:', err)
     } finally {
       setLoading(false)
     }
@@ -39,30 +58,10 @@ function AuctionListPageContent() {
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <h1 className="text-4xl font-bold text-gray-800 mb-8">Danh sách đấu giá</h1>
-        
         {auctions.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {auctions.map((auction) => (
-              <div key={auction.id} className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition">
-                <div className="h-48 bg-gray-200 flex items-center justify-center">
-                  <span className="text-gray-400 text-6xl">🎁</span>
-                </div>
-                <div className="p-6">
-                  <h3 className="font-bold text-xl mb-2">{auction.title}</h3>
-                  <p className="text-gray-600 mb-4">{auction.description}</p>
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <div className="text-sm text-gray-500">Giá hiện tại</div>
-                      <div className="text-2xl font-bold text-blue-600">
-                        {(auction.current_price || 0).toLocaleString('vi-VN')} đ
-                      </div>
-                    </div>
-                    <button className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
-                      Đấu giá
-                    </button>
-                  </div>
-                </div>
-              </div>
+              <ProductCard key={auction.id} product={auction} />
             ))}
           </div>
         ) : (
@@ -71,6 +70,25 @@ function AuctionListPageContent() {
             <p className="text-gray-600 text-lg">Chưa có sản phẩm đấu giá nào</p>
           </div>
         )}
+
+        {/* Pagination simple controls */}
+        <div className="mt-8 flex items-center justify-center gap-4">
+          <button
+            onClick={() => setSearchParams({ ...Object.fromEntries(searchParams), page: Math.max(1, page - 1) })}
+            disabled={page <= 1}
+            className="px-4 py-2 bg-white border rounded disabled:opacity-50"
+          >
+            Prev
+          </button>
+          <div className="px-4 py-2">Trang {page}</div>
+          <button
+            onClick={() => setSearchParams({ ...Object.fromEntries(searchParams), page: page + 1 })}
+            disabled={auctions.length < limit}
+            className="px-4 py-2 bg-white border rounded disabled:opacity-50"
+          >
+            Next
+          </button>
+        </div>
       </div>
     </div>
   )

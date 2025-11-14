@@ -6,6 +6,7 @@ import BidderDashboard from './pages/BidderDashboard'
 import SellerDashboard from './pages/SellerDashboard'
 import AdminDashboard from './pages/AdminDashboard'
 import AuctionListPage from './pages/AuctionListPage'
+import ProductDetailPage from './pages/ProductDetailPage'
 import AuthCallback from './pages/AuthCallback'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
@@ -107,6 +108,7 @@ function App() {
 
           {/* Route for auction list - Tất cả user đều xem được */}
           <Route path="/auctions" element={<AuctionListPage user={user} />} />
+          <Route path="/products/:id" element={<ProductDetailPage />} />
 
           {/* 404 Route */}
           <Route path="*" element={
