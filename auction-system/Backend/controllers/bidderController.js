@@ -19,20 +19,25 @@ import { supabase } from '../config/supabase.js'
 export const getAuctionProducts = async (req, res) => {
   try {
     const { page = 1, limit = 12, category, sort = 'ending_soon' } = req.query
-    const offset = (page - 1) * limit
+    const pageNumber = Math.max(parseInt(page, 10) || 1, 1)
+    const limitNumber = Math.min(Math.max(parseInt(limit, 10) || 12, 1), 50)
+    const offset = (pageNumber - 1) * limitNumber
 
     let query = supabase
       .from('products')
-      .select(`
+      .select(
+        `
         *,
         categories (
           id,
           name
         ),
         bids (count)
-      `)
+      `,
+        { count: 'exact' }
+      )
       .eq('status', 'active')
-      .range(offset, offset + limit - 1)
+      .range(offset, offset + limitNumber - 1)
 
     // Lọc theo danh mục
     if (category) {
@@ -48,13 +53,23 @@ export const getAuctionProducts = async (req, res) => {
       query = query.order('current_price', { ascending: false })
     }
 
-    const { data, error } = await query
+    const { data, error, count } = await query
 
     if (error) throw error
 
+    const total = typeof count === 'number' ? count : null
+    const totalPages = total ? Math.max(Math.ceil(total / limitNumber), 1) : null
+
     res.json({
       success: true,
-      data: data
+      data: data || [],
+      pagination: {
+        page: pageNumber,
+        limit: limitNumber,
+        total,
+        totalPages,
+        hasMore: totalPages ? pageNumber < totalPages : (data || []).length === limitNumber
+      }
     })
   } catch (error) {
     console.error('❌ Error getting auction products:', error)
@@ -74,9 +89,10 @@ export const placeBid = async (req, res) => {
   try {
     const { product_id, bid_amount } = req.body
     const bidder_id = req.user.id
+    const parsedBidAmount = Number(bid_amount)
 
     // Validate input
-    if (!product_id || !bid_amount) {
+    if (!product_id || !Number.isFinite(parsedBidAmount) || parsedBidAmount <= 0) {
       return res.status(400).json({
         success: false,
         message: 'Thiếu thông tin sản phẩm hoặc giá đấu'
@@ -129,8 +145,12 @@ export const placeBid = async (req, res) => {
     }
 
     // Kiểm tra giá đấu phải lớn hơn giá hiện tại + step
-    const minBid = product.current_price + product.step_price
-    if (bid_amount < minBid) {
+  const currentPriceValue = Number(product.current_price)
+  const startingPrice = Number(product.starting_price) || 0
+  const stepPrice = Number(product.step_price) || 0
+  const basePrice = currentPriceValue > 0 ? currentPriceValue : startingPrice
+  const minBid = basePrice + stepPrice
+    if (parsedBidAmount < minBid) {
       return res.status(400).json({
         success: false,
         message: `Giá đấu phải lớn hơn ${minBid.toLocaleString('vi-VN')} đ`
@@ -143,8 +163,7 @@ export const placeBid = async (req, res) => {
       .insert({
         product_id,
         bidder_id,
-        bid_amount,
-        bid_time: new Date().toISOString()
+        bid_amount: parsedBidAmount
       })
       .select()
       .single()
@@ -155,7 +174,7 @@ export const placeBid = async (req, res) => {
     const { error: updateError } = await supabase
       .from('products')
       .update({
-        current_price: bid_amount,
+        current_price: parsedBidAmount,
         updated_at: new Date().toISOString()
       })
       .eq('id', product_id)
@@ -199,7 +218,7 @@ export const getMyBids = async (req, res) => {
         )
       `)
       .eq('bidder_id', bidder_id)
-      .order('bid_time', { ascending: false })
+  .order('created_at', { ascending: false })
 
     if (error) throw error
 
@@ -357,7 +376,7 @@ export const getBidHistory = async (req, res) => {
         )
       `)
       .eq('product_id', id)
-      .order('bid_time', { ascending: false })
+  .order('created_at', { ascending: false })
 
     if (error) throw error
 
@@ -370,6 +389,92 @@ export const getBidHistory = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Không thể lấy lịch sử đấu giá'
+    })
+  }
+}
+
+/**
+ * @route   POST /api/bidder/products/:id/questions
+ * @desc    Gửi câu hỏi cho người bán
+ * @access  Private (Bidder)
+ */
+export const askSellerQuestion = async (req, res) => {
+  try {
+    const { id } = req.params
+    const { question } = req.body
+    const askerId = req.user.id
+
+    if (!question || !question.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Vui lòng nhập nội dung câu hỏi'
+      })
+    }
+
+    if (question.trim().length < 5) {
+      return res.status(400).json({
+        success: false,
+        message: 'Câu hỏi cần ít nhất 5 ký tự'
+      })
+    }
+
+    const { data: product, error: productError } = await supabase
+      .from('products')
+      .select('id, seller_id, status, end_time')
+      .eq('id', id)
+      .single()
+
+    if (productError || !product) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy sản phẩm'
+      })
+    }
+
+    if (product.seller_id === askerId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Bạn là người bán của sản phẩm này'
+      })
+    }
+
+    const now = new Date()
+    if (new Date(product.end_time) < now) {
+      return res.status(400).json({
+        success: false,
+        message: 'Phiên đấu giá đã kết thúc'
+      })
+    }
+
+    const { data: inserted, error: insertError } = await supabase
+      .from('questions')
+      .insert({
+        product_id: id,
+        asker_id: askerId,
+        question: question.trim()
+      })
+      .select(`
+        id,
+        question,
+        answer,
+        created_at,
+        answered_at,
+        asker:profiles!questions_asker_id_fkey ( id, full_name )
+      `)
+      .single()
+
+    if (insertError) throw insertError
+
+    res.json({
+      success: true,
+      message: 'Đã gửi câu hỏi cho người bán',
+      data: inserted
+    })
+  } catch (error) {
+    console.error('❌ Error asking question:', error)
+    res.status(500).json({
+      success: false,
+      message: 'Không thể gửi câu hỏi cho người bán'
     })
   }
 }

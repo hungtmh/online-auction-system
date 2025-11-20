@@ -314,7 +314,7 @@ export const getProductBids = async (req, res) => {
         )
       `)
       .eq('product_id', id)
-      .order('bid_time', { ascending: false })
+  .order('created_at', { ascending: false })
 
     if (error) throw error
 
