@@ -92,10 +92,10 @@ export const getProductById = async (req, res) => {
       .from("products")
       .select(
         `
-        *,
-        categories ( id, name, parent_id ),
-        product_descriptions ( content ),
-        bids ( id, bid_amount, created_at, bidder_id, profiles ( full_name ) )
+  *,
+  categories ( id, name, parent_id ),
+  product_descriptions ( description, added_at ),
+  bids ( id, bid_amount, created_at, bidder_id, profiles ( full_name ) )
       `
       )
       .eq("id", id)
@@ -104,12 +104,50 @@ export const getProductById = async (req, res) => {
     if (error) throw error;
     if (!data) return res.status(404).json({ success: false, message: "Không tìm thấy sản phẩm" });
 
-    const bids = data.bids || [];
-    bids.sort((a, b) => b.bid_amount - a.bid_amount);
-    const highest = bids.length > 0 ? bids[0] : null;
+    const bids = (data.bids || []).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    const highest = bids.length > 0 ? bids.reduce((max, b) => (b.bid_amount > max.bid_amount ? b : max), bids[0]) : null;
     const current_price = highest ? highest.bid_amount : data.current_price || data.starting_price || 0;
 
-    res.json({ success: true, data: { ...data, bids, current_price, highest_bidder: highest ? highest.profiles : null } });
+    const { data: sellerProfile } = await supabase
+      .from("profiles")
+      .select("id, full_name, rating_positive, rating_negative, avatar_url, email")
+      .eq("id", data.seller_id)
+      .single();
+
+    const { data: orderRows } = await supabase
+      .from("orders")
+      .select("id, status, final_price, buyer_id, payment_proof_url, shipping_address, created_at")
+      .eq("product_id", id)
+      .limit(1);
+    const order = orderRows && orderRows.length > 0 ? orderRows[0] : null;
+
+    const { data: questions } = await supabase
+      .from("questions")
+      .select(
+        `
+        id,
+        question,
+        answer,
+        created_at,
+        answered_at,
+        asker:profiles!questions_asker_id_fkey ( id, full_name )
+      `
+      )
+      .eq("product_id", id)
+      .order("created_at", { ascending: false });
+
+    res.json({
+      success: true,
+      data: {
+        ...data,
+        bids,
+        current_price,
+        highest_bidder: highest ? highest.profiles : null,
+  seller: sellerProfile || null,
+        order,
+        questions: questions || [],
+      },
+    });
   } catch (error) {
     console.error("❌ Error getting product:", error);
     res.status(500).json({ success: false, message: "Không thể lấy thông tin sản phẩm" });
