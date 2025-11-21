@@ -30,6 +30,13 @@ function formatDate(dateStr) {
   return date.toLocaleDateString("vi-VN");
 }
 
+function maskBidderName(name) {
+  if (!name) return "Ẩn danh";
+  // Lấy ký tự cuối cùng, mask phần đầu bằng ****
+  const lastChar = name.slice(-1);
+  return `****${lastChar}`;
+}
+
 export default function ProductCard({ product }) {
   const navigate = useNavigate();
 
@@ -44,9 +51,12 @@ export default function ProductCard({ product }) {
       {/* Image */}
       <div className="relative aspect-w-16 aspect-h-9 bg-gray-100 overflow-hidden">
         <img
-          src={product.image_url || "https://via.placeholder.com/400x300?text=Product"}
+          src={product.image_url || `https://placehold.co/400x300/e5e7eb/6b7280?text=${encodeURIComponent(product.title || 'Product')}`}
           alt={product.title}
           className="w-full h-56 object-cover group-hover:scale-110 transition-transform duration-300"
+          onError={(e) => {
+            e.target.src = `https://placehold.co/400x300/e5e7eb/6b7280?text=No+Image`;
+          }}
         />
         {/* Badge NEW nếu sản phẩm mới đăng */}
         {isNew && (
@@ -105,7 +115,7 @@ export default function ProductCard({ product }) {
           {product.highest_bidder_name && (
             <div className="flex items-center justify-between">
               <span>🏆 Đấu giá cao nhất:</span>
-              <span className="font-medium text-orange-600">{product.highest_bidder_name}</span>
+              <span className="font-medium text-orange-600">{maskBidderName(product.highest_bidder_name)}</span>
             </div>
           )}
         </div>
@@ -121,21 +131,13 @@ export default function ProductCard({ product }) {
           </div>
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex gap-2">
-          <button
-            onClick={() => navigate(productUrl)}
-            className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 transition"
-          >
-            Xem chi tiết
-          </button>
-          <button
-            onClick={() => navigate(productUrl)}
-            className="px-4 py-2.5 border-2 border-blue-600 text-blue-600 rounded-lg font-medium hover:bg-blue-50 transition"
-          >
-            Đấu giá
-          </button>
-        </div>
+        {/* Action Button */}
+        <button
+          onClick={() => navigate(productUrl)}
+          className="w-full bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 transition"
+        >
+          Xem chi tiết
+        </button>
       </div>
     </div>
   );

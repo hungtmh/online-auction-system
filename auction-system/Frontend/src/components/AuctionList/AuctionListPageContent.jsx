@@ -3,6 +3,7 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import guestAPI from "../../services/guestAPI";
 import ProductCard from "../GuestHomePage/ProductCard";
 import CategoryMenu from "../GuestHomePage/CategoryMenu";
+import SearchBar from "../GuestHomePage/SearchBar";
 
 function AuctionListPageContent() {
   const [auctions, setAuctions] = useState([]);
@@ -41,6 +42,10 @@ function AuctionListPageContent() {
       const params = { page, limit };
       if (category) params.category = category;
       if (sort) params.sort = sort;
+      if (q) params.q = q;
+      if (!q && !category && !sort) params.status = "active";
+
+      console.log("🔍 Loading auctions with params:", params);
 
       let res;
       if (q) {
@@ -49,10 +54,15 @@ function AuctionListPageContent() {
         res = await guestAPI.getProducts(params);
       }
 
+      console.log("📦 Auctions response:", res);
+      
       setAuctions(res?.data || []);
       setTotal(res?.meta?.total || 0);
     } catch (err) {
-      console.error("Error loading auctions:", err);
+      console.error("❌ Error loading auctions:", err);
+      console.error("📊 Response data:", err.response?.data);
+      console.error("📊 Response status:", err.response?.status);
+      console.error("📊 Request params:", params);
     } finally {
       setLoading(false);
     }
@@ -77,6 +87,12 @@ function AuctionListPageContent() {
               </svg>
               <span className="text-xl font-bold text-gray-900">AuctionHub</span>
             </button>
+            
+            {/* Search Bar */}
+            <div className="flex-1 max-w-2xl px-8 hidden md:block">
+              <SearchBar initial={q} />
+            </div>
+
             <div className="flex items-center gap-4">
               <button onClick={() => navigate("/login")} className="px-4 py-2 text-sm font-medium text-blue-600">
                 Đăng nhập

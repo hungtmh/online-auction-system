@@ -93,10 +93,7 @@ function GuestHomePageContent() {
             </h1>
             <p className="text-lg text-blue-100 mb-8">Tham gia đấu giá, theo dõi sản phẩm yêu thích và chiến thắng những món đồ giá trị nhất.</p>
             <div className="flex gap-4">
-              <button onClick={() => navigate("/register")} className="px-8 py-3 bg-yellow-400 text-blue-900 font-bold rounded-lg shadow-lg hover:bg-yellow-300 transition-all duration-300">
-                Bắt đầu ngay
-              </button>
-              <button onClick={() => navigate("/auctions")} className="px-8 py-3 border-2 border-white text-white rounded-lg hover:bg-white/10 transition-all duration-300">
+              <button onClick={() => navigate("/auctions")} className="px-8 py-3 bg-yellow-400 text-blue-900 font-bold rounded-lg shadow-lg hover:bg-yellow-300 transition-all duration-300">
                 Xem sản phẩm
               </button>
             </div>
@@ -112,115 +109,89 @@ function GuestHomePageContent() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
           {/* Top 5 Sắp kết thúc */}
           <div>
-            <div className="flex items-center justify-between mb-6">
+            <div className="mb-6">
               <h2 className="text-3xl font-bold text-gray-900">⏰ Top 5 Sắp kết thúc</h2>
-              <button onClick={() => navigate("/auctions?sort=ending_soon")} className="text-sm font-medium text-blue-600 hover:text-blue-700 hover:underline">
-                Xem tất cả →
-              </button>
             </div>
             {loading ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
-                {Array.from({ length: 5 }).map((_, i) => (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {Array.from({ length: 3 }).map((_, i) => (
                   <div key={i} className="animate-pulse bg-gray-100 rounded-lg h-80" />
                 ))}
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
-                {endingSoon.map((p) => (
-                  <ProductCard key={p.id} product={p} onClick={() => navigate(`/products/${p.id}`)} />
-                ))}
-              </div>
+              <>
+                {/* 3 sản phẩm đầu */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
+                  {endingSoon.slice(0, 3).map((p) => (
+                    <ProductCard key={p.id} product={p} onClick={() => navigate(`/products/${p.id}`)} />
+                  ))}
+                </div>
+                {/* 2 sản phẩm cuối căn giữa */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+                  {endingSoon.slice(3, 5).map((p) => (
+                    <ProductCard key={p.id} product={p} onClick={() => navigate(`/products/${p.id}`)} />
+                  ))}
+                </div>
+              </>
             )}
           </div>
 
           {/* Top 5 Nhiều lượt ra giá */}
           <div>
-            <div className="flex items-center justify-between mb-6">
+            <div className="mb-6">
               <h2 className="text-3xl font-bold text-gray-900">🔥 Top 5 Nhiều lượt ra giá</h2>
-              <button onClick={() => navigate("/auctions?sort=most_bids")} className="text-sm font-medium text-blue-600 hover:text-blue-700 hover:underline">
-                Xem tất cả →
-              </button>
             </div>
             {loading ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
-                {Array.from({ length: 5 }).map((_, i) => (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {Array.from({ length: 3 }).map((_, i) => (
                   <div key={i} className="animate-pulse bg-gray-100 rounded-lg h-80" />
                 ))}
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
-                {mostBids.map((p) => (
-                  <ProductCard key={p.id} product={p} onClick={() => navigate(`/products/${p.id}`)} />
-                ))}
-              </div>
+              <>
+                {/* 3 sản phẩm đầu */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
+                  {mostBids.slice(0, 3).map((p) => (
+                    <ProductCard key={p.id} product={p} onClick={() => navigate(`/products/${p.id}`)} />
+                  ))}
+                </div>
+                {/* 2 sản phẩm cuối căn giữa */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+                  {mostBids.slice(3, 5).map((p) => (
+                    <ProductCard key={p.id} product={p} onClick={() => navigate(`/products/${p.id}`)} />
+                  ))}
+                </div>
+              </>
             )}
           </div>
 
           {/* Top 5 Giá cao nhất */}
           <div>
-            <div className="flex items-center justify-between mb-6">
+            <div className="mb-6">
               <h2 className="text-3xl font-bold text-gray-900">💎 Top 5 Giá cao nhất</h2>
-              <button onClick={() => navigate("/auctions?sort=highest_price")} className="text-sm font-medium text-blue-600 hover:text-blue-700 hover:underline">
-                Xem tất cả →
-              </button>
             </div>
             {loading ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
-                {Array.from({ length: 5 }).map((_, i) => (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {Array.from({ length: 3 }).map((_, i) => (
                   <div key={i} className="animate-pulse bg-gray-100 rounded-lg h-80" />
                 ))}
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
-                {highestPrice.map((p) => (
-                  <ProductCard key={p.id} product={p} onClick={() => navigate(`/products/${p.id}`)} />
-                ))}
-              </div>
+              <>
+                {/* 3 sản phẩm đầu */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
+                  {highestPrice.slice(0, 3).map((p) => (
+                    <ProductCard key={p.id} product={p} onClick={() => navigate(`/products/${p.id}`)} />
+                  ))}
+                </div>
+                {/* 2 sản phẩm cuối căn giữa */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+                  {highestPrice.slice(3, 5).map((p) => (
+                    <ProductCard key={p.id} product={p} onClick={() => navigate(`/products/${p.id}`)} />
+                  ))}
+                </div>
+              </>
             )}
-          </div>
-        </div>
-      </section>
-
-      {/* Latest Products Grid */}
-      <section className="py-16 bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between mb-8">
-            <h2 className="text-3xl font-bold text-gray-900">✨ Sản phẩm mới đăng</h2>
-            <button onClick={() => navigate("/auctions")} className="text-sm font-medium text-blue-600 hover:text-blue-700 hover:underline">
-              Xem tất cả →
-            </button>
-          </div>
-
-          {loading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-              {Array.from({ length: 8 }).map((_, i) => (
-                <div key={i} className="animate-pulse bg-white rounded-lg p-4 h-96 shadow-sm" />
-              ))}
-            </div>
-          ) : error ? (
-            <div className="text-center py-12 text-red-600 bg-red-50 rounded-lg">{error}</div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-              {products.map((p) => (
-                <ProductCard key={p.id} product={p} onClick={() => navigate(`/products/${p.id}`)} />
-              ))}
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="py-20 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white">
-        <div className="max-w-4xl mx-auto px-4 text-center">
-          <h3 className="text-4xl font-extrabold mb-4">Sẵn sàng tham gia đấu giá?</h3>
-          <p className="text-xl mb-8 text-indigo-100">Tạo tài khoản nhanh chóng và bắt đầu đấu giá cho món đồ bạn yêu thích.</p>
-          <div className="flex justify-center gap-4">
-            <button onClick={() => navigate("/register")} className="px-10 py-4 bg-white text-indigo-700 rounded-lg font-bold text-lg shadow-xl hover:bg-gray-100 transition">
-              Đăng ký miễn phí
-            </button>
-            <button onClick={() => navigate("/auctions")} className="px-10 py-4 border-2 border-white rounded-lg text-lg font-bold hover:bg-white/10 transition">
-              Khám phá ngay
-            </button>
           </div>
         </div>
       </section>
