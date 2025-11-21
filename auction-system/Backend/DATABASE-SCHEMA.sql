@@ -607,8 +607,13 @@ RETURNS TABLE (
   product_id UUID,
   product_name VARCHAR(500),
   current_price DECIMAL,
+  starting_price DECIMAL,
   bid_count INTEGER,
-  thumbnail_url TEXT
+  thumbnail_url TEXT,
+  seller_id UUID,
+  category_id UUID,
+  end_time TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE
 ) AS $$
 BEGIN
   RETURN QUERY
@@ -616,8 +621,13 @@ BEGIN
     p.id,
     p.name,
     p.current_price,
+    p.starting_price,
     p.bid_count,
-    p.thumbnail_url
+    p.thumbnail_url,
+    p.seller_id,
+    p.category_id,
+    p.end_time,
+    p.created_at
   FROM products p
   WHERE p.status = 'active'
   ORDER BY p.bid_count DESC
