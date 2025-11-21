@@ -10,6 +10,8 @@
  */
 
 import { supabase } from '../config/supabase.js'
+import { getSystemSettingMap } from '../utils/systemSettings.js'
+import { uploadBufferToProductBucket } from '../utils/upload.js'
 
 /**
  * @route   POST /api/seller/products
@@ -18,65 +20,127 @@ import { supabase } from '../config/supabase.js'
  */
 export const createProduct = async (req, res) => {
   try {
+    const seller_id = req.user.id
     const {
-      title,
+      name,
       description,
       category_id,
       starting_price,
       step_price,
       buy_now_price,
+      start_time,
       end_time,
-      image_url,
-      auto_renew
+      images = [],
+      allow_unrated_bidders = true,
+      auto_extend = true,
+      auto_extend_minutes,
+      auto_extend_threshold,
+      agreementAccepted
     } = req.body
 
-    const seller_id = req.user.id
-
-    // Validate input
-    if (!title || !category_id || !starting_price || !step_price || !end_time) {
+    if (!agreementAccepted) {
       return res.status(400).json({
         success: false,
-        message: 'Thiếu thông tin bắt buộc'
+        message: 'Bạn cần xác nhận điều khoản trước khi đăng sản phẩm.'
       })
     }
 
-    // Tạo sản phẩm
+    if (!name || !description || !category_id) {
+      return res.status(400).json({
+        success: false,
+        message: 'Tên sản phẩm, mô tả và danh mục là bắt buộc.'
+      })
+    }
+
+    if (!starting_price || !step_price || !end_time) {
+      return res.status(400).json({
+        success: false,
+        message: 'Giá khởi điểm, bước giá và thời gian kết thúc là bắt buộc.'
+      })
+    }
+
+    if (!Array.isArray(images) || images.length < 3) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cần tối thiểu 3 ảnh sản phẩm.'
+      })
+    }
+
+    if (!images.every((url) => typeof url === 'string' && url.trim().length > 0)) {
+      return res.status(400).json({ success: false, message: 'Định dạng ảnh không hợp lệ.' })
+    }
+
+    const startTimeValue = start_time ? new Date(start_time) : new Date()
+    const endTimeValue = new Date(end_time)
+
+    if (Number.isNaN(endTimeValue.getTime()) || endTimeValue <= new Date()) {
+      return res.status(400).json({ success: false, message: 'Thời gian kết thúc phải nằm trong tương lai.' })
+    }
+
+    if (startTimeValue >= endTimeValue) {
+      return res.status(400).json({ success: false, message: 'Thời gian bắt đầu phải trước thời gian kết thúc.' })
+    }
+
+    const startPriceNumber = Number(starting_price)
+    const stepPriceNumber = Number(step_price)
+    const buyNowNumber = buy_now_price ? Number(buy_now_price) : null
+
+    if (Number.isNaN(startPriceNumber) || startPriceNumber < 0) {
+      return res.status(400).json({ success: false, message: 'Giá khởi điểm không hợp lệ.' })
+    }
+
+    if (Number.isNaN(stepPriceNumber) || stepPriceNumber <= 0) {
+      return res.status(400).json({ success: false, message: 'Bước giá phải lớn hơn 0.' })
+    }
+
+    if (buyNowNumber && buyNowNumber <= startPriceNumber) {
+      return res.status(400).json({ success: false, message: 'Giá mua ngay phải lớn hơn giá khởi điểm.' })
+    }
+
+    const settings = await getSystemSettingMap(['auto_extend_minutes', 'auto_extend_threshold'])
+    const parsedExtendMinutes = Number(auto_extend_minutes ?? settings.auto_extend_minutes ?? 10)
+    const parsedExtendThreshold = Number(auto_extend_threshold ?? settings.auto_extend_threshold ?? 5)
+    const resolvedExtendMinutes = Number.isNaN(parsedExtendMinutes) ? 10 : parsedExtendMinutes
+    const resolvedExtendThreshold = Number.isNaN(parsedExtendThreshold) ? 5 : parsedExtendThreshold
+
     const { data: product, error: productError } = await supabase
       .from('products')
       .insert({
         seller_id,
-        title,
         category_id,
-        starting_price,
-        current_price: starting_price,
-        step_price,
-        buy_now_price,
-        end_time,
-        image_url,
-        auto_renew: auto_renew || false,
-        status: 'pending', // Chờ admin duyệt
-        created_at: new Date().toISOString()
+        name,
+        description,
+        thumbnail_url: images[0],
+        images,
+        starting_price: startPriceNumber,
+        step_price: stepPriceNumber,
+        buy_now_price: buyNowNumber,
+        current_price: startPriceNumber,
+        start_time: startTimeValue.toISOString(),
+        end_time: endTimeValue.toISOString(),
+        allow_unrated_bidders,
+        auto_extend,
+        auto_extend_minutes: resolvedExtendMinutes,
+        auto_extend_threshold: resolvedExtendThreshold,
+        status: 'pending'
       })
       .select()
       .single()
 
     if (productError) throw productError
 
-    // Tạo product description
-    if (description) {
-      const { error: descError } = await supabase
-        .from('product_descriptions')
-        .insert({
-          product_id: product.id,
-          content: description
-        })
+    const { error: descError } = await supabase.from('product_descriptions').insert({
+      product_id: product.id,
+      description
+    })
 
-      if (descError) console.error('Error creating description:', descError)
+    if (descError) {
+      console.warn('⚠️  Không thể lưu lịch sử mô tả:', descError.message)
     }
 
-    res.json({
+    res.status(201).json({
       success: true,
-      message: 'Đăng sản phẩm thành công, chờ admin duyệt',
+      message: 'Đăng sản phẩm thành công, chờ admin duyệt.',
       data: product
     })
   } catch (error) {
@@ -145,18 +209,20 @@ export const updateProduct = async (req, res) => {
     const { id } = req.params
     const seller_id = req.user.id
     const {
-      title,
-      description,
+      name,
       category_id,
       starting_price,
       step_price,
       buy_now_price,
       end_time,
-      image_url,
-      auto_renew
+      images,
+      allow_unrated_bidders,
+      auto_extend,
+      auto_extend_minutes,
+      auto_extend_threshold,
+      append_description
     } = req.body
 
-    // Kiểm tra sản phẩm có thuộc về seller này không
     const { data: product, error: checkError } = await supabase
       .from('products')
       .select('*')
@@ -165,30 +231,107 @@ export const updateProduct = async (req, res) => {
       .single()
 
     if (checkError || !product) {
-      return res.status(404).json({
-        success: false,
-        message: 'Không tìm thấy sản phẩm hoặc bạn không có quyền sửa'
-      })
+      return res.status(404).json({ success: false, message: 'Không tìm thấy sản phẩm hoặc bạn không có quyền sửa.' })
     }
 
-    // Chỉ cho phép sửa khi status = pending hoặc chưa có bid
-    if (product.status === 'active' && product.bid_count > 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'Không thể sửa sản phẩm đã có người đấu giá'
-      })
+    const hasMutableChanges = Boolean(
+      name ||
+        category_id ||
+        starting_price !== undefined ||
+        step_price !== undefined ||
+        buy_now_price !== undefined ||
+        end_time ||
+        Array.isArray(images) ||
+        allow_unrated_bidders !== undefined ||
+        auto_extend !== undefined ||
+        auto_extend_minutes !== undefined ||
+        auto_extend_threshold !== undefined
+    )
+
+    const isAppendOnly = Boolean(append_description && !hasMutableChanges)
+
+    if (['completed', 'cancelled'].includes(product.status) && !isAppendOnly) {
+      return res.status(400).json({ success: false, message: 'Không thể sửa sản phẩm đã hoàn tất hoặc bị hủy.' })
     }
 
-    // Update product
+    if (product.status === 'active' && product.bid_count > 0 && !isAppendOnly) {
+      return res.status(400).json({ success: false, message: 'Không thể sửa sản phẩm đã có người đấu giá.' })
+    }
+
     const updateData = {}
-    if (title) updateData.title = title
+
+    if (name) updateData.name = name
     if (category_id) updateData.category_id = category_id
-    if (starting_price) updateData.starting_price = starting_price
-    if (step_price) updateData.step_price = step_price
-    if (buy_now_price) updateData.buy_now_price = buy_now_price
-    if (end_time) updateData.end_time = end_time
-    if (image_url) updateData.image_url = image_url
-    if (auto_renew !== undefined) updateData.auto_renew = auto_renew
+
+    if (starting_price !== undefined) {
+      const startPriceNumber = Number(starting_price)
+      if (Number.isNaN(startPriceNumber) || startPriceNumber < 0) {
+        return res.status(400).json({ success: false, message: 'Giá khởi điểm không hợp lệ.' })
+      }
+      updateData.starting_price = startPriceNumber
+    }
+
+    if (step_price !== undefined) {
+      const stepPriceNumber = Number(step_price)
+      if (Number.isNaN(stepPriceNumber) || stepPriceNumber <= 0) {
+        return res.status(400).json({ success: false, message: 'Bước giá phải lớn hơn 0.' })
+      }
+      updateData.step_price = stepPriceNumber
+    }
+
+    if (buy_now_price !== undefined) {
+      const buyNowNumber = Number(buy_now_price)
+      if (Number.isNaN(buyNowNumber) || buyNowNumber <= (updateData.starting_price ?? product.starting_price)) {
+        return res.status(400).json({ success: false, message: 'Giá mua ngay phải lớn hơn giá khởi điểm.' })
+      }
+      updateData.buy_now_price = buyNowNumber
+    }
+
+    if (end_time) {
+      const endTimeValue = new Date(end_time)
+      if (Number.isNaN(endTimeValue.getTime()) || endTimeValue <= new Date(product.start_time)) {
+        return res.status(400).json({ success: false, message: 'Thời gian kết thúc không hợp lệ.' })
+      }
+      updateData.end_time = endTimeValue.toISOString()
+    }
+
+    if (Array.isArray(images)) {
+      if (images.length < 3) {
+        return res.status(400).json({ success: false, message: 'Cần tối thiểu 3 ảnh sản phẩm.' })
+      }
+      updateData.images = images
+      updateData.thumbnail_url = images[0]
+    }
+
+    if (allow_unrated_bidders !== undefined) updateData.allow_unrated_bidders = allow_unrated_bidders
+    if (auto_extend !== undefined) updateData.auto_extend = auto_extend
+    if (auto_extend_minutes !== undefined) {
+      const minutes = Number(auto_extend_minutes)
+      if (Number.isNaN(minutes) || minutes <= 0) {
+        return res.status(400).json({ success: false, message: 'Số phút gia hạn phải lớn hơn 0.' })
+      }
+      updateData.auto_extend_minutes = minutes
+    }
+
+    if (auto_extend_threshold !== undefined) {
+      const threshold = Number(auto_extend_threshold)
+      if (Number.isNaN(threshold) || threshold <= 0) {
+        return res.status(400).json({ success: false, message: 'Ngưỡng gia hạn phải lớn hơn 0.' })
+      }
+      updateData.auto_extend_threshold = threshold
+    }
+
+    let mergedDescription = product.description
+
+    if (append_description) {
+      mergedDescription = `${product.description}\n\n${append_description}`
+      updateData.description = mergedDescription
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return res.status(400).json({ success: false, message: 'Không có nội dung cần cập nhật.' })
+    }
+
     updateData.updated_at = new Date().toISOString()
 
     const { data: updated, error: updateError } = await supabase
@@ -200,20 +343,22 @@ export const updateProduct = async (req, res) => {
 
     if (updateError) throw updateError
 
-    // Update description nếu có
-    if (description) {
-      await supabase
-        .from('product_descriptions')
-        .upsert({
-          product_id: id,
-          content: description
-        })
+    if (append_description) {
+      const { error: appendError } = await supabase.from('product_descriptions').insert({
+        product_id: id,
+        description: append_description
+      })
+
+      if (appendError) {
+        console.warn('⚠️  Không thể lưu bổ sung mô tả:', appendError.message)
+      }
     }
 
     res.json({
       success: true,
-      message: 'Cập nhật sản phẩm thành công',
-      data: updated
+      message: 'Cập nhật sản phẩm thành công.',
+      data: updated,
+      mergedDescription
     })
   } catch (error) {
     console.error('❌ Error updating product:', error)
@@ -314,7 +459,7 @@ export const getProductBids = async (req, res) => {
         )
       `)
       .eq('product_id', id)
-      .order('bid_time', { ascending: false })
+      .order('created_at', { ascending: false })
 
     if (error) throw error
 
@@ -358,14 +503,14 @@ export const getSalesStats = async (req, res) => {
       .from('products')
       .select('id', { count: 'exact' })
       .eq('seller_id', seller_id)
-      .eq('status', 'sold')
+      .eq('status', 'completed')
 
     // Tổng doanh thu (tổng current_price của sản phẩm sold)
     const { data: soldData } = await supabase
       .from('products')
       .select('current_price')
       .eq('seller_id', seller_id)
-      .eq('status', 'sold')
+      .eq('status', 'completed')
 
     const totalRevenue = soldData?.reduce((sum, p) => sum + p.current_price, 0) || 0
 
@@ -384,5 +529,33 @@ export const getSalesStats = async (req, res) => {
       success: false,
       message: 'Không thể lấy thống kê'
     })
+  }
+}
+
+export const uploadProductImage = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'Không tìm thấy file cần upload.' })
+    }
+
+    const { buffer, mimetype } = req.file
+    const sellerId = req.user.id
+
+    const { filePath, publicUrl } = await uploadBufferToProductBucket({
+      buffer,
+      mimetype,
+      sellerId
+    })
+
+    res.json({
+      success: true,
+      data: {
+        url: publicUrl,
+        path: filePath
+      }
+    })
+  } catch (error) {
+    console.error('❌ Error uploading product image:', error)
+    res.status(500).json({ success: false, message: 'Không thể upload ảnh.' })
   }
 }

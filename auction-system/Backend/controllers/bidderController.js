@@ -10,6 +10,7 @@
  */
 
 import { supabase } from '../config/supabase.js'
+import { getSystemSettingMap } from '../utils/systemSettings.js'
 
 /**
  * @route   GET /api/bidder/products
@@ -129,7 +130,7 @@ export const placeBid = async (req, res) => {
     }
 
     // Kiểm tra giá đấu phải lớn hơn giá hiện tại + step
-    const minBid = product.current_price + product.step_price
+    const minBid = Number(product.current_price) + Number(product.step_price)
     if (bid_amount < minBid) {
       return res.status(400).json({
         success: false,
@@ -143,8 +144,7 @@ export const placeBid = async (req, res) => {
       .insert({
         product_id,
         bidder_id,
-        bid_amount,
-        bid_time: new Date().toISOString()
+        bid_amount
       })
       .select()
       .single()
@@ -161,6 +161,35 @@ export const placeBid = async (req, res) => {
       .eq('id', product_id)
 
     if (updateError) throw updateError
+
+    if (product.auto_extend) {
+      const now = Date.now()
+      const endTimeMs = new Date(product.end_time).getTime()
+      const timeRemaining = endTimeMs - now
+
+      let extendMinutes = product.auto_extend_minutes
+      let extendThreshold = product.auto_extend_threshold
+
+      if (!extendMinutes || !extendThreshold) {
+        const settings = await getSystemSettingMap(['auto_extend_minutes', 'auto_extend_threshold'])
+        extendMinutes = extendMinutes || Number(settings.auto_extend_minutes ?? 10)
+        extendThreshold = extendThreshold || Number(settings.auto_extend_threshold ?? 5)
+      }
+
+      extendMinutes = Number.isNaN(Number(extendMinutes)) ? 10 : Number(extendMinutes)
+      extendThreshold = Number.isNaN(Number(extendThreshold)) ? 5 : Number(extendThreshold)
+
+      const thresholdMs = extendThreshold * 60 * 1000
+
+      if (timeRemaining <= thresholdMs) {
+        const newEndTime = new Date(endTimeMs + extendMinutes * 60 * 1000).toISOString()
+
+        await supabase
+          .from('products')
+          .update({ end_time: newEndTime })
+          .eq('id', product_id)
+      }
+    }
 
     res.json({
       success: true,
@@ -191,15 +220,15 @@ export const getMyBids = async (req, res) => {
         *,
         products (
           id,
-          title,
+          name,
           current_price,
           end_time,
           status,
-          image_url
+          thumbnail_url
         )
       `)
       .eq('bidder_id', bidder_id)
-      .order('bid_time', { ascending: false })
+      .order('created_at', { ascending: false })
 
     if (error) throw error
 
@@ -231,7 +260,7 @@ export const addToWatchlist = async (req, res) => {
       .from('watchlist')
       .select('id')
       .eq('product_id', product_id)
-      .eq('bidder_id', bidder_id)
+      .eq('user_id', bidder_id)
       .single()
 
     if (existing) {
@@ -245,8 +274,7 @@ export const addToWatchlist = async (req, res) => {
       .from('watchlist')
       .insert({
         product_id,
-        bidder_id,
-        added_at: new Date().toISOString()
+        user_id: bidder_id
       })
       .select()
       .single()
@@ -281,7 +309,7 @@ export const removeFromWatchlist = async (req, res) => {
       .from('watchlist')
       .delete()
       .eq('product_id', productId)
-      .eq('bidder_id', bidder_id)
+      .eq('user_id', bidder_id)
 
     if (error) throw error
 
@@ -313,16 +341,16 @@ export const getWatchlist = async (req, res) => {
         *,
         products (
           id,
-          title,
+          name,
           current_price,
           end_time,
           status,
-          image_url,
+          thumbnail_url,
           bid_count
         )
       `)
-      .eq('bidder_id', bidder_id)
-      .order('added_at', { ascending: false })
+      .eq('user_id', bidder_id)
+      .order('created_at', { ascending: false })
 
     if (error) throw error
 
@@ -357,7 +385,7 @@ export const getBidHistory = async (req, res) => {
         )
       `)
       .eq('product_id', id)
-      .order('bid_time', { ascending: false })
+      .order('created_at', { ascending: false })
 
     if (error) throw error
 
