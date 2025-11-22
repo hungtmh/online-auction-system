@@ -16,9 +16,20 @@ const PORT = process.env.PORT || 5001
 
 // Middleware
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
-  credentials: true // Cho phép gửi cookies
-}))
+  origin: (origin, callback) => {
+    const allowedOrigins = ['http://localhost:5173'];
+    if (allowedOrigins.includes(origin) || !origin) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true // Allow cookies
+}));
+
+// Handle preflight requests
+app.options('*', cors());
+
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 app.use(cookieParser()) // Parse cookies cho refresh token

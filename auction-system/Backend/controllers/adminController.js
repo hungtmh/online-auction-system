@@ -223,37 +223,31 @@ export const deleteUser = async (req, res) => {
  */
 export const getAllProducts = async (req, res) => {
   try {
-    const { status, page = 1, limit = 20 } = req.query
-    const offset = (page - 1) * limit
+    const { status } = req.query; // Get status from query params
 
     let query = supabase
       .from('products')
       .select('*')
-      .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1)
+      .order('created_at', { ascending: false });
 
     if (status) {
-      query = query.eq('status', status)
+      query = query.eq('status', status); // Filter by status if provided
     }
 
-    const { data, error } = await query
+    const { data, error } = await query;
 
-    if (error) {
-      console.error('❌ Supabase error:', error)
-      throw error
-    }
+    if (error) throw error;
 
     res.json({
       success: true,
-      data: data || []
-    })
+      data: data,
+    });
   } catch (error) {
-    console.error('❌ Error getting products:', error)
+    console.error('❌ Error fetching products:', error);
     res.status(500).json({
       success: false,
       message: 'Không thể lấy danh sách sản phẩm',
-      error: error.message
-    })
+    });
   }
 }
 
@@ -313,8 +307,6 @@ export const rejectProduct = async (req, res) => {
       .single()
 
     if (error) throw error
-
-    // TODO: Gửi email thông báo cho seller
 
     res.json({
       success: true,
