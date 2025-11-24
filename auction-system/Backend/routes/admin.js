@@ -28,7 +28,9 @@ import {
   deleteCategory,
   getBidHistory,
   cancelBid,
-  resolveDispute
+  resolveDispute,
+  getSystemSettings,
+  updateSystemSettings
 } from '../controllers/adminController.js'
 
 const router = express.Router()
@@ -202,5 +204,22 @@ router.post('/bids/:id/resolve-dispute', resolveDispute)
  * @access  Private (Admin)
  */
 router.get('/stats', getSystemStats)
+
+// ============= SYSTEM SETTINGS =============
+
+/**
+ * @route   GET /api/admin/settings
+ * @desc    Lấy cài đặt hệ thống
+ * @access  Private (Admin)
+ */
+router.get('/settings', getSystemSettings)
+
+/**
+ * @route   PUT /api/admin/settings
+ * @desc    Cập nhật cài đặt hệ thống
+ * @body    { key: value }
+ * @access  Private (Admin)
+ */
+router.put('/settings', updateSystemSettings)
 
 export default router

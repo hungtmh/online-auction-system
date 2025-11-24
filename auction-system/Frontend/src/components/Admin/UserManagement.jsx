@@ -172,7 +172,7 @@ function UserManagement() {
                       className="text-orange-600 hover:text-orange-900"
                       title="Cấm user"
                     >
-                      🚫 Ban
+                      🚫 Cấm
                     </button>
                     <button
                       onClick={() => handleDeleteUser(user.id, user.email)}

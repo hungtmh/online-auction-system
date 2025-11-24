@@ -43,14 +43,14 @@ function BidManagement() {
     const reason = prompt('Nhập lý do hủy bid (gian lận):');
     if (!reason) return;
 
-    if (!confirm(`⚠️ Bạn có chắc muốn HỦY bid #${bid.id}?`)) return;
+    if (!confirm(`⚠️ Bạn có chắc muốn huỷ bid #${bid.id}?`)) return;
 
     try {
       await adminAPI.cancelBid(bid.id, reason);
-      alert('✅ Đã hủy bid!');
+      alert('✅ Đã huỷ bid!');
       loadBids();
     } catch (err) {
-      alert(err.response?.data?.message || 'Lỗi khi hủy bid');
+      alert(err.response?.data?.message || 'Lỗi khi huỷ bid');
     }
   };
 
