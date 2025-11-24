@@ -145,40 +145,40 @@ export const updateUserRole = async (req, res) => {
  */
 export const banUser = async (req, res) => {
   try {
-    const { id } = req.params
+    const { id } = req.params;
 
-    // Không cho ban chính mình
+    // Không cho cấm chính mình
     if (id === req.user.id) {
       return res.status(403).json({
         success: false,
-        message: 'Không thể ban chính mình'
-      })
+        message: 'Không thể cấm chính mình',
+      });
     }
 
     // Set role về guest để vô hiệu hóa
     const { data, error } = await supabase
       .from('profiles')
-      .update({ 
+      .update({
         role: 'guest',
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
       })
       .eq('id', id)
       .select()
-      .single()
+      .single();
 
-    if (error) throw error
+    if (error) throw error;
 
     res.json({
       success: true,
       message: 'Đã cấm user thành công',
-      data: data
-    })
+      data: data,
+    });
   } catch (error) {
-    console.error('❌ Error banning user:', error)
+    console.error('❌ Error banning user:', error);
     res.status(500).json({
       success: false,
-      message: 'Không thể cấm user'
-    })
+      message: 'Không thể cấm user',
+    });
   }
 }
 
@@ -557,21 +557,35 @@ export const getAllCategories = async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('categories')
-      .select('*')
-      .order('name', { ascending: true })
+      .select('id, name, slug, description, is_active') // Fetch only necessary fields
+      .order('name', { ascending: true });
 
-    if (error) throw error
+    if (error) {
+      console.error('❌ Error fetching categories:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Không thể lấy danh sách categories',
+        error: error.message,
+      });
+    }
+
+    if (!data || data.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Danh sách categories trống',
+      });
+    }
 
     res.json({
       success: true,
-      data: data
-    })
+      data: data,
+    });
   } catch (error) {
-    console.error('❌ Error getting categories:', error)
+    console.error('❌ Unexpected error:', error);
     res.status(500).json({
       success: false,
-      message: 'Không thể lấy danh sách categories'
-    })
+      message: 'Đã xảy ra lỗi không mong muốn',
+    });
   }
 }
 
@@ -874,3 +888,82 @@ export const resolveDispute = async (req, res) => {
     })
   }
 }
+
+/**
+ * @route   GET /api/admin/settings
+ * @desc    Lấy cài đặt hệ thống
+ * @access  Private (Admin)
+ */
+export const getSystemSettings = async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('settings')
+      .select('*')
+      .single();
+
+    if (error) throw error;
+
+    res.json({
+      success: true,
+      settings: data,
+    });
+  } catch (error) {
+    console.error('❌ Error fetching system settings:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Không thể lấy cài đặt hệ thống',
+    });
+  }
+};
+
+/**
+ * @route   PUT /api/admin/settings
+ * @desc    Cập nhật cài đặt hệ thống
+ * @access  Private (Admin)
+ */
+export const updateSystemSettings = async (req, res) => {
+  try {
+    const { settings } = req.body;
+
+    // Debugging log for incoming settings
+    console.log('🔍 Incoming settings payload:', settings);
+
+    // Iterate over settings and update each row based on its key
+    const updates = Object.entries(settings).map(async ([key, value]) => {
+      try {
+        console.log(`🔄 Updating setting: key=${key}, value=${value}`);
+        const { data, error } = await supabase
+          .from('system_settings')
+          .update({ value, updated_at: new Date().toISOString() })
+          .eq('key', key)
+          .select()
+          .single();
+
+        if (error) {
+          console.error(`❌ Error updating setting with key=${key}:`, error);
+          throw error;
+        }
+
+        console.log(`✅ Successfully updated setting with key=${key}:`, data);
+        return data;
+      } catch (updateError) {
+        console.error(`❌ Update failed for key=${key}:`, updateError);
+        throw updateError;
+      }
+    });
+
+    const updatedSettings = await Promise.all(updates);
+
+    res.json({
+      success: true,
+      message: 'Cài đặt hệ thống đã được cập nhật',
+      settings: updatedSettings,
+    });
+  } catch (error) {
+    console.error('❌ Error updating system settings:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Không thể cập nhật cài đặt hệ thống',
+    });
+  }
+};

@@ -182,7 +182,15 @@ const adminAPI = {
   updateSystemSettings: async (settings) => {
     const response = await api.put('/admin/settings', settings)
     return response.data
-  }
+  },
+
+  /**
+   * Lấy danh sách categories
+   */
+  getAllCategories: async () => {
+    const response = await api.get('/admin/categories');
+    return response.data;
+  },
 }
 
 export default adminAPI
