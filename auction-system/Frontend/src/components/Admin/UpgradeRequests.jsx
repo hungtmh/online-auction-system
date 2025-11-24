@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import adminAPI from '../../services/adminAPI';
+import { useDialog } from '../../context/DialogContext.jsx';
 
 function UpgradeRequests() {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('pending'); // pending, approved, rejected
   const [error, setError] = useState(null);
+  const { confirm, alert } = useDialog();
 
   useEffect(() => {
     fetchRequests();
@@ -26,26 +28,54 @@ function UpgradeRequests() {
   };
 
   const handleApprove = async (requestId, userEmail, requestedRole) => {
-    if (!confirm(`Bạn có chắc muốn DUYỆT yêu cầu nâng cấp lên "${requestedRole}" cho user "${userEmail}"?`)) return;
+    const confirmed = await confirm({
+      icon: '🚀',
+      title: 'Duyệt nâng cấp',
+      message: `Bạn có chắc muốn DUYỆT yêu cầu lên "${requestedRole}" cho "${userEmail}"?`,
+      confirmText: 'Duyệt yêu cầu',
+    });
+    if (!confirmed) return;
     
     try {
       await adminAPI.approveUpgrade(requestId);
-      alert('✅ Đã duyệt yêu cầu! User đã được nâng cấp role.');
+      await alert({
+        icon: '✅',
+        title: 'Đã duyệt yêu cầu',
+        message: 'User đã được nâng cấp role.',
+      });
       fetchRequests();
     } catch (err) {
-      alert(err.response?.data?.message || 'Lỗi khi duyệt yêu cầu');
+      await alert({
+        icon: '⚠️',
+        title: 'Không thể duyệt yêu cầu',
+        message: err.response?.data?.message || 'Vui lòng thử lại.',
+      });
     }
   };
 
   const handleReject = async (requestId, userEmail) => {
-    if (!confirm(`Bạn có chắc muốn TỪ CHỐI yêu cầu của user "${userEmail}"?`)) return;
+    const confirmed = await confirm({
+      icon: '❌',
+      title: 'Từ chối yêu cầu',
+      message: `Bạn có chắc muốn TỪ CHỐI yêu cầu của "${userEmail}"?`,
+      confirmText: 'Từ chối',
+    });
+    if (!confirmed) return;
     
     try {
       await adminAPI.rejectUpgrade(requestId);
-      alert('❌ Đã từ chối yêu cầu!');
+      await alert({
+        icon: '❌',
+        title: 'Đã từ chối',
+        message: 'Yêu cầu đã bị từ chối.',
+      });
       fetchRequests();
     } catch (err) {
-      alert(err.response?.data?.message || 'Lỗi khi từ chối yêu cầu');
+      await alert({
+        icon: '⚠️',
+        title: 'Không thể từ chối',
+        message: err.response?.data?.message || 'Vui lòng thử lại.',
+      });
     }
   };
 

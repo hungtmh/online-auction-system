@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { authAPI, setAccessToken } from '../services/api'
+import { useDialog } from '../context/DialogContext.jsx'
 
 function LoginPage() {
   const navigate = useNavigate()
@@ -10,14 +11,23 @@ function LoginPage() {
   const [error, setError] = useState(null)
   const [needsVerification, setNeedsVerification] = useState(false)
   const [resendLoading, setResendLoading] = useState(false)
+  const { alert } = useDialog()
 
   const handleResendVerification = async () => {
     setResendLoading(true)
     try {
       await authAPI.resendVerification(email)
-      alert('✅ Email xác nhận đã được gửi lại! Vui lòng kiểm tra hộp thư.')
+      await alert({
+        icon: '✅',
+        title: 'Đã gửi email',
+        message: 'Email xác nhận đã được gửi lại! Vui lòng kiểm tra hộp thư.',
+      })
     } catch (err) {
-      alert('❌ Không thể gửi email. Vui lòng thử lại.')
+      await alert({
+        icon: '⚠️',
+        title: 'Không thể gửi email',
+        message: 'Vui lòng thử lại trong giây lát.',
+      })
     } finally {
       setResendLoading(false)
     }

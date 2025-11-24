@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import adminAPI from '../../services/adminAPI';
+import { useDialog } from '../../context/DialogContext.jsx';
 
 function ProductManagement() {
   const [products, setProducts] = useState([]);
@@ -8,6 +9,7 @@ function ProductManagement() {
   const [error, setError] = useState(null);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [rejectReason, setRejectReason] = useState('');
+  const { confirm, alert } = useDialog();
 
   useEffect(() => {
     fetchProducts();
@@ -28,45 +30,92 @@ function ProductManagement() {
   };
 
   const handleApprove = async (productId, productTitle) => {
-    if (!confirm(`Bạn có chắc muốn DUYỆT sản phẩm "${productTitle}"?`)) return;
-    
+    const confirmed = await confirm({
+      icon: '✅',
+      title: 'Duyệt sản phẩm',
+      message: `Bạn có chắc muốn DUYỆT sản phẩm "${productTitle}"?`,
+      confirmText: 'Duyệt ngay',
+    });
+    if (!confirmed) return;
+
     try {
       await adminAPI.approveProduct(productId);
-      alert('✅ Đã duyệt sản phẩm thành công!');
+      await alert({
+        icon: '✅',
+        title: 'Thành công',
+        message: 'Sản phẩm đã được duyệt.',
+      });
       fetchProducts();
     } catch (err) {
-      alert(err.response?.data?.message || 'Lỗi khi duyệt sản phẩm');
+      await alert({
+        icon: '⚠️',
+        title: 'Không thể duyệt sản phẩm',
+        message: err.response?.data?.message || 'Vui lòng thử lại.',
+      });
     }
   };
 
   const handleReject = async (productId, productTitle) => {
     if (!rejectReason.trim()) {
-      alert('Vui lòng nhập lý do từ chối!');
+      await alert({
+        icon: '✍️',
+        title: 'Thiếu lý do',
+        message: 'Vui lòng nhập lý do từ chối trước khi tiếp tục.',
+      });
       return;
     }
 
-    if (!confirm(`Bạn có chắc muốn TỪ CHỐI sản phẩm "${productTitle}"?`)) return;
+    const confirmed = await confirm({
+      icon: '❌',
+      title: 'Từ chối sản phẩm',
+      message: `Bạn có chắc muốn TỪ CHỐI sản phẩm "${productTitle}"?`,
+      confirmText: 'Từ chối',
+    });
+    if (!confirmed) return;
     
     try {
       await adminAPI.rejectProduct(productId, rejectReason);
-      alert('❌ Đã từ chối sản phẩm!');
+      await alert({
+        icon: '❌',
+        title: 'Đã từ chối',
+        message: 'Sản phẩm đã bị từ chối.',
+      });
       setSelectedProduct(null);
       setRejectReason('');
       fetchProducts();
     } catch (err) {
-      alert(err.response?.data?.message || 'Lỗi khi từ chối sản phẩm');
+      await alert({
+        icon: '⚠️',
+        title: 'Không thể từ chối',
+        message: err.response?.data?.message || 'Vui lòng thử lại.',
+      });
     }
   };
 
   const handleDelete = async (productId, productTitle) => {
-    if (!confirm(`⚠️ BẠN CÓ CHẮC CHẮN muốn XÓA VĨNH VIỄN sản phẩm "${productTitle}"? Hành động này không thể hoàn tác!`)) return;
+    const confirmed = await confirm({
+      icon: '🗑️',
+      title: 'Xóa sản phẩm',
+      message: `⚠️ Hành động này không thể hoàn tác.\n\nBạn có chắc muốn xóa vĩnh viễn "${productTitle}"?`,
+      confirmText: 'Xóa vĩnh viễn',
+      cancelText: 'Giữ lại',
+    });
+    if (!confirmed) return;
     
     try {
       await adminAPI.deleteProduct(productId);
-      alert('🗑️ Đã xóa sản phẩm!');
+      await alert({
+        icon: '🗑️',
+        title: 'Đã xóa sản phẩm',
+        message: 'Sản phẩm đã được xóa khỏi hệ thống.',
+      });
       fetchProducts();
     } catch (err) {
-      alert(err.response?.data?.message || 'Lỗi khi xóa sản phẩm');
+      await alert({
+        icon: '⚠️',
+        title: 'Không thể xóa',
+        message: err.response?.data?.message || 'Vui lòng thử lại.',
+      });
     }
   };
 

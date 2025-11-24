@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import adminAPI from '../../services/adminAPI';
+import { useDialog } from '../../context/DialogContext.jsx';
 
 function BidManagement() {
   const [bids, setBids] = useState([]);
@@ -11,6 +12,7 @@ function BidManagement() {
     disputed: 0,
     revenue: 0,
   });
+  const { confirm, alert, prompt } = useDialog();
 
   useEffect(() => {
     loadBids();
@@ -33,36 +35,78 @@ function BidManagement() {
       });
     } catch (err) {
       console.error('Lỗi tải danh sách bids:', err);
-      alert(err.response?.data?.message || 'Không thể tải danh sách đấu giá');
+      await alert({
+        icon: '⚠️',
+        title: 'Không thể tải danh sách',
+        message: err.response?.data?.message || 'Vui lòng thử lại sau.',
+      });
     } finally {
       setLoading(false);
     }
   };
 
   const handleCancelBid = async (bid) => {
-    const reason = prompt('Nhập lý do hủy bid (gian lận):');
-    if (!reason) return;
+    const confirmed = await confirm({
+      icon: '⚠️',
+      title: 'Huỷ bid',
+      message: `Bạn có chắc muốn huỷ bid #${bid.id}?`,
+      confirmText: 'Huỷ ngay',
+    });
+    if (!confirmed) return;
 
-    if (!confirm(`⚠️ Bạn có chắc muốn huỷ bid #${bid.id}?`)) return;
+    const reason = await prompt({
+      icon: '📝',
+      title: 'Lý do huỷ bid',
+      message: 'Nhập lý do huỷ (ví dụ: nghi ngờ gian lận, spam...).',
+      inputPlaceholder: 'Nhập lý do...',
+      inputLabel: 'Lý do',
+    });
+    if (!reason) return;
 
     try {
       await adminAPI.cancelBid(bid.id, reason);
-      alert('✅ Đã huỷ bid!');
+      await alert({
+        icon: '✅',
+        title: 'Đã huỷ bid',
+        message: 'Bid đã được huỷ thành công.',
+      });
       loadBids();
     } catch (err) {
-      alert(err.response?.data?.message || 'Lỗi khi huỷ bid');
+      await alert({
+        icon: '⚠️',
+        title: 'Không thể huỷ bid',
+        message: err.response?.data?.message || 'Vui lòng thử lại.',
+      });
     }
   };
 
   const handleResolveDispute = async (bid, resolution) => {
-    if (!confirm(`Bạn có chắc muốn ${resolution === 'approve' ? 'DUYỆT' : 'TỪ CHỐI'} tranh chấp này?`)) return;
+    const confirmed = await confirm({
+      icon: '⚖️',
+      title: resolution === 'approve' ? 'Duyệt tranh chấp' : 'Từ chối tranh chấp',
+      message: `Bạn có chắc muốn ${
+        resolution === 'approve' ? 'DUYỆT' : 'TỪ CHỐI'
+      } tranh chấp này?`,
+      confirmText: resolution === 'approve' ? 'Duyệt' : 'Từ chối',
+    });
+    if (!confirmed) return;
 
     try {
       await adminAPI.resolveDispute(bid.id, resolution);
-      alert(`✅ Đã ${resolution === 'approve' ? 'giải quyết' : 'từ chối'} tranh chấp!`);
+      await alert({
+        icon: '✅',
+        title: 'Thành công',
+        message: `Đã ${
+          resolution === 'approve' ? 'giải quyết' : 'từ chối'
+        } tranh chấp.`,
+      });
       loadBids();
     } catch (err) {
-      alert(err.response?.data?.message || 'Lỗi khi giải quyết tranh chấp');
+      await alert({
+        icon: '⚠️',
+        title: 'Không thể xử lý tranh chấp',
+        message: err.response?.data?.message || 'Vui lòng thử lại.',
+      });
     }
   };
 
