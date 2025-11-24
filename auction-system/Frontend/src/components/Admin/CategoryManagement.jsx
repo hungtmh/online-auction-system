@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import adminAPI from '../../services/adminAPI'
+import { useDialog } from '../../context/DialogContext.jsx'
 
 function CategoryManagement() {
   const [categories, setCategories] = useState([])
@@ -12,6 +13,7 @@ function CategoryManagement() {
     description: '',
     is_active: true
   })
+  const { alert, confirm } = useDialog()
 
   useEffect(() => {
     fetchCategories()
@@ -24,7 +26,11 @@ function CategoryManagement() {
       setCategories(response.data || [])
     } catch (error) {
       console.error('Error fetching categories:', error)
-      alert('Không thể tải danh sách categories')
+      await alert({
+        icon: '⚠️',
+        title: 'Không thể tải danh mục',
+        message: 'Vui lòng thử lại sau.',
+      })
     } finally {
       setLoading(false)
     }
@@ -62,31 +68,56 @@ function CategoryManagement() {
     try {
       if (editingCategory) {
         await adminAPI.updateCategory(editingCategory.id, formData)
-        alert('✅ Cập nhật category thành công!')
+        await alert({
+          icon: '✅',
+          title: 'Đã cập nhật',
+          message: 'Category đã được cập nhật thành công.',
+        })
       } else {
         await adminAPI.createCategory(formData)
-        alert('✅ Tạo category thành công!')
+        await alert({
+          icon: '✅',
+          title: 'Đã tạo',
+          message: 'Category mới đã được tạo.',
+        })
       }
       handleCloseModal()
       fetchCategories()
     } catch (error) {
       console.error('Error saving category:', error)
-      alert(error.response?.data?.message || 'Có lỗi xảy ra')
+      await alert({
+        icon: '⚠️',
+        title: 'Không thể lưu',
+        message: error.response?.data?.message || 'Có lỗi xảy ra',
+      })
     }
   }
 
   const handleDelete = async (category) => {
-    if (!confirm(`Xác nhận xóa category "${category.name}"?\n\nLưu ý: Không thể xóa nếu còn sản phẩm.`)) {
-      return
-    }
+    const confirmed = await confirm({
+      icon: '🗑️',
+      title: 'Xóa danh mục',
+      message: `Xác nhận xóa category "${category.name}"?\n\nLưu ý: Không thể xóa nếu còn sản phẩm.`,
+      confirmText: 'Xóa',
+      cancelText: 'Để sau',
+    })
+    if (!confirmed) return
 
     try {
       await adminAPI.deleteCategory(category.id)
-      alert('✅ Xóa category thành công!')
+      await alert({
+        icon: '✅',
+        title: 'Đã xóa',
+        message: 'Category đã được xóa thành công.',
+      })
       fetchCategories()
     } catch (error) {
       console.error('Error deleting category:', error)
-      alert(error.response?.data?.message || 'Không thể xóa category')
+      await alert({
+        icon: '⚠️',
+        title: 'Không thể xóa',
+        message: error.response?.data?.message || 'Không thể xóa category',
+      })
     }
   }
 

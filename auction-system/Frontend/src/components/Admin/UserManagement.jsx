@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import adminAPI from '../../services/adminAPI';
+import { useDialog } from '../../context/DialogContext.jsx';
 
 function UserManagement() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all'); // all, bidder, seller, admin
   const [error, setError] = useState(null);
+  const { confirm: confirmDialog, alert: showAlert } = useDialog();
 
   useEffect(() => {
     fetchUsers();
@@ -27,38 +29,81 @@ function UserManagement() {
   };
 
   const handleChangeRole = async (userId, newRole) => {
-    if (!confirm(`Bạn có chắc muốn đổi role thành "${newRole}"?`)) return;
-    
+    const confirmed = await confirmDialog({
+      icon: '👤',
+      title: 'Đổi vai trò',
+      message: `Bạn có chắc muốn đổi role thành "${newRole}"?`,
+      confirmText: 'Đổi role',
+    });
+    if (!confirmed) return;
+
     try {
       await adminAPI.updateUserRole(userId, newRole);
-      alert('Đã thay đổi role thành công!');
+      await showAlert({
+        icon: '✅',
+        title: 'Thành công',
+        message: 'Đã thay đổi role thành công!',
+      });
       fetchUsers();
     } catch (err) {
-      alert(err.response?.data?.message || 'Lỗi khi thay đổi role');
+      await showAlert({
+        icon: '⚠️',
+        title: 'Không thể đổi role',
+        message: err.response?.data?.message || 'Vui lòng thử lại.',
+      });
     }
   };
 
   const handleBanUser = async (userId, userName) => {
-    if (!confirm(`Bạn có chắc muốn cấm user "${userName}"?`)) return;
-    
+    const confirmed = await confirmDialog({
+      icon: '🚫',
+      title: 'Cấm user',
+      message: `Bạn có chắc muốn cấm user "${userName}"?`,
+      confirmText: 'Cấm user',
+    });
+    if (!confirmed) return;
+
     try {
       await adminAPI.banUser(userId);
-      alert('Đã cấm user thành công!');
+      await showAlert({
+        icon: '✅',
+        title: 'Đã cấm user',
+        message: 'User đã bị cấm thành công.',
+      });
       fetchUsers();
     } catch (err) {
-      alert(err.response?.data?.message || 'Lỗi khi cấm user');
+      await showAlert({
+        icon: '⚠️',
+        title: 'Không thể cấm user',
+        message: err.response?.data?.message || 'Vui lòng thử lại.',
+      });
     }
   };
 
   const handleDeleteUser = async (userId, userName) => {
-    if (!confirm(`⚠️ BẠN CÓ CHẮC CHẮN muốn XÓA VĨNH VIỄN user "${userName}"? Hành động này không thể hoàn tác!`)) return;
-    
+    const confirmed = await confirmDialog({
+      icon: '🗑️',
+      title: 'Xóa user',
+      message: `⚠️ Hành động này không thể hoàn tác.\n\nBạn có chắc muốn xóa vĩnh viễn "${userName}"?`,
+      confirmText: 'Xóa vĩnh viễn',
+      cancelText: 'Để sau',
+    });
+    if (!confirmed) return;
+
     try {
       await adminAPI.deleteUser(userId);
-      alert('Đã xóa user thành công!');
+      await showAlert({
+        icon: '✅',
+        title: 'Đã xóa user',
+        message: 'User đã được xóa khỏi hệ thống.',
+      });
       fetchUsers();
     } catch (err) {
-      alert(err.response?.data?.message || 'Lỗi khi xóa user');
+      await showAlert({
+        icon: '⚠️',
+        title: 'Không thể xóa user',
+        message: err.response?.data?.message || 'Vui lòng thử lại.',
+      });
     }
   };
 

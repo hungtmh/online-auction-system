@@ -791,7 +791,7 @@ export const getBidHistory = async (req, res) => {
     const { status, page = 1, limit = 50 } = req.query
     const offset = (page - 1) * limit
 
-    let query = supabase
+    const { data, error } = await supabase
       .from('bids')
       .select(`
         *,
@@ -802,22 +802,66 @@ export const getBidHistory = async (req, res) => {
         product:products!product_id (
           name,
           current_price,
-          status
+          status,
+          winner_id,
+          final_price,
+          end_time
         )
       `)
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1)
-
-    const { data, error } = await query
 
     if (error) {
       console.error('❌ Supabase error:', error)
       throw error
     }
 
+    const computeStatus = (bid) => {
+      const product = bid.product || {}
+
+      if (bid.is_rejected) return 'cancelled'
+
+      if (product.status === 'completed') {
+        return product.winner_id === bid.bidder_id ? 'won' : 'lost'
+      }
+
+      if (product.status === 'cancelled') return 'cancelled'
+
+      // If auction ended but winner not set yet, treat as pending result
+      if (product.end_time && new Date(product.end_time) < new Date()) {
+        return product.winner_id === bid.bidder_id ? 'won' : 'lost'
+      }
+
+      return 'active'
+    }
+
+    const normalizedData = (data || []).map((bid) => ({
+      id: bid.id,
+      product_id: bid.product_id,
+      product_title: bid.product?.name || null,
+      product_status: bid.product?.status || null,
+      product_current_price: bid.product?.current_price || null,
+      bidder_id: bid.bidder_id,
+      bidder_name: bid.bidder?.full_name || null,
+      bidder_email: bid.bidder?.email || null,
+      amount: Number(bid.bid_amount ?? bid.amount ?? 0),
+      max_bid_amount: Number(bid.max_bid_amount ?? 0) || null,
+      created_at: bid.created_at,
+      status: computeStatus(bid),
+      is_auto_bid: bid.is_auto_bid,
+      is_rejected: bid.is_rejected,
+      rejected_at: bid.rejected_at
+    }))
+
+    const filteredData =
+      status && status !== 'all'
+        ? normalizedData.filter((bid) => bid.status === status)
+        : normalizedData
+
     res.json({
       success: true,
-      data: data
+      total: normalizedData.length,
+      data: filteredData
     })
   } catch (error) {
     console.error('❌ Error getting bid history:', error)
@@ -897,21 +941,27 @@ export const resolveDispute = async (req, res) => {
 export const getSystemSettings = async (req, res) => {
   try {
     const { data, error } = await supabase
-      .from('settings')
+      .from('system_settings')
       .select('*')
-      .single();
+      .order('key', { ascending: true });
 
     if (error) throw error;
 
+    // Transform array rows => key/value pairs for easier consumption on FE
+    const settings = data.reduce((acc, row) => {
+      acc[row.key] = row.value;
+      return acc;
+    }, {});
+
     res.json({
       success: true,
-      settings: data,
+      settings
     });
   } catch (error) {
     console.error('❌ Error fetching system settings:', error);
     res.status(500).json({
       success: false,
-      message: 'Không thể lấy cài đặt hệ thống',
+      message: 'Không thể lấy cài đặt hệ thống'
     });
   }
 };
@@ -923,19 +973,35 @@ export const getSystemSettings = async (req, res) => {
  */
 export const updateSystemSettings = async (req, res) => {
   try {
-    const { settings } = req.body;
+    const incomingSettings = req.body?.settings ?? req.body;
+
+    if (!incomingSettings || typeof incomingSettings !== 'object') {
+      return res.status(400).json({
+        success: false,
+        message: 'Payload cài đặt không hợp lệ',
+      });
+    }
 
     // Debugging log for incoming settings
-    console.log('🔍 Incoming settings payload:', settings);
+    console.log('🔍 Incoming settings payload:', incomingSettings);
 
     // Iterate over settings and update each row based on its key
-    const updates = Object.entries(settings).map(async ([key, value]) => {
+    const updates = Object.entries(incomingSettings).map(async ([key, value]) => {
       try {
-        console.log(`🔄 Updating setting: key=${key}, value=${value}`);
+        const normalizedValue =
+          value === null || value === undefined
+            ? ''
+            : typeof value === 'object'
+              ? JSON.stringify(value)
+              : String(value);
+
+        console.log(`🔄 Updating setting: key=${key}, value=${normalizedValue}`);
         const { data, error } = await supabase
           .from('system_settings')
-          .update({ value, updated_at: new Date().toISOString() })
-          .eq('key', key)
+          .upsert(
+            { key, value: normalizedValue, updated_at: new Date().toISOString() },
+            { onConflict: 'key' }
+          )
           .select()
           .single();
 

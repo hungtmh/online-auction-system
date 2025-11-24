@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import adminAPI from '../../services/adminAPI';
+import { useDialog } from '../../context/DialogContext.jsx';
 
 function SystemSettings() {
   const [settings, setSettings] = useState({
@@ -10,6 +11,7 @@ function SystemSettings() {
   });
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('general'); // 'general' | 'email' | 'backup'
+  const { confirm, alert } = useDialog();
 
   useEffect(() => {
     loadSettings();
@@ -30,14 +32,28 @@ function SystemSettings() {
   };
 
   const handleSaveSettings = async () => {
-    if (!confirm('Bạn có chắc muốn lưu các thay đổi?')) return;
+    const confirmed = await confirm({
+      icon: '💾',
+      title: 'Lưu cài đặt',
+      message: 'Bạn có chắc muốn lưu các thay đổi?',
+      confirmText: 'Lưu',
+    });
+    if (!confirmed) return;
 
     setLoading(true);
     try {
       await adminAPI.updateSystemSettings(settings);
-      alert('✅ Đã cập nhật cài đặt hệ thống!');
+      await alert({
+        icon: '✅',
+        title: 'Đã lưu',
+        message: 'Cài đặt hệ thống đã được cập nhật.',
+      });
     } catch (err) {
-      alert(err.response?.data?.message || 'Lỗi khi lưu cài đặt');
+      await alert({
+        icon: '⚠️',
+        title: 'Không thể lưu cài đặt',
+        message: err.response?.data?.message || 'Vui lòng thử lại.',
+      });
     } finally {
       setLoading(false);
     }
