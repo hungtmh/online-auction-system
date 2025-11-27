@@ -1,80 +1,119 @@
-import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import guestAPI from "../../services/guestAPI";
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
+import guestAPI from '../../services/guestAPI'
+import AppHeader from '../common/AppHeader'
+import GuestTopBar from './sections/GuestTopBar'
+import ProductMediaGallery from './sections/ProductMediaGallery'
+import ProductDescriptionCard from './sections/ProductDescriptionCard'
+import ProductQACard from './sections/ProductQACard'
+import WinnerCheckoutSidebar from './sections/WinnerCheckoutSidebar'
+import AuctionSidebar from './sections/AuctionSidebar'
+import RelatedProductsGrid from './sections/RelatedProductsGrid'
 
-// Helper functions
-function formatCurrency(v) {
-  try {
-    return v.toLocaleString("vi-VN") + " đ";
-  } catch (e) {
-    return (v || 0) + " đ";
-  }
+const ORDER_STATUS_META = {
+  pending_payment: { label: 'Chờ thanh toán', chip: 'bg-amber-100 text-amber-700 border border-amber-200' },
+  payment_confirmed: { label: 'Đã xác nhận thanh toán', chip: 'bg-emerald-100 text-emerald-700 border border-emerald-200' },
+  shipped: { label: 'Đã gửi hàng', chip: 'bg-blue-100 text-blue-700 border border-blue-200' },
+  delivered: { label: 'Đã giao hàng', chip: 'bg-purple-100 text-purple-700 border border-purple-200' },
+  completed: { label: 'Hoàn tất', chip: 'bg-slate-100 text-slate-700 border border-slate-200' },
+  cancelled: { label: 'Đã hủy', chip: 'bg-rose-100 text-rose-700 border border-rose-200' }
 }
 
-function timeLeftLabel(endAt) {
-  if (!endAt) return "";
-  const end = new Date(endAt);
-  const now = new Date();
-  const diff = end - now;
-  if (diff <= 0) return "Đã kết thúc";
-  
-  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-  
-  // Nếu ít hơn 3 ngày, hiển thị theo định dạng tương đối
-  if (days < 3) {
-    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-    
-    if (days > 0) return `${days} ngày ${hours} giờ nữa`;
-    if (hours > 0) return `${hours} giờ ${minutes} phút nữa`;
-    return `${minutes} phút nữa`;
-  }
-  
-  return `${days} ngày nữa`;
-}
+const ORDER_STATUS_FLOW = [
+  { key: 'pending_payment', label: 'Chờ thanh toán', description: 'Hoàn tất thanh toán trong 24 giờ', timestampKey: 'created_at' },
+  { key: 'payment_confirmed', label: 'Đã xác nhận thanh toán', description: 'Người bán xác nhận đã nhận tiền', timestampKey: 'payment_confirmed_at' },
+  { key: 'shipped', label: 'Đã gửi hàng', description: 'Người bán đã bàn giao cho đơn vị vận chuyển', timestampKey: 'shipped_at' },
+  { key: 'delivered', label: 'Đã giao hàng', description: 'Đơn vị vận chuyển đã giao cho bạn', timestampKey: 'delivered_at' },
+  { key: 'completed', label: 'Hoàn tất', description: 'Giao dịch hoàn tất, cùng đánh giá người bán', timestampKey: 'updated_at' }
+]
 
-function formatDateTime(dateStr) {
-  if (!dateStr) return "";
-  const date = new Date(dateStr);
-  return date.toLocaleString("vi-VN");
-}
-
-export default function ProductDetailPageContent() {
-  const { id } = useParams();
-  const navigate = useNavigate();
-  const [product, setProduct] = useState(null);
-  const [relatedProducts, setRelatedProducts] = useState([]);
-  const [selectedImage, setSelectedImage] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+export default function ProductDetailPageContent({ user = null }) {
+  const { id } = useParams()
+  const navigate = useNavigate()
+  const [product, setProduct] = useState(null)
+  const [relatedProducts, setRelatedProducts] = useState([])
+  const [selectedImage, setSelectedImage] = useState(0)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [currentUser, setCurrentUser] = useState(user)
+  const [shippingAddress, setShippingAddress] = useState('')
+  const [checkoutNotice, setCheckoutNotice] = useState(null)
 
   useEffect(() => {
-    if (!id) return;
-    loadProduct();
-  }, [id]);
+    if (!id) return
+    loadProduct()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id])
+
+  useEffect(() => {
+    setCurrentUser(user || null)
+  }, [user])
+
+  useEffect(() => {
+    if (!product) return
+    setShippingAddress(product.order?.shipping_address || currentUser?.address || '')
+  }, [product, currentUser])
+
+  const fetchSellerProfile = useCallback(async (sellerId) => {
+    if (!sellerId) return null
+    try {
+      const res = await guestAPI.getSellerProfile(sellerId)
+      return res?.data || res
+    } catch (error) {
+      console.error('Failed to fetch seller profile:', error)
+      return null
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!product || product.seller_name || !product.seller_id) return
+    let active = true
+    fetchSellerProfile(product.seller_id).then((profile) => {
+      if (!active || !profile) return
+      setProduct((prev) => {
+        if (!prev) return prev
+        return {
+          ...prev,
+          seller_name: profile.full_name,
+          seller_rating_positive: profile.rating_positive,
+          seller_rating_negative: profile.rating_negative,
+          seller_phone: profile.phone,
+          seller_address: profile.address
+        }
+      })
+    })
+    return () => {
+      active = false
+    }
+  }, [product, fetchSellerProfile])
 
   async function loadProduct() {
-    setLoading(true);
-    setError(null);
+    setLoading(true)
+    setError(null)
     try {
-      const res = await guestAPI.getProductById(id);
-      const productData = res?.data || res;
-      setProduct(productData);
+      const res = await guestAPI.getProductById(id)
+      const productData = res?.data || res
+      setProduct(productData)
 
-      // Load related products (cùng chuyên mục)
       if (productData?.category_id) {
-        const relatedRes = await guestAPI.getProducts({
-          category: productData.category_id,
-          limit: 5,
-        });
-        setRelatedProducts(relatedRes?.data?.filter((p) => p.id !== id) || []);
+        const relatedRes = await guestAPI.getProducts({ category: productData.category_id, limit: 5 })
+        setRelatedProducts(relatedRes?.data?.filter((p) => p.id !== id) || [])
       }
     } catch (err) {
-      console.error("Load product error", err);
-      setError("Không thể tải sản phẩm");
+      console.error('Load product error', err)
+      setError('Không thể tải sản phẩm')
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
+  }
+
+  const handleShippingAddressChange = (event) => {
+    setShippingAddress(event.target.value)
+  }
+
+  const handleShippingAddressSave = () => {
+    setCheckoutNotice('Địa chỉ nhận hàng đã được lưu tạm thời cho phiên làm việc này.')
+    setTimeout(() => setCheckoutNotice(null), 4000)
   }
 
   if (loading) {
@@ -85,7 +124,7 @@ export default function ProductDetailPageContent() {
           <p className="mt-4 text-gray-600">Đang tải chi tiết sản phẩm...</p>
         </div>
       </div>
-    );
+    )
   }
 
   if (error) {
@@ -94,12 +133,12 @@ export default function ProductDetailPageContent() {
         <div className="text-center">
           <div className="text-6xl mb-4">⚠️</div>
           <p className="text-red-600 text-xl">{error}</p>
-          <button onClick={() => navigate("/")} className="mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg">
+          <button onClick={() => navigate('/')} className="mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg">
             Về trang chủ
           </button>
         </div>
       </div>
-    );
+    )
   }
 
   if (!product) {
@@ -108,243 +147,111 @@ export default function ProductDetailPageContent() {
         <div className="text-center">
           <div className="text-6xl mb-4">📦</div>
           <p className="text-gray-600 text-xl">Sản phẩm không tồn tại</p>
-          <button onClick={() => navigate("/")} className="mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg">
+          <button onClick={() => navigate('/')} className="mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg">
             Về trang chủ
           </button>
         </div>
       </div>
-    );
+    )
   }
 
-  // Prepare images (ảnh đại diện + ảnh phụ)
-  const images = [
-    product.image_url || "https://via.placeholder.com/800x600?text=Product",
-    ...(product.additional_images || []),
-  ];
+  const isWinner = useMemo(() => {
+    if (!currentUser || !product?.winner_id) return false
+    return currentUser.id === product.winner_id
+  }, [currentUser, product])
 
-  // Đảm bảo có ít nhất 3 ảnh
+  const orderFromProduct = product.order || null
+
+  const checkoutOrder = useMemo(() => {
+    return {
+      id: orderFromProduct?.id || null,
+      product_id: orderFromProduct?.product_id || product.id,
+      seller_id: orderFromProduct?.seller_id || product.seller_id,
+      buyer_id: orderFromProduct?.buyer_id || currentUser?.id || null,
+      final_price: orderFromProduct?.final_price || product.current_price || product.starting_price || 0,
+      shipping_address: shippingAddress,
+      shipping_tracking_number: orderFromProduct?.shipping_tracking_number || '',
+      payment_proof_url: orderFromProduct?.payment_proof_url || '',
+      payment_confirmed_at: orderFromProduct?.payment_confirmed_at || null,
+      status: orderFromProduct?.status || 'pending_payment',
+      shipped_at: orderFromProduct?.shipped_at || null,
+      delivered_at: orderFromProduct?.delivered_at || null,
+      cancelled_by: orderFromProduct?.cancelled_by || null,
+      cancelled_at: orderFromProduct?.cancelled_at || null,
+      cancellation_reason: orderFromProduct?.cancellation_reason || '',
+      created_at: orderFromProduct?.created_at || product.end_time || product.updated_at || product.created_at || null,
+      updated_at: orderFromProduct?.updated_at || product.updated_at || null
+    }
+  }, [orderFromProduct, product, currentUser, shippingAddress])
+
+  const currentStatusMeta = ORDER_STATUS_META[checkoutOrder.status] || ORDER_STATUS_META.pending_payment
+  const statusIndex = ORDER_STATUS_FLOW.findIndex((step) => step.key === checkoutOrder.status)
+
+  const timeline = ORDER_STATUS_FLOW.map((step, idx) => ({
+    ...step,
+    reached: statusIndex === -1 ? false : idx <= statusIndex,
+    timestamp: checkoutOrder[step.timestampKey]
+  }))
+
+  const images = [product.image_url || 'https://via.placeholder.com/800x600?text=Product', ...(product.additional_images || [])]
   while (images.length < 3) {
-    images.push("https://via.placeholder.com/800x600?text=No+Image");
+    images.push('https://via.placeholder.com/800x600?text=No+Image')
   }
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <button onClick={() => navigate("/")} className="flex items-center gap-2 text-gray-700 hover:text-blue-600">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-              </svg>
-              <span className="font-medium">Quay lại</span>
-            </button>
-            <div className="flex items-center gap-4">
-              <button onClick={() => navigate("/login")} className="px-4 py-2 text-sm font-medium text-blue-600">
-                Đăng nhập
-              </button>
-              <button onClick={() => navigate("/register")} className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg">
-                Đăng ký
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
+      {currentUser ? (
+        <AppHeader user={currentUser} showSearch={true} />
+      ) : (
+        <GuestTopBar
+          onBack={() => navigate('/')}
+          onLogin={() => navigate('/login')}
+          onRegister={() => navigate('/register')}
+        />
+      )}
 
-      {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left: Images & Description */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Main Image */}
-            <div className="bg-white rounded-xl shadow-md overflow-hidden">
-              <div className="aspect-w-16 aspect-h-12">
-                <img
-                  src={images[selectedImage]}
-                  alt={product.title}
-                  className="w-full h-[500px] object-cover"
-                />
-              </div>
-              {/* Thumbnail Images */}
-              <div className="p-4 flex gap-3 overflow-x-auto">
-                {images.slice(0, 5).map((img, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => setSelectedImage(idx)}
-                    className={`flex-shrink-0 w-20 h-20 border-2 rounded-lg overflow-hidden ${
-                      selectedImage === idx ? "border-blue-600" : "border-gray-200"
-                    }`}
-                  >
-                    <img src={img} alt={`Thumbnail ${idx + 1}`} className="w-full h-full object-cover" />
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Product Description */}
-            <div className="bg-white rounded-xl shadow-md p-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">Mô tả chi tiết sản phẩm</h2>
-              <div className="prose max-w-none text-gray-700">
-                <div dangerouslySetInnerHTML={{ __html: product.long_description || product.description || "Không có mô tả" }} />
-              </div>
-            </div>
-
-            {/* Q&A Section - Lịch sử câu hỏi và câu trả lời */}
-            <div className="bg-white rounded-xl shadow-md p-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">💬 Câu hỏi & Trả lời</h2>
-              {product.questions && product.questions.length > 0 ? (
-                <div className="space-y-4">
-                  {product.questions.map((item) => (
-                    <div key={item.id} className="border-b pb-4 last:border-0">
-                      <div className="flex items-start gap-3 mb-2">
-                        <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-                          <span className="text-blue-600 font-semibold text-sm">Q</span>
-                        </div>
-                        <div className="flex-1">
-                          <div className="text-sm text-gray-500 mb-1">
-                            {item.profiles?.full_name || "Người dùng"} - {formatDateTime(item.created_at)}
-                          </div>
-                          <p className="text-gray-900">{item.question}</p>
-                        </div>
-                      </div>
-                      {item.answer && (
-                        <div className="flex items-start gap-3 ml-11">
-                          <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
-                            <span className="text-green-600 font-semibold text-sm">A</span>
-                          </div>
-                          <div className="flex-1">
-                            <div className="text-sm text-gray-500 mb-1">
-                              Người bán - {formatDateTime(item.answered_at)}
-                            </div>
-                            <p className="text-gray-700">{item.answer}</p>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-gray-500">Chưa có câu hỏi nào.</p>
-              )}
-            </div>
+            <ProductMediaGallery
+              images={images}
+              selectedIndex={selectedImage}
+              onSelect={setSelectedImage}
+              title={product.title}
+            />
+            <ProductDescriptionCard
+              descriptionHtml={product.description || 'Không có mô tả'}
+            />
+            <ProductQACard questions={product.questions || []} />
           </div>
 
-          {/* Right: Product Info & Actions */}
           <div className="lg:col-span-1 space-y-4">
-            {/* Product Title & Category */}
-            <div className="bg-white rounded-xl shadow-md p-6">
-              <h1 className="text-3xl font-bold text-gray-900 mb-3">{product.title}</h1>
-              {product.category_name && (
-                <button
-                  onClick={() => navigate(`/auctions?category=${product.category_id}`)}
-                  className="inline-block text-sm text-blue-600 bg-blue-50 px-3 py-1 rounded-full hover:bg-blue-100 transition"
-                >
-                  📁 {product.category_name}
-                </button>
-              )}
-            </div>
-
-            {/* Price & Time Info */}
-            <div className="bg-white rounded-xl shadow-md p-6">
-              <div className="mb-4">
-                <div className="text-sm text-gray-500 mb-1">Giá hiện tại</div>
-                <div className="text-4xl font-bold text-blue-600">{formatCurrency(product.current_price || 0)}</div>
-              </div>
-
-              {product.buy_now_price && (
-                <div className="mb-4 pb-4 border-b">
-                  <div className="text-sm text-gray-500 mb-1">Giá mua ngay</div>
-                  <div className="text-2xl font-bold text-green-600">{formatCurrency(product.buy_now_price)}</div>
-                </div>
-              )}
-
-              <div className="space-y-3">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-600">Thời điểm đăng:</span>
-                  <span className="font-medium">{formatDateTime(product.created_at)}</span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-600">Thời điểm kết thúc:</span>
-                  <span className="font-medium">{formatDateTime(product.end_time)}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-600">Thời gian còn lại:</span>
-                  <span className="text-lg font-bold text-orange-600">⏰ {timeLeftLabel(product.end_time)}</span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-600">Số lượt đấu:</span>
-                  <span className="font-bold text-blue-600">{product.bid_count || 0} lượt</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Seller & Bidder Info */}
-            <div className="bg-white rounded-xl shadow-md p-6">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">👥 Thông tin</h3>
-              <div className="space-y-3">
-                <div>
-                  <div className="text-sm text-gray-500">Người bán</div>
-                  <div className="font-medium text-gray-900">{product.seller_name || "Ẩn danh"}</div>
-                  <div className="text-xs flex items-center gap-2">
-                    <span className="text-green-600">👍 {product.seller_rating_positive || 0}</span>
-                    <span className="text-red-600">👎 {product.seller_rating_negative || 0}</span>
-                  </div>
-                </div>
-                {product.highest_bidder_name && (
-                  <div className="pt-3 border-t">
-                    <div className="text-sm text-gray-500">Người đặt giá cao nhất</div>
-                    <div className="font-medium text-orange-600">{product.highest_bidder_name}</div>
-                    <div className="text-xs flex items-center gap-2">
-                      <span className="text-green-600">👍 {product.highest_bidder_rating_positive || 0}</span>
-                      <span className="text-red-600">👎 {product.highest_bidder_rating_negative || 0}</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="bg-white rounded-xl shadow-md p-6">
-              <button
-                onClick={() => navigate("/login")}
-                className="w-full bg-blue-600 text-white py-3 rounded-lg font-bold text-lg mb-3 hover:bg-blue-700 transition"
-              >
-                Đấu giá ngay
-              </button>
-              {product.buy_now_price && (
-                <button
-                  onClick={() => navigate("/login")}
-                  className="w-full bg-green-600 text-white py-3 rounded-lg font-bold text-lg hover:bg-green-700 transition"
-                >
-                  Mua ngay
-                </button>
-              )}
-            </div>
+            {isWinner ? (
+              <WinnerCheckoutSidebar
+                product={product}
+                order={checkoutOrder}
+                statusMeta={currentStatusMeta}
+                timeline={timeline}
+                shippingAddress={shippingAddress}
+                onShippingChange={handleShippingAddressChange}
+                onShippingSave={handleShippingAddressSave}
+                notice={checkoutNotice}
+              />
+            ) : (
+              <AuctionSidebar
+                product={product}
+                onCategoryClick={() => navigate(`/auctions?category=${product.category_id}`)}
+                onLogin={() => navigate('/login')}
+              />
+            )}
           </div>
         </div>
 
-        {/* Related Products - 5 sản phẩm cùng chuyên mục */}
-        {relatedProducts.length > 0 && (
-          <div className="mt-12">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">📦 Sản phẩm cùng chuyên mục</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
-              {relatedProducts.slice(0, 5).map((p) => (
-                <div
-                  key={p.id}
-                  onClick={() => navigate(`/products/${p.id}`)}
-                  className="bg-white rounded-lg shadow-md overflow-hidden cursor-pointer hover:shadow-xl transition"
-                >
-                  <img src={p.image_url || "https://via.placeholder.com/300x200"} alt={p.title} className="w-full h-40 object-cover" />
-                  <div className="p-4">
-                    <h3 className="font-semibold text-sm text-gray-900 line-clamp-2 mb-2">{p.title}</h3>
-                    <div className="text-lg font-bold text-blue-600">{formatCurrency(p.current_price || 0)}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+        <RelatedProductsGrid
+          products={relatedProducts}
+          onSelect={(productId) => navigate(`/products/${productId}`)}
+        />
       </div>
     </div>
-  );
+  )
 }

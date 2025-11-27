@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { authAPI } from '../services/api'
 import bidderAPI from '../services/bidderAPI'
 import ProductCard from '../components/GuestHomePage/ProductCard'
-import AppHeader from '../components/common/AppHeader'
+import BidderMarketplaceNavbar from '../components/common/BidderMarketplaceNavbar'
 
 const TAB_LIST = [
   { id: 'browse', label: '🔍 Khám phá đấu giá' },
@@ -17,7 +17,13 @@ const BROWSE_PAGE_SIZE = 9
 function BidderDashboard() {
   const [user, setUser] = useState(null)
   const [loadingProfile, setLoadingProfile] = useState(true)
-  const [activeTab, setActiveTab] = useState('browse')
+  const location = useLocation()
+  const getInitialTab = () => {
+    const tabFromState = location.state?.tab
+    return TAB_LIST.some((tab) => tab.id === tabFromState) ? tabFromState : 'browse'
+  }
+  const [activeTab, setActiveTab] = useState(getInitialTab)
+  const [locationTabConsumed, setLocationTabConsumed] = useState(Boolean(location.state?.tab))
   const [browseState, setBrowseState] = useState({ data: [], loading: true, error: null })
   const [browsePagination, setBrowsePagination] = useState({ page: 1, limit: BROWSE_PAGE_SIZE, total: null, totalPages: null, hasMore: false })
   const [myBidsState, setMyBidsState] = useState({ data: [], loading: false, loaded: false, error: null })
@@ -27,6 +33,16 @@ function BidderDashboard() {
     fetchUserProfile()
     loadBrowseProducts(1)
   }, [])
+
+  useEffect(() => {
+    const tabFromState = location.state?.tab
+    const isValidTab = TAB_LIST.some((tab) => tab.id === tabFromState)
+
+    if (tabFromState && isValidTab && !locationTabConsumed) {
+      setActiveTab(tabFromState)
+      setLocationTabConsumed(true)
+    }
+  }, [location.state, locationTabConsumed])
 
   useEffect(() => {
     if (activeTab === 'my-bids' && !myBidsState.loaded) {
@@ -100,13 +116,9 @@ function BidderDashboard() {
     }
   }
 
-  const handleLogout = async () => {
-    try {
-      await authAPI.logout()
-      window.location.href = '/'
-    } catch (error) {
-      console.error('Logout failed:', error)
-    }
+  const handleTabChange = (tabId) => {
+    if (!TAB_LIST.some((tab) => tab.id === tabId)) return
+    setActiveTab(tabId)
   }
 
   if (loadingProfile) {
@@ -119,10 +131,10 @@ function BidderDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <AppHeader user={user} onLogout={handleLogout} />
+      <BidderMarketplaceNavbar user={user} onTabSelect={handleTabChange} />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="bg-white rounded-xl shadow-md mb-6">
-          <TabNavigation activeTab={activeTab} onChange={setActiveTab} />
+          <TabNavigation activeTab={activeTab} onChange={handleTabChange} />
           <div className="p-6">
             {activeTab === 'browse' && (
               <BrowseAuctionsTab

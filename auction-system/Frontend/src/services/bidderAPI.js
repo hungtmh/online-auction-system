@@ -85,6 +85,31 @@ const bidderAPI = {
       question
     })
     return response.data
+  },
+
+  /**
+   * Lấy thông tin checkout của sản phẩm thắng cuộc
+   * @param {string} productId
+   */
+  getCheckoutOrder: async (productId) => {
+  const response = await api.get(`/bidder/orders/${productId}`)
+    return response.data
+  },
+
+  /**
+   * Lưu thông tin checkout (địa chỉ, chứng từ)
+   * @param {Object} payload - { product_id, shipping_address, payment_proof_url? }
+   */
+  submitCheckoutOrder: async (payload) => {
+  const response = await api.post('/bidder/orders', payload)
+    return response.data
+  },
+
+  uploadPaymentProof: async (file) => {
+    const formData = new FormData()
+    formData.append('proof', file)
+    const response = await api.post('/bidder/uploads/payment-proof', formData)
+    return response.data
   }
 }
 

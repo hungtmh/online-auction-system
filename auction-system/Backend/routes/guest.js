@@ -7,7 +7,7 @@
 
 import express from "express";
 import { query, param, validationResult } from "express-validator";
-import { getProducts, getProductById, searchProducts, getCategories, getFeaturedProducts } from "../controllers/guestController.js";
+import { getProducts, getProductById, searchProducts, getCategories, getFeaturedProducts, getSellerProfile } from "../controllers/guestController.js";
 
 const router = express.Router();
 
@@ -65,5 +65,12 @@ router.get("/categories", getCategories);
  * @access  Public
  */
 router.get("/featured", [query("type").optional().isIn(["ending_soon", "most_bids", "highest_price"]), query("limit").optional().isInt({ min: 1, max: 50 }).toInt(), validate], getFeaturedProducts);
+
+/**
+ * @route   GET /api/guest/sellers/:id
+ * @desc    Lấy thông tin người bán tối thiểu để hiển thị cho bidder/guest
+ * @access  Public
+ */
+router.get("/sellers/:id", [param("id").notEmpty().withMessage("id is required"), validate], getSellerProfile);
 
 export default router;

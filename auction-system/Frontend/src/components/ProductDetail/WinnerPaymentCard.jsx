@@ -1,4 +1,5 @@
 import React from 'react'
+import { useNavigate } from 'react-router-dom'
 
 const formatCurrency = (value) => {
   if (value === null || value === undefined) return '—'
@@ -15,9 +16,15 @@ const STATUS_TAG = {
 }
 
 export default function WinnerPaymentCard({ product, order }) {
+  const navigate = useNavigate()
   const finalPrice = order?.final_price || product?.final_price || product?.current_price
   const status = order?.status || 'pending_payment'
   const tag = STATUS_TAG[status] || STATUS_TAG.pending_payment
+
+  const handleCheckoutClick = () => {
+    if (!product?.id) return
+    navigate(`/products/${product.id}/checkout`)
+  }
 
   return (
     <div className="bg-slate-900 text-white rounded-2xl p-6 space-y-4">
@@ -41,7 +48,11 @@ export default function WinnerPaymentCard({ product, order }) {
         </div>
       </div>
 
-      <button className="w-full bg-white text-slate-900 rounded-xl py-3 font-semibold hover:bg-slate-100 transition">
+      <button
+        type="button"
+        onClick={handleCheckoutClick}
+        className="w-full bg-white text-slate-900 rounded-xl py-3 font-semibold hover:bg-slate-100 transition"
+      >
         Đi tới trang thanh toán
       </button>
       <p className="text-xs text-slate-300">
