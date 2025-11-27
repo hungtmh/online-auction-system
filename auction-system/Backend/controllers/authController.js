@@ -148,10 +148,6 @@ export const login = async (req, res) => {
       })
     }
 
-    const user = authData.user
-    if (!user) {
-      return res.status(401).json({ success: false, message: 'Đăng nhập thất bại' })
-    }
 
     console.log('✅ User authenticated:', user.id, user.email)
 
