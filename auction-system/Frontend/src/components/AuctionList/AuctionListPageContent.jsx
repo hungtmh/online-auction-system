@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import guestAPI from "../../services/guestAPI";
 import ProductCard from "../GuestHomePage/ProductCard";
@@ -10,8 +10,10 @@ function AuctionListPageContent({ user }) {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
+  const menuRef = useRef(null);
 
   const page = parseInt(searchParams.get("page") || "1", 10);
   const limit = parseInt(searchParams.get("limit") || "12", 10);
@@ -26,6 +28,17 @@ function AuctionListPageContent({ user }) {
   useEffect(() => {
     loadAuctions();
   }, [page, limit, q, category, sort]);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   async function loadCategories() {
     try {
@@ -73,6 +86,27 @@ function AuctionListPageContent({ user }) {
     setSearchParams({ ...current, ...newParams, page: 1 });
   };
 
+  const handleMenuSelect = (action) => {
+    if (user?.role === 'seller') {
+      navigate(`/seller/${action}`);
+    } else if (user?.role === 'bidder') {
+      navigate('/dashboard');
+    }
+    setMenuOpen(false);
+  };
+
+  const getMenuItems = () => {
+    if (user?.role === 'seller') {
+      return [
+        { label: '👤 Hồ sơ cá nhân', action: 'profile' },
+        { label: '📦 Sản phẩm của tôi', action: 'my-products' },
+        { label: '➕ Đăng sản phẩm', action: 'add-product' },
+        { label: '💰 Doanh thu', action: 'sales' }
+      ];
+    }
+    return [];
+  };
+
   const totalPages = Math.ceil(total / limit);
 
   return (
@@ -96,25 +130,57 @@ function AuctionListPageContent({ user }) {
             <div className="flex items-center gap-4">
               {user ? (
                 <>
-                  <div className="flex items-center gap-2 px-4 py-2 bg-gray-100 rounded-lg">
-                    <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold">
-                      {user.avatar_url ? (
-                        <img src={user.avatar_url} alt="Avatar" className="w-full h-full rounded-full object-cover" />
-                      ) : (
-                        user.full_name?.charAt(0)?.toUpperCase() || 'U'
-                      )}
-                    </div>
-                    <div className="hidden sm:block">
-                      <div className="text-sm font-medium text-gray-800">{user.full_name || user.email}</div>
-                      <div className="text-xs text-gray-500 capitalize">{user.role === 'seller' ? 'Seller' : 'Bidder'}</div>
-                    </div>
+                  <div className="relative" ref={menuRef}>
+                    <button
+                      type="button"
+                      onClick={() => setMenuOpen((prev) => !prev)}
+                      className="flex items-center gap-2 px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition"
+                    >
+                      <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold overflow-hidden">
+                        {user.avatar_url ? (
+                          <img src={user.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+                        ) : (
+                          user.full_name?.charAt(0)?.toUpperCase() || 'U'
+                        )}
+                      </div>
+                      <div className="hidden sm:block text-left">
+                        <div className="text-sm font-medium text-gray-800">{user.full_name || user.email}</div>
+                        <div className="text-xs text-gray-500 capitalize">{user.role === 'seller' ? 'Seller' : 'Bidder'}</div>
+                      </div>
+                      <svg 
+                        className={`w-4 h-4 text-gray-600 transition-transform ${menuOpen ? 'rotate-180' : ''}`}
+                        fill="none" 
+                        stroke="currentColor" 
+                        viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+                    
+                    {menuOpen && user.role === 'seller' && (
+                      <div className="absolute right-0 z-10 mt-2 w-56 rounded-xl border border-gray-200 bg-white text-sm text-slate-700 shadow-lg">
+                        {getMenuItems().map((item) => (
+                          <button
+                            key={item.label}
+                            type="button"
+                            onClick={() => handleMenuSelect(item.action)}
+                            className="block w-full px-4 py-2 text-left hover:bg-blue-50 first:rounded-t-xl last:rounded-b-xl transition"
+                          >
+                            {item.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                  <button
-                    onClick={() => navigate(user.role === 'seller' ? '/seller' : '/dashboard')}
-                    className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition"
-                  >
-                    Quay về bảng điều khiển
-                  </button>
+                  
+                  {user.role === 'bidder' && (
+                    <button
+                      onClick={() => navigate('/dashboard')}
+                      className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition"
+                    >
+                      Quay về bảng điều khiển
+                    </button>
+                  )}
                 </>
               ) : (
                 <>
