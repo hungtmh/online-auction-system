@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { authAPI, setAccessToken } from '../services/api'
+import { useDialog } from '../context/DialogContext.jsx'
 
 function LoginPage() {
   const navigate = useNavigate()
@@ -13,15 +14,24 @@ function LoginPage() {
   const [showOTPModal, setShowOTPModal] = useState(false)
   const [otpCode, setOtpCode] = useState('')
   const [otpLoading, setOtpLoading] = useState(false)
+  const { alert } = useDialog()
 
   const handleResendVerification = async () => {
     setResendLoading(true)
     try {
       await authAPI.resendOTP(email)
-      alert('✅ Mã OTP mới đã được gửi! Vui lòng kiểm tra email.')
+      await alert({
+        icon: '✅',
+        title: 'Đã gửi mã OTP',
+        message: 'Mã OTP mới đã được gửi! Vui lòng kiểm tra email.',
+      })
       setShowOTPModal(true)
     } catch (err) {
-      alert('❌ Không thể gửi OTP. Vui lòng thử lại.')
+      await alert({
+        icon: '⚠️',
+        title: 'Không thể gửi OTP',
+        message: 'Vui lòng thử lại.',
+      })
     } finally {
       setResendLoading(false)
     }
@@ -42,7 +52,11 @@ function LoginPage() {
       const data = await authAPI.verifyOTP(email, otpCode)
 
       if (data.success) {
-        alert('✅ Xác thực thành công! Vui lòng đăng nhập lại.')
+        await alert({
+          icon: '✅',
+          title: 'Xác thực thành công',
+          message: 'Vui lòng đăng nhập lại.',
+        })
         setShowOTPModal(false)
         setNeedsVerification(false)
         setOtpCode('')
@@ -68,6 +82,9 @@ function LoginPage() {
         
         // ✅ Reload page để App.jsx re-fetch user và route đúng dashboard
         const role = data.user?.role
+        console.log('🔍 Login successful, role:', role)
+        
+        // Force full page reload để App.jsx fetch lại user data
         switch (role) {
           case 'admin':
             window.location.href = '/admin'

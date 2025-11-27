@@ -208,3 +208,5 @@ export default function ProductDetailPage({ user }) {
     </div>
   )
 }
+
+export default ProductDetailPage;
