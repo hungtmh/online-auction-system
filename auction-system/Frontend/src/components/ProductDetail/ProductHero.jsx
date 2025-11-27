@@ -39,6 +39,11 @@ function InfoTag({ label, value }) {
 export default function ProductHero({ product }) {
   const gallery = resolveImages(product)
   const category = product?.categories?.name
+  const sellerName = product?.seller?.full_name || product?.seller_name || 'Ẩn danh'
+  const sellerPositive =
+    product?.seller?.rating_positive ?? product?.seller_rating_positive ?? product?.seller_rating ?? 0
+  const sellerNegative =
+    product?.seller?.rating_negative ?? product?.seller_rating_negative ?? product?.seller_rating_bad ?? 0
 
   return (
     <section className="bg-white rounded-2xl shadow-sm p-6 mb-6">
@@ -85,9 +90,9 @@ export default function ProductHero({ product }) {
 
           <div className="border-t pt-4 mt-4">
             <p className="text-sm text-gray-500">Người bán</p>
-            <p className="font-semibold text-gray-900">{product?.seller?.full_name || 'Ẩn danh'}</p>
+            <p className="font-semibold text-gray-900">{sellerName}</p>
             <p className="text-sm text-gray-500">
-              Điểm đánh giá: +{product?.seller?.rating_positive || 0} / -{product?.seller?.rating_negative || 0}
+              Điểm đánh giá: +{sellerPositive} / -{sellerNegative}
             </p>
           </div>
         </div>

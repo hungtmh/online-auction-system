@@ -15,7 +15,9 @@ import {
   removeFromWatchlist,
   getWatchlist,
   getBidHistory,
-  askSellerQuestion
+  askSellerQuestion,
+  getCheckoutOrder,
+  upsertCheckoutOrder
 } from '../controllers/bidderController.js'
 
 const router = express.Router()
@@ -82,5 +84,11 @@ router.get('/products/:id/bids', getBidHistory)
  * @access  Private (Bidder)
  */
 router.post('/products/:id/questions', askSellerQuestion)
+
+/**
+ * Checkout routes
+ */
+router.get('/orders/:productId', getCheckoutOrder)
+router.post('/orders', upsertCheckoutOrder)
 
 export default router

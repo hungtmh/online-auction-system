@@ -4,11 +4,11 @@ import guestAPI from '../services/guestAPI'
 import bidderAPI from '../services/bidderAPI'
 import ProductHero from '../components/ProductDetail/ProductHero'
 import BidActionPanel from '../components/ProductDetail/BidActionPanel'
-import WinnerPaymentCard from '../components/ProductDetail/WinnerPaymentCard'
 import BidHistory from '../components/ProductDetail/BidHistory'
 import QuestionsSection from '../components/ProductDetail/QuestionsSection'
 import AskSellerForm from '../components/ProductDetail/AskSellerForm'
 import AppHeader from '../components/common/AppHeader'
+import 'quill/dist/quill.snow.css'
 
 const MODES = {
   ACTIVE: 'ACTIVE',
@@ -61,8 +61,23 @@ export default function ProductDetailPage({ user }) {
     return MODES.ACTIVE
   }, [product, user])
 
+  useEffect(() => {
+    if (mode === MODES.WINNER_PAYMENT && id) {
+      navigate(`/products/${id}/checkout`, { replace: true })
+    }
+  }, [mode, id, navigate])
+
   const handleLoginRedirect = () => {
     navigate(`/login?redirect=${encodeURIComponent(location.pathname)}`)
+  }
+
+  const handleNavigateBack = () => {
+    // Prefer history back but fall back to auctions list if no history stack
+    if (window.history.length > 1) {
+      navigate(-1)
+    } else {
+      navigate('/auctions')
+    }
   }
 
   const handlePlaceBid = async (amount) => {
@@ -135,8 +150,17 @@ export default function ProductDetailPage({ user }) {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <AppHeader user={user} showSearch={true} onLogout={true} />
+      <AppHeader user={user} showSearch={true} />
       <div className="max-w-6xl mx-auto px-4 lg:px-0 py-8">
+
+        <button
+          type="button"
+          onClick={handleNavigateBack}
+          className="mb-6 inline-flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-slate-900"
+        >
+          <span aria-hidden="true">←</span>
+          Quay lại
+        </button>
 
         <div id="overview">
           <ProductHero product={product} />
@@ -150,13 +174,23 @@ export default function ProductDetailPage({ user }) {
 
             <section id="description" className="bg-white rounded-2xl shadow-sm p-6 space-y-4">
               <h3 className="text-lg font-semibold text-gray-900">Chi tiết sản phẩm</h3>
-              <p className="text-gray-600 leading-relaxed">
-                {product.description || 'Người bán chưa cung cấp thêm thông tin.'}
-              </p>
+              <div className="ql-editor ql-snow" style={{ padding: 0, border: 'none' }}>
+                <div 
+                  className="text-gray-600 leading-relaxed"
+                  dangerouslySetInnerHTML={{ 
+                    __html: product.description || '<p>Người bán chưa cung cấp thêm thông tin.</p>' 
+                  }}
+                />
+              </div>
               {product.product_descriptions?.length > 0 && (
-                <div className="text-sm text-gray-500 space-y-2">
+                <div className="text-sm text-gray-500 space-y-2 mt-4 pt-4 border-t">
                   {product.product_descriptions.map((desc, idx) => (
-                    <p key={idx}>{desc.description || ''}</p>
+                    <div 
+                      key={idx}
+                      className="ql-editor"
+                      style={{ padding: 0, border: 'none' }}
+                      dangerouslySetInnerHTML={{ __html: desc.description || '' }}
+                    />
                   ))}
                 </div>
               )}
@@ -177,8 +211,6 @@ export default function ProductDetailPage({ user }) {
               bidSubmitting={bidSubmitting}
               actionMessage={actionMessage}
             />
-
-            {mode === MODES.WINNER_PAYMENT && <WinnerPaymentCard product={product} order={product.order} />}
 
             <section id="ask-seller">
               {user?.role === 'bidder' ? (

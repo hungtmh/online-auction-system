@@ -503,3 +503,173 @@ export const askSellerQuestion = async (req, res) => {
     })
   }
 }
+
+/**
+ * @route   GET /api/bidder/orders/:productId
+ * @desc    Lấy thông tin checkout của sản phẩm đã thắng
+ * @access  Private (Bidder)
+ */
+export const getCheckoutOrder = async (req, res) => {
+  try {
+    const { productId } = req.params
+    const bidderId = req.user.id
+
+    if (!productId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Thiếu mã sản phẩm'
+      })
+    }
+
+    const { data: product, error: productError } = await supabase
+      .from('products')
+      .select('id, name, description, thumbnail_url, current_price, final_price, status, winner_id, seller_id, end_time, bid_count')
+      .eq('id', productId)
+      .single()
+
+    if (productError || !product) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy sản phẩm'
+      })
+    }
+
+    if (product.winner_id !== bidderId) {
+      return res.status(403).json({
+        success: false,
+        message: 'Bạn không phải là người thắng cuộc của sản phẩm này'
+      })
+    }
+
+    const { data: seller } = await supabase
+      .from('profiles')
+      .select('id, full_name, phone_number, address')
+      .eq('id', product.seller_id)
+      .maybeSingle()
+
+    const { data: order, error: orderError } = await supabase
+      .from('orders')
+      .select('*')
+      .eq('product_id', productId)
+      .maybeSingle()
+
+    if (orderError) throw orderError
+
+    res.json({
+      success: true,
+      data: {
+        product: {
+          ...product,
+          seller_name: seller?.full_name || null,
+          seller_phone: seller?.phone_number || null,
+          seller_address: seller?.address || null
+        },
+        order: order || null
+      }
+    })
+  } catch (error) {
+    console.error('❌ Error getting checkout order:', error)
+    res.status(500).json({
+      success: false,
+      message: 'Không thể tải thông tin thanh toán'
+    })
+  }
+}
+
+/**
+ * @route   POST /api/bidder/orders
+ * @desc    Lưu thông tin checkout (địa chỉ giao hàng, chứng từ)
+ * @access  Private (Bidder)
+ */
+export const upsertCheckoutOrder = async (req, res) => {
+  try {
+    const { product_id, shipping_address, payment_proof_url } = req.body
+    const bidderId = req.user.id
+
+    if (!product_id || !shipping_address || !shipping_address.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Vui lòng cung cấp đầy đủ thông tin thanh toán'
+      })
+    }
+
+    const { data: product, error: productError } = await supabase
+      .from('products')
+      .select('id, seller_id, winner_id, current_price, starting_price, final_price, status, end_time')
+      .eq('id', product_id)
+      .single()
+
+    if (productError || !product) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy sản phẩm'
+      })
+    }
+
+    if (product.winner_id !== bidderId) {
+      return res.status(403).json({
+        success: false,
+        message: 'Bạn không phải là người thắng cuộc của sản phẩm này'
+      })
+    }
+
+    const normalizedAddress = shipping_address.trim()
+    const finalPrice = Number(product.final_price || product.current_price || product.starting_price || 0)
+
+    const { data: existingOrder, error: existingError } = await supabase
+      .from('orders')
+      .select('*')
+      .eq('product_id', product_id)
+      .maybeSingle()
+
+    if (existingError) throw existingError
+
+    let savedOrder = existingOrder
+    const paymentProof = payment_proof_url?.trim() ? payment_proof_url.trim() : null
+
+    if (existingOrder) {
+      const { data: updatedOrder, error: updateError } = await supabase
+        .from('orders')
+        .update({
+          shipping_address: normalizedAddress,
+          payment_proof_url: paymentProof || existingOrder.payment_proof_url || null,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', existingOrder.id)
+        .select('*')
+        .single()
+
+      if (updateError) throw updateError
+      savedOrder = updatedOrder
+    } else {
+      const { data: insertedOrder, error: insertError } = await supabase
+        .from('orders')
+        .insert({
+          product_id,
+          seller_id: product.seller_id,
+          buyer_id: bidderId,
+          final_price: finalPrice,
+          shipping_address: normalizedAddress,
+          payment_proof_url: paymentProof,
+          status: 'pending_payment'
+        })
+        .select('*')
+        .single()
+
+      if (insertError) throw insertError
+      savedOrder = insertedOrder
+    }
+
+    res.json({
+      success: true,
+      message: 'Đã lưu thông tin thanh toán',
+      data: savedOrder
+    })
+  } catch (error) {
+    console.error('❌ Error saving checkout order:', error)
+    res.status(500).json({
+      success: false,
+      message: 'Không thể lưu thông tin thanh toán'
+    })
+  }
+}
