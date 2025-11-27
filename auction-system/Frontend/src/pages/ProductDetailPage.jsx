@@ -209,4 +209,3 @@ export default function ProductDetailPage({ user }) {
   )
 }
 
-export default ProductDetailPage;
