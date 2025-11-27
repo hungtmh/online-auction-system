@@ -68,13 +68,13 @@ function App() {
       case 'admin':
         return <AdminDashboard />      // Thắng phụ trách
       case 'seller':
-        return <SellerDashboard />     // Cường phụ trách
+        return <GuestHomePage user={user} />     // Cường phụ trách - Seller mặc định vào guest page với navbar riêng
       case 'bidder':
         return <BidderDashboard />     // Khoa phụ trách
       default:
         return <GuestHomePage />       // Khải phụ trách
     }
-  }
+  }   
 
   return (
     <Router>
@@ -93,6 +93,8 @@ function App() {
           {/* Dashboard route - redirect theo role */}
           <Route path="/dashboard" element={getDashboardByRole()} />
 
+
+
           {/* Route riêng cho từng role (nếu muốn truy cập trực tiếp) */}
           <Route 
             path="/admin" 
@@ -100,6 +102,22 @@ function App() {
           />
           <Route 
             path="/seller" 
+            element={user?.role === 'seller' ? <GuestHomePage user={user} /> : <Navigate to="/" />} 
+          />
+          <Route 
+            path="/seller/profile" 
+            element={user?.role === 'seller' ? <SellerDashboard /> : <Navigate to="/" />} 
+          />
+          <Route 
+            path="/seller/my-products" 
+            element={user?.role === 'seller' ? <SellerDashboard /> : <Navigate to="/" />} 
+          />
+          <Route 
+            path="/seller/add-product" 
+            element={user?.role === 'seller' ? <SellerDashboard /> : <Navigate to="/" />} 
+          />
+          <Route 
+            path="/seller/sales" 
             element={user?.role === 'seller' ? <SellerDashboard /> : <Navigate to="/" />} 
           />
           <Route 

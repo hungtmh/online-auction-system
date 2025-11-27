@@ -1,5 +1,5 @@
 ﻿import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import guestAPI from '../../services/guestAPI'
 import { authAPI, clearAccessToken } from '../../services/api'
 import DashboardHeader from './components/DashboardHeader'
@@ -19,12 +19,28 @@ const TAB_TITLES = {
 
 const SellerDashboard = () => {
   const navigate = useNavigate()
+  const location = useLocation()
   const [user, setUser] = useState(null)
   const [profileError, setProfileError] = useState(null)
-  const [activeTab, setActiveTab] = useState(DEFAULT_ACTIVE_TAB)
+  
+  // Get activeTab from URL path
+  const getActiveTabFromPath = () => {
+    const path = location.pathname;
+    if (path.includes('/profile')) return 'profile';
+    if (path.includes('/my-products')) return 'my-products';
+    if (path.includes('/add-product')) return 'add-product';
+    if (path.includes('/sales')) return 'sales';
+    return DEFAULT_ACTIVE_TAB;
+  };
+  
+  const [activeTab, setActiveTab] = useState(getActiveTabFromPath())
   const [categories, setCategories] = useState([])
   const [loadingCategories, setLoadingCategories] = useState(true)
   const currentTabTitle = useMemo(() => TAB_TITLES[activeTab] || 'Khu vực quản lý', [activeTab])
+  
+  useEffect(() => {
+    setActiveTab(getActiveTabFromPath());
+  }, [location.pathname]);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -96,6 +112,10 @@ const SellerDashboard = () => {
   const goToMarketplace = () => {
     navigate('/auctions')
   }
+  
+  const handleSelectTab = (tab) => {
+    navigate(`/seller/${tab}`);
+  };
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -104,7 +124,7 @@ const SellerDashboard = () => {
         profileError={profileError}
         onLogout={handleLogout}
         onGoToMarketplace={goToMarketplace}
-        onSelectTab={setActiveTab}
+        onSelectTab={handleSelectTab}
       />
 
       <main className="container mx-auto px-6 py-8">

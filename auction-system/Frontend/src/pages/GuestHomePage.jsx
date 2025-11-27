@@ -1,9 +1,9 @@
 ﻿import GuestHomePageContent from "../components/GuestHomePage/GuestHomePageContent";
 
-function GuestHomePage() {
+function GuestHomePage({ user }) {
   return (
     <div>
-      <GuestHomePageContent />
+      <GuestHomePageContent user={user} />
     </div>
   );
 }
