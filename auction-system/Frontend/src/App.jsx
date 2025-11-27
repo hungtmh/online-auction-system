@@ -108,7 +108,7 @@ function App() {
 
           {/* Route for auction list - Tất cả user đều xem được */}
           <Route path="/auctions" element={<AuctionListPage user={user} />} />
-          <Route path="/products/:id" element={<ProductDetailPage />} />
+          <Route path="/products/:id" element={<ProductDetailPage user={user} />} />
 
           {/* 404 Route */}
           <Route path="*" element={

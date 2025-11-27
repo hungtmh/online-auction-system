@@ -8,6 +8,7 @@ function formatCurrency(v) {
   } catch (e) {
     return (v || 0) + " đ";
   }
+  return `${amount.toLocaleString("vi-VN")} đ`;
 }
 
 function timeLeftLabel(endAt) {
@@ -45,6 +46,9 @@ export default function ProductCard({ product }) {
   const isNew = createdAt ? (Date.now() - createdAt.getTime()) / 60000 < 60 : false;
 
   const productUrl = `/products/${product.id}`;
+  const displayName = product.title || product.name || "Sản phẩm";
+  const description = product.short_description || product.description || "";
+  const endingLabel = timeLeftLabel(product.end_time);
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-2xl transition-all duration-300 group">
