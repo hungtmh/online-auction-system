@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import { authAPI, clearAccessToken } from "../../services/api";
 
 function SellerMarketplaceNavbar({ user }) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -20,6 +21,16 @@ function SellerMarketplaceNavbar({ user }) {
   const handleMenuSelect = (action) => {
     navigate(`/seller/${action}`);
     setMenuOpen(false);
+  };
+
+  const handleLogout = async () => {
+    try {
+      await authAPI.logout();
+      clearAccessToken();
+      window.location.href = '/';
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
   };
 
   const menuItems = [
@@ -101,6 +112,14 @@ function SellerMarketplaceNavbar({ user }) {
                 </div>
               )}
             </div>
+            
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition"
+            >
+              Đăng xuất
+            </button>
           </div>
         </div>
       </div>
