@@ -230,6 +230,7 @@ export const getProfile = async (req, res) => {
         email: user.email,
         full_name: profile?.full_name || user.user_metadata?.full_name,
         role: profile?.role || 'bidder',
+        avatar_url: profile?.avatar_url || null,
         rating_positive: profile?.rating_positive || 0,
         rating_negative: profile?.rating_negative || 0
       }

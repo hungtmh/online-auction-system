@@ -14,15 +14,22 @@ import {
   deleteProduct,
   getProductBids,
   getSalesStats,
-  uploadProductImage
+  uploadProductImage,
+  getSellerProfile,
+  updateSellerProfile,
+  uploadSellerAvatar
 } from '../controllers/sellerController.js'
-import { productImageUpload } from '../utils/upload.js'
+import { productImageUpload, avatarImageUpload } from '../utils/upload.js'
 
 const router = express.Router()
 
 // Tất cả routes cần authentication và role = seller
 router.use(authenticateToken)
 router.use(requireRole('seller'))
+
+router.get('/profile', getSellerProfile)
+router.put('/profile', updateSellerProfile)
+router.post('/profile/avatar', avatarImageUpload.single('avatar'), uploadSellerAvatar)
 
 /**
  * @route   POST /api/seller/uploads/images

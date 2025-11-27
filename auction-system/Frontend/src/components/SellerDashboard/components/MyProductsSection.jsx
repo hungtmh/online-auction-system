@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import sellerAPI from '../../../services/sellerAPI'
 
 const STATUS_TABS = [
@@ -26,6 +27,7 @@ const formatDateTime = (value) =>
   }).format(new Date(value))
 
 const MyProductsSection = () => {
+  const navigate = useNavigate()
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -98,7 +100,19 @@ const MyProductsSection = () => {
 
       <div className="grid gap-4 lg:grid-cols-2">
         {products.map((product) => (
-          <article key={product.id} className="flex gap-4 rounded-xl border border-slate-100 p-4 shadow-sm">
+          <article
+            key={product.id}
+            role="button"
+            tabIndex={0}
+            onClick={() => navigate(`/products/${product.id}`)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault()
+                navigate(`/products/${product.id}`)
+              }
+            }}
+            className="flex gap-4 rounded-xl border border-slate-100 p-4 shadow-sm transition hover:border-emerald-200 hover:shadow-md focus:border-emerald-300 focus:outline-none focus:ring-2 focus:ring-emerald-200 cursor-pointer"
+          >
             <img
               src={product.thumbnail_url || product.images?.[0]}
               alt={product.name}

@@ -1,19 +1,30 @@
-﻿import { useEffect, useState } from 'react'
+﻿import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import guestAPI from '../../services/guestAPI'
 import { authAPI, clearAccessToken } from '../../services/api'
 import DashboardHeader from './components/DashboardHeader'
-import DashboardTabs from './components/DashboardTabs'
 import EmptySection from './components/EmptySection'
 import MyProductsSection from './components/MyProductsSection'
 import ProductCreation from './ProductCreation/ProductCreation'
-import { DEFAULT_ACTIVE_TAB, TAB_CONFIG, TAB_PLACEHOLDERS } from './constants'
+import SellerProfileSection from './components/SellerProfileSection'
+import SalesOverviewSection from './components/SalesOverviewSection'
+import { DEFAULT_ACTIVE_TAB, TAB_PLACEHOLDERS } from './constants'
+
+const TAB_TITLES = {
+  profile: 'Hồ sơ cá nhân',
+  'my-products': 'Sản phẩm của tôi',
+  'add-product': 'Đăng sản phẩm mới',
+  sales: 'Thống kê doanh thu'
+}
 
 const SellerDashboard = () => {
+  const navigate = useNavigate()
   const [user, setUser] = useState(null)
   const [profileError, setProfileError] = useState(null)
   const [activeTab, setActiveTab] = useState(DEFAULT_ACTIVE_TAB)
   const [categories, setCategories] = useState([])
   const [loadingCategories, setLoadingCategories] = useState(true)
+  const currentTabTitle = useMemo(() => TAB_TITLES[activeTab] || 'Khu vực quản lý', [activeTab])
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -54,24 +65,65 @@ const SellerDashboard = () => {
     }
   }
 
+  const handleProfileSync = (profile) => {
+    setUser((prev) => ({
+      ...prev,
+      full_name: profile?.full_name ?? prev?.full_name,
+      avatar_url: profile?.avatar_url ?? prev?.avatar_url
+    }))
+  }
+
   const renderTabContent = () => {
-    if (activeTab === 'add-product') {
-      return <ProductCreation categories={categories} loadingCategories={loadingCategories} />
+    if (activeTab === 'profile') {
+      return <SellerProfileSection onProfileChange={handleProfileSync} />
     }
 
     if (activeTab === 'my-products') {
       return <MyProductsSection />
     }
 
-    return <EmptySection message={TAB_PLACEHOLDERS[activeTab]} />
+    if (activeTab === 'add-product') {
+      return <ProductCreation categories={categories} loadingCategories={loadingCategories} />
+    }
+
+    if (activeTab === 'sales') {
+      return <SalesOverviewSection />
+    }
+
+    return <EmptySection message={TAB_PLACEHOLDERS[activeTab] || TAB_PLACEHOLDERS.default} />
+  }
+  
+  const goToMarketplace = () => {
+    navigate('/auctions')
   }
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <DashboardHeader user={user} profileError={profileError} onLogout={handleLogout} />
+      <DashboardHeader
+        user={user}
+        profileError={profileError}
+        onLogout={handleLogout}
+        onGoToMarketplace={goToMarketplace}
+        onSelectTab={setActiveTab}
+      />
 
       <main className="container mx-auto px-6 py-8">
-        <DashboardTabs tabs={TAB_CONFIG} activeTab={activeTab} onChange={setActiveTab} />
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <p className="text-sm uppercase tracking-[0.3em] text-slate-400">KHU VỰC</p>
+            <h2 className="text-2xl font-semibold text-slate-800">{currentTabTitle}</h2>
+          </div>
+          <button
+            type="button"
+            onClick={goToMarketplace}
+            className="flex items-center gap-2 rounded-full bg-slate-900 px-5 py-2 text-sm font-semibold text-white shadow hover:bg-slate-700"
+          >
+            <span role="img" aria-hidden="true">
+              🚀
+            </span>
+            Khám phá
+          </button>
+        </div>
 
         <section className="rounded-xl bg-white p-6 shadow-md">{renderTabContent()}</section>
       </main>

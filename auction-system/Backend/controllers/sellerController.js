@@ -11,7 +11,7 @@
 
 import { supabase } from '../config/supabase.js'
 import { getSystemSettingMap } from '../utils/systemSettings.js'
-import { uploadBufferToProductBucket } from '../utils/upload.js'
+import { uploadBufferToProductBucket, uploadBufferToAvatarBucket } from '../utils/upload.js'
 
 /**
  * @route   POST /api/seller/products
@@ -529,6 +529,95 @@ export const getSalesStats = async (req, res) => {
       success: false,
       message: 'Không thể lấy thống kê'
     })
+  }
+}
+
+export const getSellerProfile = async (req, res) => {
+  try {
+    const sellerId = req.user.id
+
+    const { data: profile, error } = await supabase
+      .from('profiles')
+      .select('id, email, full_name, avatar_url, rating_positive, rating_negative, role')
+      .eq('id', sellerId)
+      .single()
+
+    if (error || !profile) {
+      return res.status(404).json({ success: false, message: 'Không tìm thấy hồ sơ.' })
+    }
+
+    res.json({ success: true, data: profile })
+  } catch (error) {
+    console.error('❌ Error getting seller profile:', error)
+    res.status(500).json({ success: false, message: 'Không thể tải hồ sơ người bán.' })
+  }
+}
+
+export const updateSellerProfile = async (req, res) => {
+  try {
+    const sellerId = req.user.id
+    const { full_name } = req.body
+
+    const trimmedName = full_name?.trim()
+    if (!trimmedName) {
+      return res.status(400).json({ success: false, message: 'Tên hiển thị không được bỏ trống.' })
+    }
+
+    const updates = {
+      full_name: trimmedName,
+      updated_at: new Date().toISOString()
+    }
+
+    const { data: profile, error } = await supabase
+      .from('profiles')
+      .update(updates)
+      .eq('id', sellerId)
+      .select('id, email, full_name, avatar_url, rating_positive, rating_negative, role')
+      .single()
+
+    if (error) throw error
+
+    try {
+      await supabase.auth.admin.updateUserById(sellerId, {
+        user_metadata: { full_name: trimmedName }
+      })
+    } catch (adminError) {
+      console.warn('⚠️  Không thể đồng bộ tên với Supabase Auth:', adminError.message)
+    }
+
+    res.json({ success: true, message: 'Cập nhật hồ sơ thành công.', data: profile })
+  } catch (error) {
+    console.error('❌ Error updating seller profile:', error)
+    res.status(500).json({ success: false, message: 'Không thể cập nhật hồ sơ.' })
+  }
+}
+
+export const uploadSellerAvatar = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'Không tìm thấy file cần upload.' })
+    }
+
+    const sellerId = req.user.id
+    const { buffer, mimetype } = req.file
+
+    const { publicUrl } = await uploadBufferToAvatarBucket({
+      buffer,
+      mimetype,
+      userId: sellerId
+    })
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({ avatar_url: publicUrl, updated_at: new Date().toISOString() })
+      .eq('id', sellerId)
+
+    if (error) throw error
+
+    res.json({ success: true, data: { avatar_url: publicUrl } })
+  } catch (error) {
+    console.error('❌ Error uploading seller avatar:', error)
+    res.status(500).json({ success: false, message: 'Không thể upload ảnh đại diện.' })
   }
 }
 

@@ -8,6 +8,24 @@
 import api from './api'
 
 const sellerAPI = {
+  getProfile: async () => {
+    const response = await api.get('/seller/profile')
+    return response.data
+  },
+
+  updateProfile: async (payload) => {
+    const response = await api.put('/seller/profile', payload)
+    return response.data
+  },
+
+  uploadAvatar: async (file) => {
+    const formData = new FormData()
+    formData.append('avatar', file)
+
+    const response = await api.post('/seller/profile/avatar', formData)
+    return response.data
+  },
+
   /**
    * Đăng sản phẩm mới
    * @param {Object} productData

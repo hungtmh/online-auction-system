@@ -5,7 +5,7 @@ import ProductCard from "../GuestHomePage/ProductCard";
 import CategoryMenu from "../GuestHomePage/CategoryMenu";
 import SearchBar from "../GuestHomePage/SearchBar";
 
-function AuctionListPageContent() {
+function AuctionListPageContent({ user }) {
   const [auctions, setAuctions] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -94,12 +94,38 @@ function AuctionListPageContent() {
             </div>
 
             <div className="flex items-center gap-4">
-              <button onClick={() => navigate("/login")} className="px-4 py-2 text-sm font-medium text-blue-600">
-                Đăng nhập
-              </button>
-              <button onClick={() => navigate("/register")} className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg">
-                Đăng ký
-              </button>
+              {user ? (
+                <>
+                  <div className="flex items-center gap-2 px-4 py-2 bg-gray-100 rounded-lg">
+                    <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold">
+                      {user.avatar_url ? (
+                        <img src={user.avatar_url} alt="Avatar" className="w-full h-full rounded-full object-cover" />
+                      ) : (
+                        user.full_name?.charAt(0)?.toUpperCase() || 'U'
+                      )}
+                    </div>
+                    <div className="hidden sm:block">
+                      <div className="text-sm font-medium text-gray-800">{user.full_name || user.email}</div>
+                      <div className="text-xs text-gray-500 capitalize">{user.role === 'seller' ? 'Seller' : 'Bidder'}</div>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => navigate(user.role === 'seller' ? '/seller' : '/dashboard')}
+                    className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition"
+                  >
+                    Quay về bảng điều khiển
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button onClick={() => navigate("/login")} className="px-4 py-2 text-sm font-medium text-blue-600">
+                    Đăng nhập
+                  </button>
+                  <button onClick={() => navigate("/register")} className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg">
+                    Đăng ký
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>
