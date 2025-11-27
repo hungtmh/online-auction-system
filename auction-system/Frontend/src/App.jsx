@@ -70,7 +70,7 @@ function App() {
       case 'seller':
         return <GuestHomePage user={user} />     // Cường phụ trách - Seller mặc định vào guest page với navbar riêng
       case 'bidder':
-        return <BidderDashboard />     // Khoa phụ trách
+        return <GuestHomePage user={user} />     // Khoa phụ trách - Bidder cũng vào trang chủ mới
       default:
         return <GuestHomePage />       // Khải phụ trách
     }

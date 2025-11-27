@@ -293,3 +293,34 @@ export const getFeaturedProducts = async (req, res) => {
     res.status(500).json({ success: false, message: "Không thể lấy sản phẩm nổi bật" });
   }
 };
+
+/**
+ * GET /api/guest/sellers/:id
+ * Public seller profile lookup for displaying seller info alongside products.
+ */
+export const getSellerProfile = async (req, res) => {
+  try {
+    const { id } = req.params
+
+    if (!id) {
+      return res.status(400).json({ success: false, message: 'Thiếu mã người bán' })
+    }
+
+    const { data: seller, error } = await supabase
+      .from('profiles')
+      .select('id, full_name, rating_positive, rating_negative, phone, address')
+      .eq('id', id)
+      .maybeSingle()
+
+    if (error) throw error
+
+    if (!seller) {
+      return res.status(404).json({ success: false, message: 'Không tìm thấy người bán' })
+    }
+
+    res.json({ success: true, data: seller })
+  } catch (error) {
+    console.error('❌ Error getting seller profile:', error)
+    res.status(500).json({ success: false, message: 'Không thể lấy thông tin người bán' })
+  }
+};

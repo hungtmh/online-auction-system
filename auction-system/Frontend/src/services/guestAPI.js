@@ -56,6 +56,15 @@ const guestAPI = {
     const response = await axios.get(`${API_BASE}/guest/featured`);
     return response.data;
   },
+
+  /**
+   * Lấy thông tin người bán công khai
+   * @param {string} sellerId
+   */
+  getSellerProfile: async (sellerId) => {
+    const response = await axios.get(`${API_BASE}/guest/sellers/${sellerId}`);
+    return response.data;
+  }
 };
 
 export default guestAPI;

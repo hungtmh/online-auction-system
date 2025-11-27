@@ -17,8 +17,10 @@ import {
   getBidHistory,
   askSellerQuestion,
   getCheckoutOrder,
-  upsertCheckoutOrder
+  upsertCheckoutOrder,
+  uploadPaymentProofImage
 } from '../controllers/bidderController.js'
+import { paymentProofUpload } from '../utils/upload.js'
 
 const router = express.Router()
 
@@ -90,5 +92,6 @@ router.post('/products/:id/questions', askSellerQuestion)
  */
 router.get('/orders/:productId', getCheckoutOrder)
 router.post('/orders', upsertCheckoutOrder)
+router.post('/uploads/payment-proof', paymentProofUpload.single('proof'), uploadPaymentProofImage)
 
 export default router

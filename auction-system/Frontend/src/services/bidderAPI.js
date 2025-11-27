@@ -103,6 +103,13 @@ const bidderAPI = {
   submitCheckoutOrder: async (payload) => {
   const response = await api.post('/bidder/orders', payload)
     return response.data
+  },
+
+  uploadPaymentProof: async (file) => {
+    const formData = new FormData()
+    formData.append('proof', file)
+    const response = await api.post('/bidder/uploads/payment-proof', formData)
+    return response.data
   }
 }
 

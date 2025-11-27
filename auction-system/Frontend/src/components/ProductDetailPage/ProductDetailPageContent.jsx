@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import guestAPI from '../../services/guestAPI'
 import AppHeader from '../common/AppHeader'
@@ -53,6 +53,39 @@ export default function ProductDetailPageContent({ user = null }) {
     if (!product) return
     setShippingAddress(product.order?.shipping_address || currentUser?.address || '')
   }, [product, currentUser])
+
+  const fetchSellerProfile = useCallback(async (sellerId) => {
+    if (!sellerId) return null
+    try {
+      const res = await guestAPI.getSellerProfile(sellerId)
+      return res?.data || res
+    } catch (error) {
+      console.error('Failed to fetch seller profile:', error)
+      return null
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!product || product.seller_name || !product.seller_id) return
+    let active = true
+    fetchSellerProfile(product.seller_id).then((profile) => {
+      if (!active || !profile) return
+      setProduct((prev) => {
+        if (!prev) return prev
+        return {
+          ...prev,
+          seller_name: profile.full_name,
+          seller_rating_positive: profile.rating_positive,
+          seller_rating_negative: profile.rating_negative,
+          seller_phone: profile.phone,
+          seller_address: profile.address
+        }
+      })
+    })
+    return () => {
+      active = false
+    }
+  }, [product, fetchSellerProfile])
 
   async function loadProduct() {
     setLoading(true)

@@ -11,6 +11,7 @@
 
 import { supabase } from '../config/supabase.js'
 import { getSystemSettingMap } from '../utils/systemSettings.js'
+import { uploadBufferToPaymentProofBucket } from '../utils/upload.js'
 
 /**
  * @route   GET /api/bidder/products
@@ -543,7 +544,7 @@ export const getCheckoutOrder = async (req, res) => {
 
     const { data: seller } = await supabase
       .from('profiles')
-      .select('id, full_name, phone_number, address')
+      .select('id, full_name, phone, address')
       .eq('id', product.seller_id)
       .maybeSingle()
 
@@ -561,7 +562,7 @@ export const getCheckoutOrder = async (req, res) => {
         product: {
           ...product,
           seller_name: seller?.full_name || null,
-          seller_phone: seller?.phone_number || null,
+          seller_phone: seller?.phone || null,
           seller_address: seller?.address || null
         },
         order: order || null
@@ -671,5 +672,38 @@ export const upsertCheckoutOrder = async (req, res) => {
       success: false,
       message: 'Không thể lưu thông tin thanh toán'
     })
+  }
+}
+
+/**
+ * @route   POST /api/bidder/uploads/payment-proof
+ * @desc    Upload ảnh chứng từ thanh toán
+ * @access  Private (Bidder)
+ */
+export const uploadPaymentProofImage = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'Không tìm thấy file cần upload' })
+    }
+
+    const bidderId = req.user.id
+    const { buffer, mimetype } = req.file
+
+    const { filePath, publicUrl } = await uploadBufferToPaymentProofBucket({
+      buffer,
+      mimetype,
+      userId: bidderId
+    })
+
+    res.json({
+      success: true,
+      data: {
+        url: publicUrl,
+        path: filePath
+      }
+    })
+  } catch (error) {
+    console.error('❌ Error uploading payment proof:', error)
+    res.status(500).json({ success: false, message: 'Không thể upload chứng từ thanh toán' })
   }
 }

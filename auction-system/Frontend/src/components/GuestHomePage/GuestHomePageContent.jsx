@@ -6,6 +6,7 @@ import FeaturedProducts from "./FeaturedProducts";
 import SearchBar from "./SearchBar";
 import ProductCard from "./ProductCard";
 import SellerMarketplaceNavbar from "../common/SellerMarketplaceNavbar";
+import BidderMarketplaceNavbar from "../common/BidderMarketplaceNavbar";
 import heroImg from "../../assets/image/hero-auction.png";
 
 function GuestHomePageContent({ user }) {
@@ -53,6 +54,8 @@ function GuestHomePageContent({ user }) {
       {/* Top Header - Conditional based on user role */}
       {user?.role === 'seller' ? (
         <SellerMarketplaceNavbar user={user} />
+      ) : user ? (
+        <BidderMarketplaceNavbar user={user} />
       ) : (
         <header className="bg-white shadow-sm sticky top-0 z-50">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
