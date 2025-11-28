@@ -35,6 +35,12 @@ function createMailTransporter() {
  */
 export async function sendOTPEmail(email, otpCode, purpose = 'email_verification') {
   try {
+    // Kiểm tra cấu hình email
+    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
+      console.warn('⚠️ EMAIL_USER hoặc EMAIL_PASSWORD chưa được cấu hình')
+      return { success: false, error: 'Email chưa được cấu hình' }
+    }
+    
     const transporter = createMailTransporter()
 
     const purposeText = {

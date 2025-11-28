@@ -3,6 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import ReCAPTCHA from 'react-google-recaptcha'
 import { authAPI } from '../services/api'
 
+// Tạm thời bỏ qua reCAPTCHA trong development
+const isDevelopment = import.meta.env.DEV || (typeof window !== 'undefined' && window.location.hostname === 'localhost')
+
 function RegisterPage() {
   const navigate = useNavigate()
   const recaptchaRef = useRef(null)
@@ -45,8 +48,8 @@ function RegisterPage() {
       return
     }
 
-    // Validate reCAPTCHA
-    if (!recaptchaToken) {
+    // Validate reCAPTCHA (tạm thời bỏ qua trong development)
+    if (!isDevelopment && !recaptchaToken) {
       setError('Vui lòng xác nhận bạn không phải là robot!')
       setLoading(false)
       return
@@ -368,15 +371,17 @@ function RegisterPage() {
             </label>
           </div>
 
-          {/* reCAPTCHA */}
-          <div className="flex justify-center">
-            <ReCAPTCHA
-              ref={recaptchaRef}
-              sitekey="6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI" // Test key - thay bằng key thật khi deploy
-              onChange={(token) => setRecaptchaToken(token)}
-              onExpired={() => setRecaptchaToken(null)}
-            />
-          </div>
+          {/* reCAPTCHA - Tạm thời ẩn trong development */}
+          {!isDevelopment && (
+            <div className="flex justify-center">
+              <ReCAPTCHA
+                ref={recaptchaRef}
+                sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY || "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI"}
+                onChange={(token) => setRecaptchaToken(token)}
+                onExpired={() => setRecaptchaToken(null)}
+              />
+            </div>
+          )}
 
           <button
             type="submit"

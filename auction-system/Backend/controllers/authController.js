@@ -55,14 +55,28 @@ export const register = async (req, res) => {
       return res.status(400).json({ success: false, message: error.message })
     }
 
-    // Tạo profile trong database
-    await supabase.from('profiles').insert({
-      id: data.user.id,
-      email,
-      full_name,
-      address: address || null,
-      role: 'bidder'
-    })
+    // Tạo/cập nhật profile trong database (dùng upsert vì trigger có thể đã tạo profile)
+    const { error: profileUpsertError } = await supabase
+      .from('profiles')
+      .upsert({
+        id: data.user.id,
+        email,
+        full_name,
+        address: address || null,
+        role: 'bidder'
+      }, {
+        onConflict: 'id'
+      })
+
+    if (profileUpsertError) {
+      console.error('❌ Error upserting profile:', profileUpsertError)
+      // Xóa user đã tạo nếu upsert profile thất bại
+      await supabase.auth.admin.deleteUser(data.user.id)
+      return res.status(500).json({ 
+        success: false, 
+        message: 'Lỗi khi tạo tài khoản. Vui lòng thử lại.' 
+      })
+    }
 
     // ═══════════════════════════════════════════════════════════
     // GỬI OTP QUA EMAIL
@@ -75,20 +89,43 @@ export const register = async (req, res) => {
     const otpCode = generateOTP()
     
     // Lưu OTP vào database
-    const metadata = {
-      ip: req.ip || req.connection.remoteAddress,
-      userAgent: req.headers['user-agent']
+    try {
+      const metadata = {
+        ip: req.ip || req.connection.remoteAddress,
+        userAgent: req.headers['user-agent']
+      }
+      const saveOTPResult = await saveOTP(email, otpCode, 'email_verification', metadata)
+      if (saveOTPResult && !saveOTPResult.success) {
+        console.error('❌ Lỗi lưu OTP:', saveOTPResult.error)
+        // Không block đăng ký, có thể gửi lại sau
+      }
+    } catch (otpError) {
+      console.error('❌ Lỗi khi lưu OTP:', otpError)
+      // Không block đăng ký, có thể gửi lại sau
     }
-    await saveOTP(email, otpCode, 'email_verification', metadata)
     
     // Gửi OTP qua email
-    const emailResult = await sendOTPEmail(email, otpCode, 'email_verification')
-    
-    if (!emailResult.success) {
-      console.error('❌ Lỗi gửi OTP email:', emailResult.error)
+    try {
+      // Nếu không có cấu hình email, log OTP ra console để test
+      if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
+        console.log('⚠️ EMAIL_USER hoặc EMAIL_PASSWORD chưa được cấu hình')
+        console.log(`📧 OTP cho ${email}: ${otpCode}`)
+        console.log('💡 Để gửi email thật, hãy thêm EMAIL_USER và EMAIL_PASSWORD vào .env')
+      } else {
+        const emailResult = await sendOTPEmail(email, otpCode, 'email_verification')
+        
+        if (!emailResult.success) {
+          console.error('❌ Lỗi gửi OTP email:', emailResult.error)
+          console.log(`📧 OTP cho ${email} (fallback): ${otpCode}`)
+          // Không block đăng ký, có thể gửi lại sau
+        } else {
+          console.log(`✅ OTP sent to: ${email}`)
+        }
+      }
+    } catch (emailError) {
+      console.error('❌ Lỗi khi gửi email OTP:', emailError)
+      console.log(`📧 OTP cho ${email} (fallback): ${otpCode}`)
       // Không block đăng ký, có thể gửi lại sau
-    } else {
-      console.log(`✅ OTP sent to: ${email}`)
     }
 
     res.status(201).json({
@@ -99,7 +136,12 @@ export const register = async (req, res) => {
     })
   } catch (error) {
     console.error('Register error:', error)
-    res.status(500).json({ success: false, message: 'Lỗi server' })
+    console.error('Error stack:', error.stack)
+    res.status(500).json({ 
+      success: false, 
+      message: error.message || 'Lỗi server',
+      debug: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    })
   }
 }
 
@@ -148,9 +190,13 @@ export const login = async (req, res) => {
       })
     }
 
-  
-    if (!user) {
-      return res.status(401).json({ success: false, message: 'Đăng nhập thất bại' })
+    // Verify password
+    const isPasswordValid = await bcrypt.compare(password, passwordHash)
+    if (!isPasswordValid) {
+      return res.status(401).json({ 
+        success: false, 
+        message: 'Email hoặc mật khẩu không đúng' 
+      })
     }
 
     console.log('✅ User authenticated:', user.id, user.email)
