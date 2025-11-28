@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import AppHeader from '../components/common/AppHeader'
+import BidderMarketplaceNavbar from '../components/common/BidderMarketplaceNavbar'
 import bidderAPI from '../services/bidderAPI'
 import guestAPI from '../services/guestAPI'
 
@@ -183,7 +183,7 @@ export default function WinnerCheckoutPage({ user }) {
   if (!user) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <AppHeader user={null} showSearch={true} />
+        <BidderMarketplaceNavbar user={null} />
         <div className="max-w-2xl mx-auto px-4 py-16 text-center">
           <h1 className="text-2xl font-semibold text-gray-900">Yêu cầu đăng nhập</h1>
           <p className="mt-4 text-gray-600">Bạn cần đăng nhập để tiếp tục quy trình thanh toán.</p>
@@ -209,7 +209,7 @@ export default function WinnerCheckoutPage({ user }) {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <AppHeader user={user} showSearch={true} />
+        <BidderMarketplaceNavbar user={user} />
         <div className="flex items-center justify-center py-24">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-slate-900 mx-auto"></div>
@@ -223,7 +223,7 @@ export default function WinnerCheckoutPage({ user }) {
   if (error) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <AppHeader user={user} showSearch={true} />
+        <BidderMarketplaceNavbar user={user} />
         <div className="max-w-2xl mx-auto px-4 py-16 text-center">
           <h1 className="text-2xl font-semibold text-gray-900">Không thể truy cập trang thanh toán</h1>
           <p className="mt-4 text-gray-600">{error}</p>
@@ -252,7 +252,7 @@ export default function WinnerCheckoutPage({ user }) {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <AppHeader user={user} showSearch={true} />
+      <BidderMarketplaceNavbar user={user} />
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         <button
           type="button"

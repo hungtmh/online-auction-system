@@ -110,6 +110,26 @@ const bidderAPI = {
     formData.append('proof', file)
     const response = await api.post('/bidder/uploads/payment-proof', formData)
     return response.data
+  },
+
+  /**
+   * Cập nhật hồ sơ bidder
+   * @param {Object} payload - { full_name, phone, address, date_of_birth }
+   */
+  updateProfile: async (payload) => {
+    const response = await api.put('/bidder/profile', payload)
+    return response.data
+  },
+
+  /**
+   * Upload ảnh đại diện
+   * @param {File} file
+   */
+  uploadAvatar: async (file) => {
+    const formData = new FormData()
+    formData.append('avatar', file)
+    const response = await api.post('/bidder/profile/avatar', formData)
+    return response.data
   }
 }
 

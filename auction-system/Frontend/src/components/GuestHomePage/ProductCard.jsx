@@ -1,5 +1,6 @@
-import React from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import bidderAPI from "../../services/bidderAPI";
 
 // Helper functions
 function formatCurrency(v) {
@@ -38,8 +39,35 @@ function maskBidderName(name) {
   return `****${lastChar}`;
 }
 
-export default function ProductCard({ product }) {
+export default function ProductCard({ product, user, isInWatchlist: initialWatchlist = false, onWatchlistChange }) {
   const navigate = useNavigate();
+  const [isInWatchlist, setIsInWatchlist] = useState(initialWatchlist);
+  const [watchlistLoading, setWatchlistLoading] = useState(false);
+
+  const handleToggleWatchlist = async (e) => {
+    e.stopPropagation();
+    if (!user) {
+      navigate(`/login?redirect=${encodeURIComponent(`/products/${product.id}`)}`);
+      return;
+    }
+    if (user.role !== 'bidder') return;
+
+    setWatchlistLoading(true);
+    try {
+      if (isInWatchlist) {
+        await bidderAPI.removeFromWatchlist(product.id);
+        setIsInWatchlist(false);
+      } else {
+        await bidderAPI.addToWatchlist(product.id);
+        setIsInWatchlist(true);
+      }
+      onWatchlistChange?.();
+    } catch (err) {
+      console.error('Watchlist toggle error:', err);
+    } finally {
+      setWatchlistLoading(false);
+    }
+  };
 
   // Kiểm tra sản phẩm mới (trong vòng N phút - đặt N = 60 phút)
   const createdAt = product.created_at ? new Date(product.created_at) : null;
@@ -73,6 +101,25 @@ export default function ProductCard({ product }) {
               MỚI
             </span>
           </div>
+        )}
+        {/* Watchlist Button */}
+        {user?.role === 'bidder' && (
+          <button
+            onClick={handleToggleWatchlist}
+            disabled={watchlistLoading}
+            className={`absolute top-3 right-3 w-8 h-8 flex items-center justify-center rounded-full shadow-lg transition ${
+              isInWatchlist
+                ? 'bg-pink-500 text-white'
+                : 'bg-white/90 text-gray-500 hover:bg-white hover:text-pink-500'
+            } disabled:opacity-60`}
+            title={isInWatchlist ? 'Bỏ yêu thích' : 'Thêm vào yêu thích'}
+          >
+            {watchlistLoading ? (
+              <span className="animate-spin text-xs">⏳</span>
+            ) : (
+              <span>{isInWatchlist ? '❤️' : '🤍'}</span>
+            )}
+          </button>
         )}
         {/* Thời gian kết thúc */}
         <div className="absolute bottom-3 right-3 bg-black/70 text-white text-xs px-3 py-1 rounded-full">

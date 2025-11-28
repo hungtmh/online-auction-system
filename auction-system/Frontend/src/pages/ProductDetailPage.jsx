@@ -7,7 +7,9 @@ import BidActionPanel from '../components/ProductDetail/BidActionPanel'
 import BidHistory from '../components/ProductDetail/BidHistory'
 import QuestionsSection from '../components/ProductDetail/QuestionsSection'
 import AskSellerForm from '../components/ProductDetail/AskSellerForm'
-import AppHeader from '../components/common/AppHeader'
+import BidderMarketplaceNavbar from '../components/common/BidderMarketplaceNavbar'
+import ProductDescriptionCard from '../components/ProductDetailPage/sections/ProductDescriptionCard'
+import RelatedProducts from '../components/ProductDetail/RelatedProducts'
 import 'quill/dist/quill.snow.css'
 
 const MODES = {
@@ -22,12 +24,15 @@ export default function ProductDetailPage({ user }) {
   const navigate = useNavigate()
   const location = useLocation()
   const [product, setProduct] = useState(null)
+  const [relatedProducts, setRelatedProducts] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [questions, setQuestions] = useState([])
   const [bidSubmitting, setBidSubmitting] = useState(false)
   const [questionSubmitting, setQuestionSubmitting] = useState(false)
   const [actionMessage, setActionMessage] = useState(null)
+  const [isInWatchlist, setIsInWatchlist] = useState(false)
+  const [watchlistLoading, setWatchlistLoading] = useState(false)
 
   const loadProduct = useCallback(async () => {
     if (!id) return
@@ -38,6 +43,18 @@ export default function ProductDetailPage({ user }) {
       const detail = res?.data || res
       setProduct(detail)
       setQuestions(detail?.questions || [])
+      
+      // Load related products from same category
+      if (detail?.category_id) {
+        try {
+          const relatedRes = await guestAPI.getProducts({ category: detail.category_id, limit: 6 })
+          const relatedData = relatedRes?.data || relatedRes || []
+          setRelatedProducts(Array.isArray(relatedData) ? relatedData : [])
+        } catch (err) {
+          console.error('Load related products error', err)
+          setRelatedProducts([])
+        }
+      }
     } catch (err) {
       console.error('Load product error', err)
       setError('Không thể tải sản phẩm')
@@ -49,6 +66,22 @@ export default function ProductDetailPage({ user }) {
   useEffect(() => {
     loadProduct()
   }, [loadProduct])
+
+  // Check if product is in watchlist
+  useEffect(() => {
+    const checkWatchlist = async () => {
+      if (!user || user.role !== 'bidder' || !id) return
+      try {
+        const res = await bidderAPI.getWatchlist()
+        const watchlistItems = res?.data || []
+        const isWatched = watchlistItems.some(item => item.product_id === id || item.products?.id === id)
+        setIsInWatchlist(isWatched)
+      } catch (err) {
+        console.error('Check watchlist error:', err)
+      }
+    }
+    checkWatchlist()
+  }, [user, id])
 
   const mode = useMemo(() => {
     if (!product) return MODES.ACTIVE
@@ -69,6 +102,35 @@ export default function ProductDetailPage({ user }) {
 
   const handleLoginRedirect = () => {
     navigate(`/login?redirect=${encodeURIComponent(location.pathname)}`)
+  }
+
+  const handleToggleWatchlist = async () => {
+    if (!user) {
+      handleLoginRedirect()
+      return
+    }
+    if (user.role !== 'bidder') {
+      setActionMessage('Chỉ tài khoản bidder mới có thể thêm vào yêu thích')
+      return
+    }
+    
+    setWatchlistLoading(true)
+    try {
+      if (isInWatchlist) {
+        await bidderAPI.removeFromWatchlist(id)
+        setIsInWatchlist(false)
+        setActionMessage('Đã xóa khỏi danh sách yêu thích')
+      } else {
+        await bidderAPI.addToWatchlist(id)
+        setIsInWatchlist(true)
+        setActionMessage('Đã thêm vào danh sách yêu thích')
+      }
+    } catch (err) {
+      const message = err?.response?.data?.message || 'Không thể cập nhật danh sách yêu thích'
+      setActionMessage(message)
+    } finally {
+      setWatchlistLoading(false)
+    }
   }
 
   const handleNavigateBack = () => {
@@ -150,7 +212,7 @@ export default function ProductDetailPage({ user }) {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <AppHeader user={user} showSearch={true} />
+      <BidderMarketplaceNavbar user={user} />
       <div className="max-w-6xl mx-auto px-4 lg:px-0 py-8">
 
         <button
@@ -168,36 +230,20 @@ export default function ProductDetailPage({ user }) {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
+            <section id="description">
+              <ProductDescriptionCard
+                descriptionHtml={product.description || 'Không có mô tả'}
+                descriptionHistory={product.description_history || []}
+                productCreatedAt={product.created_at}
+              />
+            </section>
+
             <section id="history">
               <BidHistory bids={product.bids || []} />
             </section>
 
-            <section id="description" className="bg-white rounded-2xl shadow-sm p-6 space-y-4">
-              <h3 className="text-lg font-semibold text-gray-900">Chi tiết sản phẩm</h3>
-              <div className="ql-editor ql-snow" style={{ padding: 0, border: 'none' }}>
-                <div 
-                  className="text-gray-600 leading-relaxed"
-                  dangerouslySetInnerHTML={{ 
-                    __html: product.description || '<p>Người bán chưa cung cấp thêm thông tin.</p>' 
-                  }}
-                />
-              </div>
-              {product.product_descriptions?.length > 0 && (
-                <div className="text-sm text-gray-500 space-y-2 mt-4 pt-4 border-t">
-                  {product.product_descriptions.map((desc, idx) => (
-                    <div 
-                      key={idx}
-                      className="ql-editor"
-                      style={{ padding: 0, border: 'none' }}
-                      dangerouslySetInnerHTML={{ __html: desc.description || '' }}
-                    />
-                  ))}
-                </div>
-              )}
-            </section>
-
             <section id="questions">
-              <QuestionsSection questions={questions} />
+              <QuestionsSection questions={questions} currentUserId={user?.id} />
             </section>
           </div>
 
@@ -211,6 +257,22 @@ export default function ProductDetailPage({ user }) {
               bidSubmitting={bidSubmitting}
               actionMessage={actionMessage}
             />
+
+            {/* Watchlist Button */}
+            {user?.role === 'bidder' && (
+              <button
+                onClick={handleToggleWatchlist}
+                disabled={watchlistLoading}
+                className={`w-full flex items-center justify-center gap-2 py-3 rounded-2xl font-semibold transition ${
+                  isInWatchlist
+                    ? 'bg-pink-100 text-pink-600 hover:bg-pink-200'
+                    : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'
+                } disabled:opacity-60`}
+              >
+                <span>{isInWatchlist ? '❤️' : '🤍'}</span>
+                {watchlistLoading ? 'Đang xử lý...' : isInWatchlist ? 'Bỏ yêu thích' : 'Thêm vào yêu thích'}
+              </button>
+            )}
 
             <section id="ask-seller">
               {user?.role === 'bidder' ? (
@@ -236,6 +298,9 @@ export default function ProductDetailPage({ user }) {
             </section>
           </div>
         </div>
+
+        {/* Related Products */}
+        <RelatedProducts products={relatedProducts} currentProductId={id} />
       </div>
     </div>
   )

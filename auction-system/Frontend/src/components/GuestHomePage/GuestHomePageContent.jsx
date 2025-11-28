@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import guestAPI from "../../services/guestAPI";
+import bidderAPI from "../../services/bidderAPI";
 import CategoryMenu from "./CategoryMenu";
 import FeaturedProducts from "./FeaturedProducts";
 import SearchBar from "./SearchBar";
@@ -18,10 +19,26 @@ function GuestHomePageContent({ user }) {
   const [highestPrice, setHighestPrice] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [watchlistIds, setWatchlistIds] = useState(new Set());
 
   useEffect(() => {
     loadInitial();
   }, []);
+
+  // Load watchlist for bidder
+  useEffect(() => {
+    const loadWatchlist = async () => {
+      if (!user || user.role !== 'bidder') return;
+      try {
+        const res = await bidderAPI.getWatchlist();
+        const ids = (res?.data || []).map(item => item.product_id || item.products?.id);
+        setWatchlistIds(new Set(ids));
+      } catch (err) {
+        console.error('Load watchlist error:', err);
+      }
+    };
+    loadWatchlist();
+  }, [user]);
 
   async function loadInitial() {
     setLoading(true);
@@ -131,13 +148,13 @@ function GuestHomePageContent({ user }) {
                 {/* 3 sản phẩm đầu */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
                   {endingSoon.slice(0, 3).map((p) => (
-                    <ProductCard key={p.id} product={p} onClick={() => navigate(`/products/${p.id}`)} />
+                    <ProductCard key={p.id} product={p} user={user} isInWatchlist={watchlistIds.has(p.id)} />
                   ))}
                 </div>
                 {/* 2 sản phẩm cuối căn giữa */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
                   {endingSoon.slice(3, 5).map((p) => (
-                    <ProductCard key={p.id} product={p} onClick={() => navigate(`/products/${p.id}`)} />
+                    <ProductCard key={p.id} product={p} user={user} isInWatchlist={watchlistIds.has(p.id)} />
                   ))}
                 </div>
               </>
@@ -160,13 +177,13 @@ function GuestHomePageContent({ user }) {
                 {/* 3 sản phẩm đầu */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
                   {mostBids.slice(0, 3).map((p) => (
-                    <ProductCard key={p.id} product={p} onClick={() => navigate(`/products/${p.id}`)} />
+                    <ProductCard key={p.id} product={p} user={user} isInWatchlist={watchlistIds.has(p.id)} />
                   ))}
                 </div>
                 {/* 2 sản phẩm cuối căn giữa */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
                   {mostBids.slice(3, 5).map((p) => (
-                    <ProductCard key={p.id} product={p} onClick={() => navigate(`/products/${p.id}`)} />
+                    <ProductCard key={p.id} product={p} user={user} isInWatchlist={watchlistIds.has(p.id)} />
                   ))}
                 </div>
               </>
@@ -189,13 +206,13 @@ function GuestHomePageContent({ user }) {
                 {/* 3 sản phẩm đầu */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
                   {highestPrice.slice(0, 3).map((p) => (
-                    <ProductCard key={p.id} product={p} onClick={() => navigate(`/products/${p.id}`)} />
+                    <ProductCard key={p.id} product={p} user={user} isInWatchlist={watchlistIds.has(p.id)} />
                   ))}
                 </div>
                 {/* 2 sản phẩm cuối căn giữa */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
                   {highestPrice.slice(3, 5).map((p) => (
-                    <ProductCard key={p.id} product={p} onClick={() => navigate(`/products/${p.id}`)} />
+                    <ProductCard key={p.id} product={p} user={user} isInWatchlist={watchlistIds.has(p.id)} />
                   ))}
                 </div>
               </>

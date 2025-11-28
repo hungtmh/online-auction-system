@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import guestAPI from "../../services/guestAPI";
+import bidderAPI from "../../services/bidderAPI";
 import ProductCard from "../GuestHomePage/ProductCard";
 import CategoryMenu from "../GuestHomePage/CategoryMenu";
 import SearchBar from "../GuestHomePage/SearchBar";
@@ -14,6 +15,7 @@ function AuctionListPageContent({ user }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const menuRef = useRef(null);
+  const [watchlistIds, setWatchlistIds] = useState(new Set());
 
   const page = parseInt(searchParams.get("page") || "1", 10);
   const limit = parseInt(searchParams.get("limit") || "12", 10);
@@ -24,6 +26,21 @@ function AuctionListPageContent({ user }) {
   useEffect(() => {
     loadCategories();
   }, []);
+
+  // Load watchlist for bidder
+  useEffect(() => {
+    const loadWatchlist = async () => {
+      if (!user || user.role !== 'bidder') return;
+      try {
+        const res = await bidderAPI.getWatchlist();
+        const ids = (res?.data || []).map(item => item.product_id || item.products?.id);
+        setWatchlistIds(new Set(ids));
+      } catch (err) {
+        console.error('Load watchlist error:', err);
+      }
+    };
+    loadWatchlist();
+  }, [user]);
 
   useEffect(() => {
     loadAuctions();
@@ -269,7 +286,7 @@ function AuctionListPageContent({ user }) {
         ) : auctions.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {auctions.map((auction) => (
-              <ProductCard key={auction.id} product={auction} />
+              <ProductCard key={auction.id} product={auction} user={user} isInWatchlist={watchlistIds.has(auction.id)} />
             ))}
           </div>
         ) : (

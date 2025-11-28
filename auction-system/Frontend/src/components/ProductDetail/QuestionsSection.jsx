@@ -5,7 +5,7 @@ const formatDate = (value) => {
   return new Date(value).toLocaleString('vi-VN')
 }
 
-export default function QuestionsSection({ questions = [] }) {
+export default function QuestionsSection({ questions = [], currentUserId }) {
   return (
     <section className="bg-white rounded-2xl shadow-sm p-6 space-y-4">
       <div className="flex items-center justify-between">
@@ -16,11 +16,15 @@ export default function QuestionsSection({ questions = [] }) {
       {questions.length === 0 ? (
         <p className="text-sm text-gray-500">Chưa có câu hỏi nào. Hãy là người đầu tiên đặt câu hỏi!</p>
       ) : (
-        <ul className="space-y-4">
-          {questions.map((question) => (
+        <ul className="space-y-4 max-h-96 overflow-y-auto pr-2">
+          {questions.map((question) => {
+            const isCurrentUser = currentUserId && question.asker_id === currentUserId
+            return (
             <li key={question.id} className="border border-gray-100 rounded-xl p-4">
               <div className="flex items-center justify-between text-sm text-gray-500">
-                <span>{question.asker?.full_name || 'Ẩn danh'}</span>
+                <span className={isCurrentUser ? 'text-blue-600 font-medium bg-blue-50 px-2 py-0.5 rounded' : ''}>
+                  {isCurrentUser ? 'Bạn' : (question.asker?.full_name || 'Người dùng')}
+                </span>
                 <span>{formatDate(question.created_at)}</span>
               </div>
               <p className="mt-2 font-medium text-gray-900">{question.question}</p>
@@ -32,7 +36,8 @@ export default function QuestionsSection({ questions = [] }) {
                 <p className="mt-3 text-sm italic text-gray-500">Đang chờ người bán phản hồi...</p>
               )}
             </li>
-          ))}
+            )
+          })}
         </ul>
       )}
     </section>

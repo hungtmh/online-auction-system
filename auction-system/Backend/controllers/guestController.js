@@ -128,7 +128,7 @@ export const getProductById = async (req, res) => {
         `
         *,
         categories ( id, name, parent_id ),
-        product_descriptions ( description )
+        product_descriptions ( id, description, added_at )
       `
       )
       .eq("id", id)
@@ -179,7 +179,8 @@ export const getProductById = async (req, res) => {
       highest_bidder_name: highest?.profiles?.full_name || null,
       highest_bidder_rating_positive: highest?.profiles?.rating_positive || 0,
       highest_bidder_rating_negative: highest?.profiles?.rating_negative || 0,
-      description: product.product_descriptions?.[0]?.description || product.description || "",
+      description: product.description || "",
+      description_history: (product.product_descriptions || []).sort((a, b) => new Date(a.added_at) - new Date(b.added_at)),
       questions: questions || [],
     };
 
