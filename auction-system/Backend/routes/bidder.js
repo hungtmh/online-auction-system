@@ -14,8 +14,13 @@ import {
   addToWatchlist,
   removeFromWatchlist,
   getWatchlist,
-  getBidHistory
+  getBidHistory,
+  askSellerQuestion,
+  getCheckoutOrder,
+  upsertCheckoutOrder,
+  uploadPaymentProofImage
 } from '../controllers/bidderController.js'
+import { paymentProofUpload } from '../utils/upload.js'
 
 const router = express.Router()
 
@@ -74,5 +79,19 @@ router.get('/watchlist', getWatchlist)
  * @access  Private (Bidder)
  */
 router.get('/products/:id/bids', getBidHistory)
+
+/**
+ * @route   POST /api/bidder/products/:id/questions
+ * @desc    Gửi câu hỏi cho người bán
+ * @access  Private (Bidder)
+ */
+router.post('/products/:id/questions', askSellerQuestion)
+
+/**
+ * Checkout routes
+ */
+router.get('/orders/:productId', getCheckoutOrder)
+router.post('/orders', upsertCheckoutOrder)
+router.post('/uploads/payment-proof', paymentProofUpload.single('proof'), uploadPaymentProofImage)
 
 export default router

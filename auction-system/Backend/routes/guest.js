@@ -7,7 +7,7 @@
 
 import express from "express";
 import { query, param, validationResult } from "express-validator";
-import { getProducts, getProductById, searchProducts, getCategories, getFeaturedProducts } from "../controllers/guestController.js";
+import { getProducts, getProductById, searchProducts, getCategories, getFeaturedProducts, getSellerProfile } from "../controllers/guestController.js";
 
 const router = express.Router();
 
@@ -25,10 +25,16 @@ const validate = (req, res, next) => {
 /**
  * @route   GET /api/guest/products
  * @desc    Lấy danh sách sản phẩm (public)
- * @query   ?page=1&limit=12&category=1&status=active
+ * @query   ?page=1&limit=12&category=UUID&status=active
  * @access  Public
  */
-router.get("/products", [query("page").optional().isInt({ min: 1 }).toInt(), query("limit").optional().isInt({ min: 1, max: 100 }).toInt(), query("category").optional().isInt().toInt(), query("status").optional().isIn(["active", "inactive", "draft"]), validate], getProducts);
+router.get("/products", [
+  query("page").optional().isInt({ min: 1 }).toInt(), 
+  query("limit").optional().isInt({ min: 1, max: 100 }).toInt(), 
+  query("category").optional().isUUID().withMessage("category must be a valid UUID"), 
+  query("status").optional().isIn(["active", "inactive", "draft"]), 
+  validate
+], getProducts);
 
 /**
  * @route   GET /api/guest/products/:id
@@ -59,5 +65,12 @@ router.get("/categories", getCategories);
  * @access  Public
  */
 router.get("/featured", [query("type").optional().isIn(["ending_soon", "most_bids", "highest_price"]), query("limit").optional().isInt({ min: 1, max: 50 }).toInt(), validate], getFeaturedProducts);
+
+/**
+ * @route   GET /api/guest/sellers/:id
+ * @desc    Lấy thông tin người bán tối thiểu để hiển thị cho bidder/guest
+ * @access  Public
+ */
+router.get("/sellers/:id", [param("id").notEmpty().withMessage("id is required"), validate], getSellerProfile);
 
 export default router;

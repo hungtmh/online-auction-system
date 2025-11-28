@@ -1,18 +1,23 @@
 import { useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { setAccessToken } from '../services/api'
+import { useDialog } from '../context/DialogContext.jsx'
 
 function AuthCallback() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
+  const { alert } = useDialog()
 
   useEffect(() => {
     const token = searchParams.get('token')
     const error = searchParams.get('error')
 
     if (error) {
-      alert(`❌ Đăng nhập thất bại: ${error}`)
-      navigate('/')
+      alert({
+        icon: '⚠️',
+        title: 'Đăng nhập thất bại',
+        message: error,
+      }).finally(() => navigate('/'))
       return
     }
 

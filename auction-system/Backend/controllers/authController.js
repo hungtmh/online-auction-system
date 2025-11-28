@@ -44,7 +44,7 @@ export const register = async (req, res) => {
     const { data, error } = await supabase.auth.admin.createUser({
       email,
       password,
-      email_confirm: false,  // Chưa verify, sẽ dùng OTP
+      email_confirm: false, // Chưa verify, sẽ dùng OTP
       user_metadata: { full_name, password_hash: hashedPassword, address }
     })
 
@@ -144,14 +144,16 @@ export const login = async (req, res) => {
     if (!passwordHash) {
       return res.status(401).json({ 
         success: false, 
-        message: 'Tài khoản chưa được thiết lập đúng. Vui lòng đăng ký lại.' 
+        message: 'Email hoặc mật khẩu không đúng' 
       })
     }
 
-    const isPasswordValid = await bcrypt.compare(password, passwordHash)
-    if (!isPasswordValid) {
-      return res.status(401).json({ success: false, message: 'Email hoặc mật khẩu không đúng' })
+  
+    if (!user) {
+      return res.status(401).json({ success: false, message: 'Đăng nhập thất bại' })
     }
+
+    console.log('✅ User authenticated:', user.id, user.email)
 
     const accessToken = generateAccessToken(user.id, email)
     const refreshToken = generateRefreshToken(user.id)
@@ -175,8 +177,9 @@ export const login = async (req, res) => {
       }
     })
   } catch (error) {
-    console.error('Login error:', error)
-    res.status(500).json({ success: false, message: 'Lỗi server' })
+    console.error('❌ Login error:', error.message)
+    console.error('Stack:', error.stack)
+    res.status(500).json({ success: false, message: 'Lỗi server', debug: error.message })
   }
 }
 
@@ -227,6 +230,7 @@ export const getProfile = async (req, res) => {
         email: user.email,
         full_name: profile?.full_name || user.user_metadata?.full_name,
         role: profile?.role || 'bidder',
+        avatar_url: profile?.avatar_url || null,
         rating_positive: profile?.rating_positive || 0,
         rating_negative: profile?.rating_negative || 0
       }

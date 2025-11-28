@@ -8,12 +8,43 @@
 import api from './api'
 
 const sellerAPI = {
+  getProfile: async () => {
+    const response = await api.get('/seller/profile')
+    return response.data
+  },
+
+  updateProfile: async (payload) => {
+    const response = await api.put('/seller/profile', payload)
+    return response.data
+  },
+
+  uploadAvatar: async (file) => {
+    const formData = new FormData()
+    formData.append('avatar', file)
+
+    const response = await api.post('/seller/profile/avatar', formData)
+    return response.data
+  },
+
   /**
    * Đăng sản phẩm mới
    * @param {Object} productData
    */
   createProduct: async (productData) => {
-    const response = await api.post('/api/seller/products', productData)
+    const response = await api.post('/seller/products', productData)
+    return response.data
+  },
+
+  /**
+   * Upload ảnh sản phẩm
+   * @param {File} file
+   */
+  uploadProductImage: async (file) => {
+    const formData = new FormData()
+    formData.append('image', file)
+
+    const response = await api.post('/seller/uploads/images', formData)
+
     return response.data
   },
 
@@ -22,7 +53,7 @@ const sellerAPI = {
    * @param {Object} params - { status, page, limit }
    */
   getMyProducts: async (params = {}) => {
-    const response = await api.get('/api/seller/products', { params })
+    const response = await api.get('/seller/products', { params })
     return response.data
   },
 
@@ -32,7 +63,7 @@ const sellerAPI = {
    * @param {Object} productData
    */
   updateProduct: async (productId, productData) => {
-    const response = await api.put(`/api/seller/products/${productId}`, productData)
+    const response = await api.put(`/seller/products/${productId}`, productData)
     return response.data
   },
 
@@ -41,7 +72,7 @@ const sellerAPI = {
    * @param {string} productId
    */
   deleteProduct: async (productId) => {
-    const response = await api.delete(`/api/seller/products/${productId}`)
+    const response = await api.delete(`/seller/products/${productId}`)
     return response.data
   },
 
@@ -50,7 +81,7 @@ const sellerAPI = {
    * @param {string} productId
    */
   getProductBids: async (productId) => {
-    const response = await api.get(`/api/seller/products/${productId}/bids`)
+    const response = await api.get(`/seller/products/${productId}/bids`)
     return response.data
   },
 
@@ -58,7 +89,7 @@ const sellerAPI = {
    * Lấy thống kê doanh thu
    */
   getSalesStats: async () => {
-    const response = await api.get('/api/seller/stats')
+    const response = await api.get('/seller/stats')
     return response.data
   }
 }

@@ -49,17 +49,22 @@ const guestAPI = {
   },
 
   /**
-   * Lấy sản phẩm nổi bật
-   * @param {string} type - 'ending_soon' | 'most_bids' | 'highest_price'
-   * @param {number} limit - Số lượng sản phẩm
+   * Lấy sản phẩm nổi bật (tất cả loại trong 1 request)
+   * Trả về: { ending_soon: [], most_bids: [], highest_price: [] }
    */
-
-  getFeaturedProducts: async (type = "ending_soon", limit = 6) => {
-    const response = await axios.get(`${API_BASE}/guest/featured`, {
-      params: { type, limit },
-    });
+  getFeaturedProducts: async () => {
+    const response = await axios.get(`${API_BASE}/guest/featured`);
     return response.data;
   },
+
+  /**
+   * Lấy thông tin người bán công khai
+   * @param {string} sellerId
+   */
+  getSellerProfile: async (sellerId) => {
+    const response = await axios.get(`${API_BASE}/guest/sellers/${sellerId}`);
+    return response.data;
+  }
 };
 
 export default guestAPI;

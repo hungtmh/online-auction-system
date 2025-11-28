@@ -6,6 +6,7 @@ async function enrichProducts(products) {
 
   const productIds = products.map((p) => p.id);
 
+  // Lấy bids data
   const { data: bidsData } = await supabase.from("bids").select("product_id, bid_amount, bidder_id").in("product_id", productIds).order("bid_amount", { ascending: false });
 
   const bidsByProduct = new Map();
@@ -16,7 +17,14 @@ async function enrichProducts(products) {
     }
   }
 
+  // Thu thập seller IDs và bidder IDs
+  const sellerIds = new Set();
   const highestBidderIds = new Set();
+  
+  products.forEach((p) => {
+    if (p.seller_id) sellerIds.add(p.seller_id);
+  });
+
   let enriched = products.map((p) => {
     const bids = bidsByProduct.get(p.id) || [];
     const bid_count = bids.length;
@@ -24,21 +32,32 @@ async function enrichProducts(products) {
     const current_price = highest ? highest.bid_amount : p.current_price || p.starting_price || 0;
     const highest_bidder_id = highest ? highest.bidder_id : null;
     if (highest_bidder_id) highestBidderIds.add(highest_bidder_id);
+    
     return {
       ...p,
+      title: p.name || p.title,  // Map name -> title for frontend
+      category_name: p.categories?.name,
+      category_id: p.categories?.id || p.category_id,
+      image_url: p.thumbnail_url || p.image_url,
       bid_count,
       current_price,
       highest_bidder_id,
     };
   });
 
-  if (highestBidderIds.size > 0) {
-    const ids = Array.from(highestBidderIds);
+  // Lấy thông tin profiles (cả seller và bidder)
+  const allProfileIds = new Set([...sellerIds, ...highestBidderIds]);
+  
+  if (allProfileIds.size > 0) {
+    const ids = Array.from(allProfileIds);
     const { data: profiles } = await supabase.from("profiles").select("id, full_name").in("id", ids);
     const profileMap = new Map((profiles || []).map((pr) => [pr.id, pr]));
+    
     enriched = enriched.map((p) => ({
       ...p,
+      seller_name: p.seller_id ? profileMap.get(p.seller_id)?.full_name : null,
       highest_bidder: p.highest_bidder_id ? profileMap.get(p.highest_bidder_id) : null,
+      highest_bidder_name: p.highest_bidder_id ? profileMap.get(p.highest_bidder_id)?.full_name : null,
     }));
   }
 
@@ -56,6 +75,8 @@ export const getProducts = async (req, res) => {
     const limitNum = parseInt(limit);
     const offset = (pageNum - 1) * limitNum;
 
+    console.log("📦 getProducts params:", { page: pageNum, limit: limitNum, category, status, sort });
+
     const selectStr = `*, categories ( id, name, parent_id )`;
 
     let query = supabase
@@ -68,10 +89,19 @@ export const getProducts = async (req, res) => {
     else if (sort === "price_asc") query = query.order("starting_price", { ascending: true });
     else query = query.order("created_at", { ascending: false });
 
-    if (category) query = query.eq("category_id", category);
+    if (category) {
+      console.log("🏷️  Filtering by category:", category);
+      query = query.eq("category_id", category);
+    }
 
     const { data, error, count } = await query;
-    if (error) throw error;
+    
+    if (error) {
+      console.error("❌ Supabase query error:", error);
+      throw error;
+    }
+
+    console.log(`✅ Found ${data?.length} products (total: ${count})`);
 
     const enriched = await enrichProducts(data || []);
 
@@ -88,28 +118,74 @@ export const getProducts = async (req, res) => {
 export const getProductById = async (req, res) => {
   try {
     const { id } = req.params;
-    const { data, error } = await supabase
+    
+    console.log("📦 Getting product detail:", id);
+    
+    // Query product với categories và descriptions
+    const { data: product, error: productError } = await supabase
       .from("products")
       .select(
         `
         *,
         categories ( id, name, parent_id ),
-        product_descriptions ( content ),
-        bids ( id, bid_amount, created_at, bidder_id, profiles ( full_name ) )
+        product_descriptions ( description )
       `
       )
       .eq("id", id)
       .single();
 
-    if (error) throw error;
-    if (!data) return res.status(404).json({ success: false, message: "Không tìm thấy sản phẩm" });
+    if (productError) {
+      console.error("❌ Product query error:", productError);
+      throw productError;
+    }
+    
+    if (!product) return res.status(404).json({ success: false, message: "Không tìm thấy sản phẩm" });
 
-    const bids = data.bids || [];
-    bids.sort((a, b) => b.bid_amount - a.bid_amount);
-    const highest = bids.length > 0 ? bids[0] : null;
-    const current_price = highest ? highest.bid_amount : data.current_price || data.starting_price || 0;
+    // Query seller info
+    const { data: seller } = await supabase
+      .from("profiles")
+      .select("id, full_name, rating_positive, rating_negative")
+      .eq("id", product.seller_id)
+      .single();
 
-    res.json({ success: true, data: { ...data, bids, current_price, highest_bidder: highest ? highest.profiles : null } });
+    // Query bids với bidder profiles
+    const { data: bids } = await supabase
+      .from("bids")
+      .select("id, bid_amount, created_at, bidder_id, profiles:bidder_id ( id, full_name, rating_positive, rating_negative )")
+      .eq("product_id", id)
+      .order("bid_amount", { ascending: false });
+
+    // Query questions với asker profiles
+    const { data: questions } = await supabase
+      .from("questions")
+      .select("id, question, answer, answered_at, created_at, asker_id, profiles:asker_id ( full_name )")
+      .eq("product_id", id)
+      .order("created_at", { ascending: false });
+
+    const sortedBids = bids || [];
+    const highest = sortedBids.length > 0 ? sortedBids[0] : null;
+    const current_price = highest ? highest.bid_amount : product.current_price || product.starting_price || 0;
+
+    // Format response với đầy đủ thông tin
+    const response = {
+      ...product,
+      bids: sortedBids,
+      current_price,
+      bid_count: sortedBids.length,
+      seller_name: seller?.full_name,
+      seller_rating_positive: seller?.rating_positive || 0,
+      seller_rating_negative: seller?.rating_negative || 0,
+      highest_bidder: highest?.profiles || null,
+      highest_bidder_name: highest?.profiles?.full_name || null,
+      highest_bidder_rating_positive: highest?.profiles?.rating_positive || 0,
+      highest_bidder_rating_negative: highest?.profiles?.rating_negative || 0,
+      description: product.product_descriptions?.[0]?.description || product.description || "",
+      questions: questions || [],
+    };
+
+    console.log("✅ Product detail loaded successfully");
+
+    res.json({ success: true, data: response });
   } catch (error) {
     console.error("❌ Error getting product:", error);
     res.status(500).json({ success: false, message: "Không thể lấy thông tin sản phẩm" });
@@ -164,31 +240,44 @@ export const getCategories = async (req, res) => {
  */
 export const getFeaturedProducts = async (req, res) => {
   try {
-    // Mặc định lấy 6 sản phẩm cho mỗi nhóm
-    const limitNum = 6;
+    // Lấy 5 sản phẩm cho mỗi nhóm
+    const limitNum = 5;
 
-    // Helper function để gọi RPC và enrich data
-    // (Gần giống logic cũ của bạn, nhưng được tách ra)
-    const processRpc = async (rpcName) => {
-      const { data: rpcData, error } = await supabase.rpc(rpcName, { limit_count: limitNum });
-      if (error) throw error;
+    console.log("🌟 Loading featured products...");
 
-      // Map RPC data to product shape
-      const mapped = (rpcData || []).map((r) => ({
-        id: r.product_id || r.id,
-        title: r.product_name || r.name || null,
-        name: r.product_name || r.name || null,
-        image_url: r.thumbnail_url || r.image_url || null,
-        current_price: r.current_price ?? null,
-        bid_count: r.bid_count ?? null,
-      }));
+    // Query TẤT CẢ sản phẩm active (không limit trước)
+    const allProductsQuery = supabase
+      .from("products")
+      .select("*, categories(id, name, parent_id)")
+      .eq("status", "active");
 
-      // Enrich (thêm thông tin bidder, v.v.)
-      return await enrichProducts(mapped);
-    };
+    // Lấy tất cả sản phẩm
+    const { data: allProducts, error } = await allProductsQuery;
+    
+    if (error) throw error;
 
-    // Gọi cả 3 hàm RPC song song để tăng tốc độ
-    const [ending_soon_data, most_bids_data, highest_price_data] = await Promise.all([processRpc("get_top_ending_soon"), processRpc("get_top_most_bids"), processRpc("get_top_highest_price")]);
+    console.log("📦 Total active products:", allProducts?.length);
+
+    // Enrich tất cả sản phẩm
+    const enrichedAll = await enrichProducts(allProducts || []);
+
+    // Bây giờ mới sort và limit
+    const ending_soon_data = [...enrichedAll]
+      .sort((a, b) => new Date(a.end_time) - new Date(b.end_time))
+      .slice(0, limitNum);
+
+    const most_bids_data = [...enrichedAll]
+      .sort((a, b) => (b.bid_count || 0) - (a.bid_count || 0))
+      .slice(0, limitNum);
+
+    const highest_price_data = [...enrichedAll]
+      .sort((a, b) => (b.current_price || 0) - (a.current_price || 0))
+      .slice(0, limitNum);
+
+    console.log("✅ Featured products sorted");
+    console.log("⏰ Top ending soon:", ending_soon_data.map(p => ({ name: p.title, end: p.end_time })));
+    console.log("🔥 Top most bids:", most_bids_data.map(p => ({ name: p.title, bids: p.bid_count })));
+    console.log("💎 Top highest price:", highest_price_data.map(p => ({ name: p.title, price: p.current_price })));
 
     // Tạo object data mà frontend mong đợi
     const responseData = {
@@ -202,5 +291,36 @@ export const getFeaturedProducts = async (req, res) => {
   } catch (error) {
     console.error("❌ Error getting featured products:", error);
     res.status(500).json({ success: false, message: "Không thể lấy sản phẩm nổi bật" });
+  }
+};
+
+/**
+ * GET /api/guest/sellers/:id
+ * Public seller profile lookup for displaying seller info alongside products.
+ */
+export const getSellerProfile = async (req, res) => {
+  try {
+    const { id } = req.params
+
+    if (!id) {
+      return res.status(400).json({ success: false, message: 'Thiếu mã người bán' })
+    }
+
+    const { data: seller, error } = await supabase
+      .from('profiles')
+      .select('id, full_name, rating_positive, rating_negative, phone, address')
+      .eq('id', id)
+      .maybeSingle()
+
+    if (error) throw error
+
+    if (!seller) {
+      return res.status(404).json({ success: false, message: 'Không tìm thấy người bán' })
+    }
+
+    res.json({ success: true, data: seller })
+  } catch (error) {
+    console.error('❌ Error getting seller profile:', error)
+    res.status(500).json({ success: false, message: 'Không thể lấy thông tin người bán' })
   }
 };

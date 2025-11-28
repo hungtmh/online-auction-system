@@ -15,7 +15,7 @@ const adminAPI = {
    * @param {Object} params - { role, page, limit }
    */
   getAllUsers: async (params = {}) => {
-    const response = await api.get('/api/admin/users', { params })
+    const response = await api.get('/admin/users', { params })
     return response.data
   },
 
@@ -24,7 +24,7 @@ const adminAPI = {
    * @param {string} userId
    */
   getUserById: async (userId) => {
-    const response = await api.get(`/api/admin/users/${userId}`)
+    const response = await api.get(`/admin/users/${userId}`)
     return response.data
   },
 
@@ -34,7 +34,7 @@ const adminAPI = {
    * @param {string} role - 'guest' | 'bidder' | 'seller' | 'admin'
    */
   updateUserRole: async (userId, role) => {
-    const response = await api.put(`/api/admin/users/${userId}/role`, { role })
+    const response = await api.put(`/admin/users/${userId}/role`, { role })
     return response.data
   },
 
@@ -43,7 +43,7 @@ const adminAPI = {
    * @param {string} userId
    */
   banUser: async (userId) => {
-    const response = await api.post(`/api/admin/users/${userId}/ban`)
+    const response = await api.post(`/admin/users/${userId}/ban`)
     return response.data
   },
 
@@ -52,7 +52,7 @@ const adminAPI = {
    * @param {string} userId
    */
   deleteUser: async (userId) => {
-    const response = await api.delete(`/api/admin/users/${userId}`)
+    const response = await api.delete(`/admin/users/${userId}`)
     return response.data
   },
 
@@ -63,7 +63,7 @@ const adminAPI = {
    * @param {Object} params - { status, page, limit }
    */
   getAllProducts: async (params = {}) => {
-    const response = await api.get('/api/admin/products', { params })
+    const response = await api.get('/admin/products', { params })
     return response.data
   },
 
@@ -72,7 +72,7 @@ const adminAPI = {
    * @param {string} productId
    */
   approveProduct: async (productId) => {
-    const response = await api.post(`/api/admin/products/${productId}/approve`)
+    const response = await api.post(`/admin/products/${productId}/approve`)
     return response.data
   },
 
@@ -82,7 +82,7 @@ const adminAPI = {
    * @param {string} reason
    */
   rejectProduct: async (productId, reason) => {
-    const response = await api.post(`/api/admin/products/${productId}/reject`, { reason })
+    const response = await api.post(`/admin/products/${productId}/reject`, { reason })
     return response.data
   },
 
@@ -91,7 +91,7 @@ const adminAPI = {
    * @param {string} productId
    */
   deleteProduct: async (productId) => {
-    const response = await api.delete(`/api/admin/products/${productId}`)
+    const response = await api.delete(`/admin/products/${productId}`)
     return response.data
   },
 
@@ -102,7 +102,7 @@ const adminAPI = {
    * @param {string} status - 'pending' | 'approved' | 'rejected'
    */
   getUpgradeRequests: async (status = 'pending') => {
-    const response = await api.get('/api/admin/upgrades', { params: { status } })
+    const response = await api.get('/admin/upgrades', { params: { status } })
     return response.data
   },
 
@@ -111,7 +111,7 @@ const adminAPI = {
    * @param {string} requestId
    */
   approveUpgrade: async (requestId) => {
-    const response = await api.post(`/api/admin/upgrades/${requestId}/approve`)
+    const response = await api.post(`/admin/upgrades/${requestId}/approve`)
     return response.data
   },
 
@@ -120,7 +120,7 @@ const adminAPI = {
    * @param {string} requestId
    */
   rejectUpgrade: async (requestId) => {
-    const response = await api.post(`/api/admin/upgrades/${requestId}/reject`)
+    const response = await api.post(`/admin/upgrades/${requestId}/reject`)
     return response.data
   },
 
@@ -130,9 +130,67 @@ const adminAPI = {
    * Lấy thống kê hệ thống
    */
   getSystemStats: async () => {
-    const response = await api.get('/api/admin/stats')
+    const response = await api.get('/admin/stats')
     return response.data
-  }
+  },
+
+  // ============= BID MANAGEMENT =============
+
+  /**
+   * Lấy lịch sử đấu giá
+   * @param {Object} params - { status, page, limit }
+   */
+  getBidHistory: async (params = {}) => {
+    const response = await api.get('/admin/bids', { params })
+    return response.data
+  },
+
+  /**
+   * Hủy bid (xử lý gian lận)
+   * @param {string} bidId
+   * @param {string} reason
+   */
+  cancelBid: async (bidId, reason) => {
+    const response = await api.post(`/admin/bids/${bidId}/cancel`, { reason })
+    return response.data
+  },
+
+  /**
+   * Giải quyết tranh chấp
+   * @param {string} bidId
+   * @param {string} resolution - 'approve' | 'reject'
+   */
+  resolveDispute: async (bidId, resolution) => {
+    const response = await api.post(`/admin/bids/${bidId}/resolve`, { resolution })
+    return response.data
+  },
+
+  // ============= SYSTEM SETTINGS =============
+
+  /**
+   * Lấy cài đặt hệ thống
+   */
+  getSystemSettings: async () => {
+    const response = await api.get('/admin/settings')
+    return response.data
+  },
+
+  /**
+   * Cập nhật cài đặt hệ thống
+   * @param {Object} settings
+   */
+  updateSystemSettings: async (settings) => {
+    const response = await api.put('/admin/settings', settings)
+    return response.data
+  },
+
+  /**
+   * Lấy danh sách categories
+   */
+  getAllCategories: async () => {
+    const response = await api.get('/admin/categories');
+    return response.data;
+  },
 }
 
 export default adminAPI

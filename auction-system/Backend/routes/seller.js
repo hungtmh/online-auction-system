@@ -13,14 +13,30 @@ import {
   updateProduct,
   deleteProduct,
   getProductBids,
-  getSalesStats
+  getSalesStats,
+  uploadProductImage,
+  getSellerProfile,
+  updateSellerProfile,
+  uploadSellerAvatar
 } from '../controllers/sellerController.js'
+import { productImageUpload, avatarImageUpload } from '../utils/upload.js'
 
 const router = express.Router()
 
 // Tất cả routes cần authentication và role = seller
 router.use(authenticateToken)
 router.use(requireRole('seller'))
+
+router.get('/profile', getSellerProfile)
+router.put('/profile', updateSellerProfile)
+router.post('/profile/avatar', avatarImageUpload.single('avatar'), uploadSellerAvatar)
+
+/**
+ * @route   POST /api/seller/uploads/images
+ * @desc    Upload ảnh sản phẩm lên Supabase Storage
+ * @access  Private (Seller)
+ */
+router.post('/uploads/images', productImageUpload.single('image'), uploadProductImage)
 
 /**
  * @route   POST /api/seller/products

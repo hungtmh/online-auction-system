@@ -20,7 +20,17 @@ import {
   getUpgradeRequests,
   approveUpgrade,
   rejectUpgrade,
-  getSystemStats
+  getSystemStats,
+  getAllCategories,
+  getCategoryById,
+  createCategory,
+  updateCategory,
+  deleteCategory,
+  getBidHistory,
+  cancelBid,
+  resolveDispute,
+  getSystemSettings,
+  updateSystemSettings
 } from '../controllers/adminController.js'
 
 const router = express.Router()
@@ -124,6 +134,68 @@ router.post('/upgrades/:id/approve', approveUpgrade)
  */
 router.post('/upgrades/:id/reject', rejectUpgrade)
 
+// ============= CATEGORY MANAGEMENT =============
+
+/**
+ * @route   GET /api/admin/categories
+ * @desc    Lấy tất cả categories
+ * @access  Private (Admin)
+ */
+router.get('/categories', getAllCategories)
+
+/**
+ * @route   GET /api/admin/categories/:id
+ * @desc    Chi tiết category
+ * @access  Private (Admin)
+ */
+router.get('/categories/:id', getCategoryById)
+
+/**
+ * @route   POST /api/admin/categories
+ * @desc    Tạo category mới
+ * @body    { name, slug, description, is_active }
+ * @access  Private (Admin)
+ */
+router.post('/categories', createCategory)
+
+/**
+ * @route   PUT /api/admin/categories/:id
+ * @desc    Cập nhật category
+ * @body    { name, slug, description, is_active }
+ * @access  Private (Admin)
+ */
+router.put('/categories/:id', updateCategory)
+
+/**
+ * @route   DELETE /api/admin/categories/:id
+ * @desc    Xóa category (không được xóa nếu có sản phẩm)
+ * @access  Private (Admin)
+ */
+router.delete('/categories/:id', deleteCategory)
+
+// ============= BID MANAGEMENT =============
+
+/**
+ * @route   GET /api/admin/bids
+ * @desc    Lấy lịch sử đấu giá
+ * @access  Private (Admin)
+ */
+router.get('/bids', getBidHistory)
+
+/**
+ * @route   POST /api/admin/bids/:id/cancel
+ * @desc    Hủy bid (xử lý gian lận)
+ * @access  Private (Admin)
+ */
+router.post('/bids/:id/cancel', cancelBid)
+
+/**
+ * @route   POST /api/admin/bids/:id/resolve-dispute
+ * @desc    Giải quyết tranh chấp
+ * @access  Private (Admin)
+ */
+router.post('/bids/:id/resolve-dispute', resolveDispute)
+
 // ============= SYSTEM STATS =============
 
 /**
@@ -132,5 +204,22 @@ router.post('/upgrades/:id/reject', rejectUpgrade)
  * @access  Private (Admin)
  */
 router.get('/stats', getSystemStats)
+
+// ============= SYSTEM SETTINGS =============
+
+/**
+ * @route   GET /api/admin/settings
+ * @desc    Lấy cài đặt hệ thống
+ * @access  Private (Admin)
+ */
+router.get('/settings', getSystemSettings)
+
+/**
+ * @route   PUT /api/admin/settings
+ * @desc    Cập nhật cài đặt hệ thống
+ * @body    { key: value }
+ * @access  Private (Admin)
+ */
+router.put('/settings', updateSystemSettings)
 
 export default router
