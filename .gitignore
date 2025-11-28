@@ -46,3 +46,4 @@ tmp/
 # Coverage
 coverage/
 .nyc_output/
+auction-system/Backend/CREATE-FULL-TEST-DATA.sql

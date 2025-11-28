@@ -2,10 +2,13 @@ import { useState, useEffect } from 'react';
 import adminAPI from '../../services/adminAPI';
 import { useDialog } from '../../context/DialogContext.jsx';
 
+// Placeholder image khi không có ảnh (SVG inline)
+const DEFAULT_PRODUCT_IMAGE = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='200' viewBox='0 0 300 200'%3E%3Crect fill='%23e5e7eb' width='300' height='200'/%3E%3Ctext fill='%239ca3af' font-family='Arial' font-size='14' x='50%25' y='50%25' text-anchor='middle' dy='.3em'%3EKhông có ảnh%3C/text%3E%3C/svg%3E";
+
 function ProductManagement() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState('pending'); // pending, active, completed, rejected
+  const [filter, setFilter] = useState('all'); // all, pending, active, completed, rejected
   const [error, setError] = useState(null);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [rejectReason, setRejectReason] = useState('');
@@ -18,8 +21,10 @@ function ProductManagement() {
   const fetchProducts = async () => {
     try {
       setLoading(true);
-      const response = await adminAPI.getAllProducts({ status: filter });
-      setProducts(response.data);
+      // Nếu filter = 'all' thì không gửi status param
+      const params = filter !== 'all' ? { status: filter } : {};
+      const response = await adminAPI.getAllProducts(params);
+      setProducts(response.data || []);
       setError(null);
     } catch (err) {
       setError(err.response?.data?.message || 'Lỗi khi tải danh sách sản phẩm');
@@ -37,7 +42,7 @@ function ProductManagement() {
       confirmText: 'Duyệt ngay',
     });
     if (!confirmed) return;
-
+    
     try {
       await adminAPI.approveProduct(productId);
       await alert({
@@ -168,8 +173,8 @@ function ProductManagement() {
       )}
 
       {/* Filter */}
-      <div className="flex gap-2">
-        {['pending', 'active', 'completed', 'rejected'].map((status) => (
+      <div className="flex gap-2 flex-wrap">
+        {['all', 'pending', 'active', 'completed', 'rejected'].map((status) => (
           <button
             key={status}
             onClick={() => setFilter(status)}
@@ -179,6 +184,7 @@ function ProductManagement() {
                 : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
             }`}
           >
+            {status === 'all' && '📋 Tất cả'}
             {status === 'pending' && '⏳ Chờ duyệt'}
             {status === 'active' && '✅ Đang hoạt động'}
             {status === 'completed' && '💰 Đã hoàn thành'}
@@ -198,19 +204,19 @@ function ProductManagement() {
             <div key={product.id} className="bg-white rounded-lg shadow-md overflow-hidden">
               {/* Product Image */}
               <img
-                src={product.image_url || 'https://via.placeholder.com/300x200?text=No+Image'}
-                alt={product.title}
+                src={product.thumbnail_url || product.image_url || DEFAULT_PRODUCT_IMAGE}
+                alt={product.name || product.title}
                 className="w-full h-48 object-cover"
+                onError={(e) => { e.target.src = DEFAULT_PRODUCT_IMAGE; }}
               />
               
               {/* Product Info */}
               <div className="p-4 space-y-2">
                 <h3 className="font-semibold text-gray-800 line-clamp-2">
-                  {product.title}
+                  {product.name || product.title}
                 </h3>
                 <p className="text-sm text-gray-600 line-clamp-2">
-                  {product.description}
-                </p>
+                  {product.description}</p>
                 <div className="flex justify-between items-center">
                   <span className="text-lg font-bold text-blue-600">
                     {product.current_price?.toLocaleString('vi-VN')} đ
@@ -228,7 +234,7 @@ function ProductManagement() {
                   {product.status === 'pending' && (
                     <>
                       <button
-                        onClick={() => handleApprove(product.id, product.title)}
+                        onClick={() => handleApprove(product.id, product.name || product.title)}
                         className="w-full px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700"
                       >
                         ✅ Duyệt
@@ -242,7 +248,7 @@ function ProductManagement() {
                     </>
                   )}
                   <button
-                    onClick={() => handleDelete(product.id, product.title)}
+                    onClick={() => handleDelete(product.id, product.name || product.title)}
                     className="w-full px-3 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
                   >
                     🗑️ Xóa
@@ -267,7 +273,7 @@ function ProductManagement() {
           <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
             <h3 className="text-xl font-bold mb-4">Từ chối sản phẩm</h3>
             <p className="text-gray-600 mb-4">
-              Sản phẩm: <strong>{selectedProduct.title}</strong>
+              Sản phẩm: <strong>{selectedProduct.name || selectedProduct.title}</strong>
             </p>
             <textarea
               value={rejectReason}
@@ -287,7 +293,7 @@ function ProductManagement() {
                 Hủy
               </button>
               <button
-                onClick={() => handleReject(selectedProduct.id, selectedProduct.title)}
+                onClick={() => handleReject(selectedProduct.id, selectedProduct.name || selectedProduct.title)}
                 className="flex-1 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
               >
                 Xác nhận từ chối

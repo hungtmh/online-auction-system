@@ -2,6 +2,9 @@ import { useState } from 'react';
 import adminAPI from '../../services/adminAPI';
 import { useDialog } from '../../context/DialogContext.jsx';
 
+// Placeholder image khi không có ảnh (SVG inline)
+const DEFAULT_IMAGE = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'%3E%3Crect fill='%23e5e7eb' width='400' height='300'/%3E%3Ctext fill='%239ca3af' font-family='Arial' font-size='16' x='50%25' y='50%25' text-anchor='middle' dy='.3em'%3EKhông có ảnh%3C/text%3E%3C/svg%3E";
+
 function ProductApproval({ product, onClose, onSuccess }) {
   const [action, setAction] = useState(null); // 'approve' | 'reject'
   const [rejectReason, setRejectReason] = useState('');
@@ -131,9 +134,10 @@ function ProductApproval({ product, onClose, onSuccess }) {
             {/* Image */}
             <div>
               <img
-                src={product.image_url || 'https://via.placeholder.com/400x300?text=No+Image'}
+                src={product.image_url || DEFAULT_IMAGE}
                 alt={product.title}
                 className="w-full h-64 object-cover rounded-lg border border-gray-200"
+                onError={(e) => { e.target.src = DEFAULT_IMAGE; }}
               />
             </div>
 

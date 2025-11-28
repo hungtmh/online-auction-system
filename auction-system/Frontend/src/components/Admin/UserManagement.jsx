@@ -17,6 +17,8 @@ function UserManagement() {
     try {
       setLoading(true);
       const params = filter !== 'all' ? { role: filter } : {};
+      // Include cả user đã bị cấm để có thể gỡ cấm
+      params.include_deleted = 'true';
       const response = await adminAPI.getAllUsers(params);
       setUsers(response.data);
       setError(null);
@@ -36,7 +38,7 @@ function UserManagement() {
       confirmText: 'Đổi role',
     });
     if (!confirmed) return;
-
+    
     try {
       await adminAPI.updateUserRole(userId, newRole);
       await showAlert({
@@ -62,7 +64,7 @@ function UserManagement() {
       confirmText: 'Cấm user',
     });
     if (!confirmed) return;
-
+    
     try {
       await adminAPI.banUser(userId);
       await showAlert({
@@ -80,28 +82,27 @@ function UserManagement() {
     }
   };
 
-  const handleDeleteUser = async (userId, userName) => {
+  const handleUnbanUser = async (userId, userName) => {
     const confirmed = await confirmDialog({
-      icon: '🗑️',
-      title: 'Xóa user',
-      message: `⚠️ Hành động này không thể hoàn tác.\n\nBạn có chắc muốn xóa vĩnh viễn "${userName}"?`,
-      confirmText: 'Xóa vĩnh viễn',
-      cancelText: 'Để sau',
+      icon: '✅',
+      title: 'Hoàn tác cấm',
+      message: `Bạn có chắc muốn gỡ cấm user "${userName}"?`,
+      confirmText: 'Hoàn tác',
     });
     if (!confirmed) return;
-
+    
     try {
-      await adminAPI.deleteUser(userId);
+      await adminAPI.unbanUser(userId);
       await showAlert({
         icon: '✅',
-        title: 'Đã xóa user',
-        message: 'User đã được xóa khỏi hệ thống.',
+        title: 'Đã gỡ cấm user',
+        message: 'User đã được gỡ cấm thành công.',
       });
       fetchUsers();
     } catch (err) {
       await showAlert({
         icon: '⚠️',
-        title: 'Không thể xóa user',
+        title: 'Không thể gỡ cấm user',
         message: err.response?.data?.message || 'Vui lòng thử lại.',
       });
     }
@@ -173,6 +174,9 @@ function UserManagement() {
                 Ngày tạo
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                Trạng thái
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                 Hành động
               </th>
             </tr>
@@ -180,7 +184,7 @@ function UserManagement() {
           <tbody className="bg-white divide-y divide-gray-200">
             {users.length === 0 ? (
               <tr>
-                <td colSpan="6" className="px-6 py-8 text-center text-gray-500">
+                <td colSpan="7" className="px-6 py-8 text-center text-gray-500">
                   Không có users nào
                 </td>
               </tr>
@@ -197,35 +201,58 @@ function UserManagement() {
                     {user.full_name || 'N/A'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <select
-                      value={user.role}
-                      onChange={(e) => handleChangeRole(user.id, e.target.value)}
-                      className="text-sm border border-gray-300 rounded px-2 py-1"
-                    >
-                      <option value="guest">Guest</option>
-                      <option value="bidder">Bidder</option>
-                      <option value="seller">Seller</option>
-                      <option value="admin">Admin</option>
-                    </select>
+                    {user.role === 'admin' ? (
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-gray-700">Admin</span>
+                        <span className="text-xs text-gray-500" title="Không thể thay đổi role của Admin">
+                          🔒
+                        </span>
+                      </div>
+                    ) : (
+                      <select
+                        value={user.role}
+                        onChange={(e) => handleChangeRole(user.id, e.target.value)}
+                        className="text-sm border border-gray-300 rounded px-2 py-1"
+                        disabled={user.role === 'admin'}
+                      >
+                        <option value="bidder">Bidder</option>
+                        <option value="seller">Seller</option>
+                        <option value="admin">Admin</option>
+                      </select>
+                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {new Date(user.created_at).toLocaleDateString('vi-VN')}
                   </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm">
+                    {user.is_banned ? (
+                      <span className="px-2 py-1 bg-red-100 text-red-800 rounded-full text-xs font-medium">
+                        🚫 Đã bị cấm
+                      </span>
+                    ) : (
+                      <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">
+                        ✅ Hoạt động
+                      </span>
+                    )}
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm space-x-2">
-                    <button
-                      onClick={() => handleBanUser(user.id, user.email)}
-                      className="text-orange-600 hover:text-orange-900"
-                      title="Cấm user"
-                    >
-                      🚫 Cấm
-                    </button>
-                    <button
-                      onClick={() => handleDeleteUser(user.id, user.email)}
-                      className="text-red-600 hover:text-red-900"
-                      title="Xóa user"
-                    >
-                      🗑️ Xóa
-                    </button>
+                    {user.is_banned ? (
+                      <button
+                        onClick={() => handleUnbanUser(user.id, user.email)}
+                        className="px-3 py-1.5 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors font-medium"
+                        title="Gỡ cấm user"
+                      >
+                        ✅ Gỡ cấm
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleBanUser(user.id, user.email)}
+                        className="px-3 py-1.5 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-medium"
+                        title="Cấm user"
+                      >
+                        🚫 Cấm
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))

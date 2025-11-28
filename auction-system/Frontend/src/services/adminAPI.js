@@ -48,8 +48,18 @@ const adminAPI = {
   },
 
   /**
+   * Gỡ cấm user (hoàn tác)
+   * @param {string} userId
+   */
+  unbanUser: async (userId) => {
+    const response = await api.post(`/admin/users/${userId}/unban`)
+    return response.data
+  },
+
+  /**
    * Xóa user
    * @param {string} userId
+   * @deprecated Sử dụng banUser thay thế
    */
   deleteUser: async (userId) => {
     const response = await api.delete(`/admin/users/${userId}`)
@@ -190,6 +200,54 @@ const adminAPI = {
   getAllCategories: async () => {
     const response = await api.get('/admin/categories');
     return response.data;
+  },
+
+  // ============= SPAM MANAGEMENT =============
+
+  /**
+   * Lấy danh sách báo cáo spam
+   * @param {Object} params - { status, type, page, limit }
+   */
+  getSpamReports: async (params = {}) => {
+    const response = await api.get('/admin/spam-reports', { params })
+    return response.data
+  },
+
+  /**
+   * Lấy chi tiết báo cáo spam
+   * @param {string} reportId
+   */
+  getSpamReportById: async (reportId) => {
+    const response = await api.get(`/admin/spam-reports/${reportId}`)
+    return response.data
+  },
+
+  /**
+   * Xử lý báo cáo spam (xác nhận là spam)
+   * @param {string} reportId
+   * @param {Object} data - { action, admin_note }
+   */
+  resolveSpamReport: async (reportId, data) => {
+    const response = await api.post(`/admin/spam-reports/${reportId}/resolve`, data)
+    return response.data
+  },
+
+  /**
+   * Bỏ qua báo cáo spam
+   * @param {string} reportId
+   * @param {Object} data - { admin_note }
+   */
+  dismissSpamReport: async (reportId, data = {}) => {
+    const response = await api.post(`/admin/spam-reports/${reportId}/dismiss`, data)
+    return response.data
+  },
+
+  /**
+   * Lấy thống kê spam
+   */
+  getSpamStats: async () => {
+    const response = await api.get('/admin/spam-stats')
+    return response.data
   },
 }
 
