@@ -13,12 +13,12 @@ import { supabase } from '../config/supabase.js'
 
 /**
  * @route   GET /api/admin/users
- * @desc    Lấy danh sách tất cả users
+ * @desc    Lấy danh sách tất cả users (không bao gồm user đã bị soft delete)
  * @access  Private (Admin)
  */
 export const getAllUsers = async (req, res) => {
   try {
-    const { role, page = 1, limit = 20 } = req.query
+    const { role, page = 1, limit = 20, include_deleted = 'false' } = req.query
     const offset = (page - 1) * limit
 
     let query = supabase
@@ -26,6 +26,12 @@ export const getAllUsers = async (req, res) => {
       .select('*')
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1)
+
+    // Mặc định không hiển thị user đã bị xóa (soft delete)
+    // Chỉ hiển thị nếu include_deleted = 'true'
+    if (include_deleted !== 'true') {
+      query = query.or('is_banned.eq.false,banned_reason.is.null')
+    }
 
     // Lọc theo role nếu có
     if (role) {
@@ -100,10 +106,11 @@ export const updateUserRole = async (req, res) => {
     const { id } = req.params
     const { role } = req.body
 
-    if (!['guest', 'bidder', 'seller', 'admin'].includes(role)) {
+    // Chỉ cho phép 3 role: bidder, seller, admin (bỏ guest)
+    if (!['bidder', 'seller', 'admin'].includes(role)) {
       return res.status(400).json({
         success: false,
-        message: 'Role không hợp lệ'
+        message: 'Role không hợp lệ. Chỉ cho phép: bidder, seller, admin'
       })
     }
 
@@ -112,6 +119,23 @@ export const updateUserRole = async (req, res) => {
       return res.status(403).json({
         success: false,
         message: 'Không thể thay đổi role của chính mình'
+      })
+    }
+
+    // Kiểm tra role hiện tại của user
+    const { data: currentUser, error: fetchError } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', id)
+      .single()
+
+    if (fetchError) throw fetchError
+
+    // Không cho phép thay đổi role của Admin
+    if (currentUser?.role === 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Không thể thay đổi role của Admin'
       })
     }
 
@@ -155,11 +179,14 @@ export const banUser = async (req, res) => {
       });
     }
 
-    // Set role về guest để vô hiệu hóa
+    // Cấm user: đánh dấu is_banned = true (dùng logic của deleteUser)
     const { data, error } = await supabase
       .from('profiles')
       .update({
-        role: 'guest',
+        is_banned: true,
+        banned_reason: 'Tài khoản đã bị cấm bởi Admin',
+        banned_at: new Date().toISOString(),
+        role: 'guest', // Hạ role về guest
         updated_at: new Date().toISOString(),
       })
       .eq('id', id)
@@ -184,8 +211,9 @@ export const banUser = async (req, res) => {
 
 /**
  * @route   DELETE /api/admin/users/:id
- * @desc    Xóa user
+ * @desc    Xóa user (soft delete - đánh dấu is_banned = true)
  * @access  Private (Admin)
+ * @note    Deprecated: Sử dụng banUser thay thế
  */
 export const deleteUser = async (req, res) => {
   try {
@@ -199,19 +227,70 @@ export const deleteUser = async (req, res) => {
       })
     }
 
-    // Xóa user khỏi Supabase Auth
-    const { error: authError } = await supabase.auth.admin.deleteUser(id)
-    if (authError) throw authError
+    // Soft delete: đánh dấu user là đã xóa thay vì xóa thật
+    const { data, error } = await supabase
+      .from('profiles')
+      .update({
+        is_banned: true,
+        banned_reason: 'Tài khoản đã bị xóa bởi Admin',
+        banned_at: new Date().toISOString(),
+        role: 'guest', // Hạ role về guest
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (error) throw error
 
     res.json({
       success: true,
-      message: 'Xóa user thành công'
+      message: 'Đã xóa user (soft delete)',
+      data: data
     })
   } catch (error) {
     console.error('❌ Error deleting user:', error)
     res.status(500).json({
       success: false,
       message: 'Không thể xóa user'
+    })
+  }
+}
+
+/**
+ * @route   POST /api/admin/users/:id/unban
+ * @desc    Gỡ cấm user (hoàn tác cấm)
+ * @access  Private (Admin)
+ */
+export const unbanUser = async (req, res) => {
+  try {
+    const { id } = req.params
+
+    // Gỡ cấm: set is_banned = false
+    const { data, error } = await supabase
+      .from('profiles')
+      .update({
+        is_banned: false,
+        banned_reason: null,
+        banned_at: null,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (error) throw error
+
+    res.json({
+      success: true,
+      message: 'Đã gỡ cấm user thành công',
+      data: data
+    })
+  } catch (error) {
+    console.error('❌ Error unbanning user:', error)
+    res.status(500).json({
+      success: false,
+      message: 'Không thể gỡ cấm user'
     })
   }
 }
@@ -224,6 +303,7 @@ export const deleteUser = async (req, res) => {
 export const getAllProducts = async (req, res) => {
   try {
     const { status } = req.query; // Get status from query params
+    console.log('📦 [Admin] Fetching products with status:', status || 'all');
 
     let query = supabase
       .from('products')
@@ -236,17 +316,23 @@ export const getAllProducts = async (req, res) => {
 
     const { data, error } = await query;
 
-    if (error) throw error;
+    if (error) {
+      console.error('❌ Supabase error fetching products:', error);
+      throw error;
+    }
+
+    console.log(`✅ [Admin] Found ${data?.length || 0} products`);
 
     res.json({
       success: true,
-      data: data,
+      data: data || [],
     });
   } catch (error) {
     console.error('❌ Error fetching products:', error);
     res.status(500).json({
       success: false,
       message: 'Không thể lấy danh sách sản phẩm',
+      error: error.message
     });
   }
 }
@@ -300,6 +386,7 @@ export const rejectProduct = async (req, res) => {
       .from('products')
       .update({ 
         status: 'rejected',
+        rejected_reason: reason || null,
         updated_at: new Date().toISOString()
       })
       .eq('id', id)
@@ -519,6 +606,16 @@ export const getSystemStats = async (req, res) => {
       .from('bids')
       .select('id', { count: 'exact' })
 
+    // Tổng số danh mục sản phẩm (chỉ đếm categories đang active)
+    const { count: totalCategories, error: categoriesError } = await supabase
+      .from('categories')
+      .select('id', { count: 'exact', head: true })
+      .eq('is_active', true)
+    
+    if (categoriesError) {
+      console.error('❌ Error counting categories:', categoriesError)
+    }
+
     // Yêu cầu nâng cấp pending
     const { count: pendingUpgrades } = await supabase
       .from('upgrade_requests')
@@ -528,11 +625,12 @@ export const getSystemStats = async (req, res) => {
     res.json({
       success: true,
       data: {
-        totalUsers,
-        totalProducts,
-        activeProducts,
-        totalBids,
-        pendingUpgrades
+        totalUsers: totalUsers || 0,
+        totalProducts: totalProducts || 0,
+        activeProducts: activeProducts || 0,
+        totalBids: totalBids || 0,
+        totalCategories: totalCategories || 0,
+        pendingUpgrades: pendingUpgrades || 0
       }
     })
   } catch (error) {
@@ -555,10 +653,20 @@ export const getSystemStats = async (req, res) => {
  */
 export const getAllCategories = async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const { include_deleted = 'false' } = req.query
+
+    let query = supabase
       .from('categories')
-      .select('id, name, slug, description, is_active') // Fetch only necessary fields
+      .select('id, name, slug, description, is_active')
       .order('name', { ascending: true });
+
+    // Mặc định chỉ lấy categories đang active (chưa bị soft delete)
+    // Nếu include_deleted = 'true' thì lấy tất cả
+    if (include_deleted !== 'true') {
+      query = query.eq('is_active', true)
+    }
+
+    const { data, error } = await query
 
     if (error) {
       console.error('❌ Error fetching categories:', error);
@@ -737,36 +845,30 @@ export const updateCategory = async (req, res) => {
 
 /**
  * @route   DELETE /api/admin/categories/:id
- * @desc    Xóa category (không được xóa nếu có sản phẩm)
+ * @desc    Xóa category (soft delete - đánh dấu is_active = false)
  * @access  Private (Admin)
  */
 export const deleteCategory = async (req, res) => {
   try {
     const { id } = req.params
 
-    // Kiểm tra xem có sản phẩm nào trong category không
-    const { count: productCount } = await supabase
-      .from('products')
-      .select('id', { count: 'exact' })
-      .eq('category_id', id)
-
-    if (productCount > 0) {
-      return res.status(400).json({
-        success: false,
-        message: `Không thể xóa category này vì còn ${productCount} sản phẩm`
-      })
-    }
-
-    const { error } = await supabase
+    // Soft delete: đánh dấu category là không hoạt động thay vì xóa thật
+    const { data, error } = await supabase
       .from('categories')
-      .delete()
+      .update({
+        is_active: false,
+        updated_at: new Date().toISOString()
+      })
       .eq('id', id)
+      .select()
+      .single()
 
     if (error) throw error
 
     res.json({
       success: true,
-      message: 'Xóa category thành công'
+      message: 'Đã xóa category (soft delete)',
+      data: data
     })
   } catch (error) {
     console.error('❌ Error deleting category:', error)
@@ -790,6 +892,7 @@ export const getBidHistory = async (req, res) => {
   try {
     const { status, page = 1, limit = 50 } = req.query
     const offset = (page - 1) * limit
+    console.log('💰 [Admin] Fetching bid history, status:', status || 'all', 'page:', page);
 
     const { data, error } = await supabase
       .from('bids')
@@ -812,9 +915,11 @@ export const getBidHistory = async (req, res) => {
       .range(offset, offset + limit - 1)
 
     if (error) {
-      console.error('❌ Supabase error:', error)
+      console.error('❌ Supabase error fetching bids:', error)
       throw error
     }
+
+    console.log(`✅ [Admin] Found ${data?.length || 0} bids`)
 
     const computeStatus = (bid) => {
       const product = bid.product || {}
@@ -875,18 +980,21 @@ export const getBidHistory = async (req, res) => {
 
 /**
  * @route   POST /api/admin/bids/:id/cancel
- * @desc    Hủy bid (xử lý gian lận)
+ * @desc    Hủy bid (soft delete - đánh dấu is_rejected = true)
  * @access  Private (Admin)
  */
 export const cancelBid = async (req, res) => {
   try {
     const { id } = req.params
+    const { reason } = req.body
 
+    // Soft delete: đánh dấu bid là bị từ chối thay vì xóa thật
     const { data, error } = await supabase
       .from('bids')
       .update({ 
         is_rejected: true,
         rejected_at: new Date().toISOString()
+        // Lưu ý: Nếu muốn lưu reason, cần thêm cột rejected_reason vào bảng bids
       })
       .eq('id', id)
       .select()
@@ -894,9 +1002,11 @@ export const cancelBid = async (req, res) => {
 
     if (error) throw error
 
+    console.log(`🚫 Bid ${id} đã bị hủy. Lý do: ${reason || 'Không có'}`)
+
     res.json({
       success: true,
-      message: 'Đã hủy bid',
+      message: 'Đã hủy bid (soft delete)',
       data: data
     })
   } catch (error) {
@@ -1033,3 +1143,384 @@ export const updateSystemSettings = async (req, res) => {
     });
   }
 };
+
+// ============================================
+// SPAM MANAGEMENT
+// ============================================
+
+/**
+ * @route   GET /api/admin/spam-reports
+ * @desc    Lấy danh sách báo cáo spam
+ * @access  Private (Admin)
+ */
+export const getSpamReports = async (req, res) => {
+  try {
+    const { status = 'pending', type, page = 1, limit = 20 } = req.query
+    const offset = (page - 1) * limit
+
+    let query = supabase
+      .from('spam_reports')
+      .select(`
+        *,
+        reporter:profiles!spam_reports_reporter_id_fkey (
+          id,
+          full_name,
+          email
+        ),
+        reported_user:profiles!spam_reports_reported_user_id_fkey (
+          id,
+          full_name,
+          email,
+          is_banned
+        )
+      `)
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1)
+
+    if (status && status !== 'all') {
+      query = query.eq('status', status)
+    }
+
+    if (type) {
+      query = query.eq('report_type', type)
+    }
+
+    const { data, error } = await query
+
+    if (error) {
+      console.error('❌ Supabase error:', error)
+      throw error
+    }
+
+    // Đếm tổng số báo cáo theo status
+    const { count: pendingCount } = await supabase
+      .from('spam_reports')
+      .select('id', { count: 'exact' })
+      .eq('status', 'pending')
+
+    const { count: resolvedCount } = await supabase
+      .from('spam_reports')
+      .select('id', { count: 'exact' })
+      .eq('status', 'resolved')
+
+    const { count: dismissedCount } = await supabase
+      .from('spam_reports')
+      .select('id', { count: 'exact' })
+      .eq('status', 'dismissed')
+
+    res.json({
+      success: true,
+      data: data || [],
+      stats: {
+        pending: pendingCount || 0,
+        resolved: resolvedCount || 0,
+        dismissed: dismissedCount || 0,
+        total: (pendingCount || 0) + (resolvedCount || 0) + (dismissedCount || 0)
+      }
+    })
+  } catch (error) {
+    console.error('❌ Error getting spam reports:', error)
+    res.status(500).json({
+      success: false,
+      message: 'Không thể lấy danh sách báo cáo spam'
+    })
+  }
+}
+
+/**
+ * @route   GET /api/admin/spam-reports/:id
+ * @desc    Chi tiết báo cáo spam
+ * @access  Private (Admin)
+ */
+export const getSpamReportById = async (req, res) => {
+  try {
+    const { id } = req.params
+
+    const { data, error } = await supabase
+      .from('spam_reports')
+      .select(`
+        *,
+        reporter:profiles!spam_reports_reporter_id_fkey (
+          id,
+          full_name,
+          email,
+          avatar_url
+        ),
+        reported_user:profiles!spam_reports_reported_user_id_fkey (
+          id,
+          full_name,
+          email,
+          avatar_url,
+          is_banned,
+          role
+        ),
+        reviewed_by_user:profiles!spam_reports_reviewed_by_fkey (
+          id,
+          full_name,
+          email
+        )
+      `)
+      .eq('id', id)
+      .single()
+
+    if (error) throw error
+
+    if (!data) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy báo cáo spam'
+      })
+    }
+
+    // Nếu báo cáo liên quan đến product, lấy thông tin product
+    let relatedProduct = null
+    if (data.reported_product_id) {
+      const { data: product } = await supabase
+        .from('products')
+        .select('id, name, thumbnail_url, status, seller_id')
+        .eq('id', data.reported_product_id)
+        .single()
+      relatedProduct = product
+    }
+
+    // Nếu báo cáo liên quan đến bid, lấy thông tin bid
+    let relatedBid = null
+    if (data.reported_bid_id) {
+      const { data: bid } = await supabase
+        .from('bids')
+        .select('id, bid_amount, created_at, is_rejected')
+        .eq('id', data.reported_bid_id)
+        .single()
+      relatedBid = bid
+    }
+
+    res.json({
+      success: true,
+      data: {
+        ...data,
+        related_product: relatedProduct,
+        related_bid: relatedBid
+      }
+    })
+  } catch (error) {
+    console.error('❌ Error getting spam report:', error)
+    res.status(500).json({
+      success: false,
+      message: 'Không thể lấy thông tin báo cáo spam'
+    })
+  }
+}
+
+/**
+ * @route   POST /api/admin/spam-reports/:id/resolve
+ * @desc    Xử lý báo cáo spam (xác nhận là spam)
+ * @access  Private (Admin)
+ */
+export const resolveSpamReport = async (req, res) => {
+  try {
+    const { id } = req.params
+    const { action, admin_note } = req.body
+    // action: 'warn' | 'ban_user' | 'delete_content' | 'ban_and_delete'
+
+    // Lấy thông tin báo cáo
+    const { data: report, error: reportError } = await supabase
+      .from('spam_reports')
+      .select('*')
+      .eq('id', id)
+      .single()
+
+    if (reportError || !report) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy báo cáo spam'
+      })
+    }
+
+    // Thực hiện action tương ứng
+    if (action === 'ban_user' || action === 'ban_and_delete') {
+      // Ban user đã bị báo cáo
+      await supabase
+        .from('profiles')
+        .update({
+          is_banned: true,
+          banned_reason: `Spam: ${report.reason || 'Vi phạm quy định'}`,
+          banned_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', report.reported_user_id)
+    }
+
+    if (action === 'delete_content' || action === 'ban_and_delete') {
+      // Soft delete nội dung liên quan
+      if (report.reported_product_id) {
+        await supabase
+          .from('products')
+          .update({
+            status: 'cancelled',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', report.reported_product_id)
+      }
+
+      if (report.reported_bid_id) {
+        await supabase
+          .from('bids')
+          .update({
+            is_rejected: true,
+            rejected_at: new Date().toISOString()
+          })
+          .eq('id', report.reported_bid_id)
+      }
+    }
+
+    // Cập nhật trạng thái báo cáo
+    const { data, error } = await supabase
+      .from('spam_reports')
+      .update({
+        status: 'resolved',
+        action_taken: action,
+        admin_note: admin_note || null,
+        reviewed_by: req.user.id,
+        reviewed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (error) throw error
+
+    res.json({
+      success: true,
+      message: 'Đã xử lý báo cáo spam',
+      data: data
+    })
+  } catch (error) {
+    console.error('❌ Error resolving spam report:', error)
+    res.status(500).json({
+      success: false,
+      message: 'Không thể xử lý báo cáo spam'
+    })
+  }
+}
+
+/**
+ * @route   POST /api/admin/spam-reports/:id/dismiss
+ * @desc    Bỏ qua báo cáo spam (không phải spam)
+ * @access  Private (Admin)
+ */
+export const dismissSpamReport = async (req, res) => {
+  try {
+    const { id } = req.params
+    const { admin_note } = req.body
+
+    const { data, error } = await supabase
+      .from('spam_reports')
+      .update({
+        status: 'dismissed',
+        action_taken: 'dismissed',
+        admin_note: admin_note || 'Báo cáo không hợp lệ hoặc không phải spam',
+        reviewed_by: req.user.id,
+        reviewed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (error) throw error
+
+    res.json({
+      success: true,
+      message: 'Đã bỏ qua báo cáo spam',
+      data: data
+    })
+  } catch (error) {
+    console.error('❌ Error dismissing spam report:', error)
+    res.status(500).json({
+      success: false,
+      message: 'Không thể bỏ qua báo cáo spam'
+    })
+  }
+}
+
+/**
+ * @route   GET /api/admin/spam-stats
+ * @desc    Thống kê spam
+ * @access  Private (Admin)
+ */
+export const getSpamStats = async (req, res) => {
+  try {
+    // Đếm số báo cáo theo loại
+    const { data: reportsByType, error: typeError } = await supabase
+      .from('spam_reports')
+      .select('report_type')
+
+    if (typeError) throw typeError
+
+    const typeStats = (reportsByType || []).reduce((acc, r) => {
+      acc[r.report_type] = (acc[r.report_type] || 0) + 1
+      return acc
+    }, {})
+
+    // Đếm user bị ban vì spam
+    const { count: bannedForSpam } = await supabase
+      .from('profiles')
+      .select('id', { count: 'exact' })
+      .eq('is_banned', true)
+      .ilike('banned_reason', '%spam%')
+
+    // Đếm báo cáo pending
+    const { count: pendingReports } = await supabase
+      .from('spam_reports')
+      .select('id', { count: 'exact' })
+      .eq('status', 'pending')
+
+    // Top users bị báo cáo nhiều nhất
+    const { data: topReported, error: topError } = await supabase
+      .from('spam_reports')
+      .select(`
+        reported_user_id,
+        reported_user:profiles!spam_reports_reported_user_id_fkey (
+          id,
+          full_name,
+          email
+        )
+      `)
+      .eq('status', 'resolved')
+
+    if (topError) throw topError
+
+    const reportedCounts = (topReported || []).reduce((acc, r) => {
+      const userId = r.reported_user_id
+      if (!acc[userId]) {
+        acc[userId] = {
+          user: r.reported_user,
+          count: 0
+        }
+      }
+      acc[userId].count++
+      return acc
+    }, {})
+
+    const topReportedUsers = Object.values(reportedCounts)
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10)
+
+    res.json({
+      success: true,
+      stats: {
+        pending_reports: pendingReports || 0,
+        banned_for_spam: bannedForSpam || 0,
+        by_type: typeStats,
+        top_reported_users: topReportedUsers
+      }
+    })
+  } catch (error) {
+    console.error('❌ Error getting spam stats:', error)
+    res.status(500).json({
+      success: false,
+      message: 'Không thể lấy thống kê spam'
+    })
+  }
+}

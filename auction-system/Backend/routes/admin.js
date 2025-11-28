@@ -13,6 +13,7 @@ import {
   updateUserRole,
   banUser,
   deleteUser,
+  unbanUser,
   getAllProducts,
   approveProduct,
   rejectProduct,
@@ -30,7 +31,13 @@ import {
   cancelBid,
   resolveDispute,
   getSystemSettings,
-  updateSystemSettings
+  updateSystemSettings,
+  // Spam Management
+  getSpamReports,
+  getSpamReportById,
+  resolveSpamReport,
+  dismissSpamReport,
+  getSpamStats
 } from '../controllers/adminController.js'
 
 const router = express.Router()
@@ -70,6 +77,13 @@ router.put('/users/:id/role', updateUserRole)
  * @access  Private (Admin)
  */
 router.post('/users/:id/ban', banUser)
+
+/**
+ * @route   POST /api/admin/users/:id/unban
+ * @desc    Gỡ cấm user (hoàn tác)
+ * @access  Private (Admin)
+ */
+router.post('/users/:id/unban', unbanUser)
 
 /**
  * @route   DELETE /api/admin/users/:id
@@ -221,5 +235,45 @@ router.get('/settings', getSystemSettings)
  * @access  Private (Admin)
  */
 router.put('/settings', updateSystemSettings)
+
+// ============= SPAM MANAGEMENT =============
+
+/**
+ * @route   GET /api/admin/spam-reports
+ * @desc    Lấy danh sách báo cáo spam
+ * @query   ?status=pending|resolved|dismissed&type=user|product|bid&page=1&limit=20
+ * @access  Private (Admin)
+ */
+router.get('/spam-reports', getSpamReports)
+
+/**
+ * @route   GET /api/admin/spam-reports/:id
+ * @desc    Chi tiết báo cáo spam
+ * @access  Private (Admin)
+ */
+router.get('/spam-reports/:id', getSpamReportById)
+
+/**
+ * @route   POST /api/admin/spam-reports/:id/resolve
+ * @desc    Xử lý báo cáo spam (xác nhận là spam)
+ * @body    { action: 'warn'|'ban_user'|'delete_content'|'ban_and_delete', admin_note: 'ghi chú' }
+ * @access  Private (Admin)
+ */
+router.post('/spam-reports/:id/resolve', resolveSpamReport)
+
+/**
+ * @route   POST /api/admin/spam-reports/:id/dismiss
+ * @desc    Bỏ qua báo cáo spam (không phải spam)
+ * @body    { admin_note: 'lý do bỏ qua' }
+ * @access  Private (Admin)
+ */
+router.post('/spam-reports/:id/dismiss', dismissSpamReport)
+
+/**
+ * @route   GET /api/admin/spam-stats
+ * @desc    Thống kê spam
+ * @access  Private (Admin)
+ */
+router.get('/spam-stats', getSpamStats)
 
 export default router

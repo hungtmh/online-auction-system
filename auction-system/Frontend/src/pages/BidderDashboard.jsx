@@ -1,57 +1,17 @@
-import { useEffect, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
 import { authAPI } from '../services/api'
-import bidderAPI from '../services/bidderAPI'
-import ProductCard from '../components/GuestHomePage/ProductCard'
-import BidderMarketplaceNavbar from '../components/common/BidderMarketplaceNavbar'
 
-const TAB_LIST = [
-  { id: 'browse', label: '🔍 Khám phá đấu giá' },
-  { id: 'my-bids', label: '💰 Đấu giá của tôi' },
-  { id: 'watchlist', label: '⭐ Theo dõi' },
-  { id: 'profile', label: '👤 Hồ sơ' }
-]
-
-const BROWSE_PAGE_SIZE = 9
+// Placeholder image khi không có ảnh (SVG inline)
+const DEFAULT_IMAGE = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'%3E%3Crect fill='%23e5e7eb' width='400' height='300'/%3E%3Ctext fill='%239ca3af' font-family='Arial' font-size='16' x='50%25' y='50%25' text-anchor='middle' dy='.3em'%3EKhông có ảnh%3C/text%3E%3C/svg%3E";
 
 function BidderDashboard() {
   const [user, setUser] = useState(null)
-  const [loadingProfile, setLoadingProfile] = useState(true)
-  const location = useLocation()
-  const getInitialTab = () => {
-    const tabFromState = location.state?.tab
-    return TAB_LIST.some((tab) => tab.id === tabFromState) ? tabFromState : 'browse'
-  }
-  const [activeTab, setActiveTab] = useState(getInitialTab)
-  const [locationTabConsumed, setLocationTabConsumed] = useState(Boolean(location.state?.tab))
-  const [browseState, setBrowseState] = useState({ data: [], loading: true, error: null })
-  const [browsePagination, setBrowsePagination] = useState({ page: 1, limit: BROWSE_PAGE_SIZE, total: null, totalPages: null, hasMore: false })
-  const [myBidsState, setMyBidsState] = useState({ data: [], loading: false, loaded: false, error: null })
-  const [watchlistState, setWatchlistState] = useState({ data: [], loading: false, loaded: false, error: null })
+  const [loading, setLoading] = useState(true)
+  const [activeTab, setActiveTab] = useState('browse') // browse, my-bids, watchlist, profile
 
   useEffect(() => {
     fetchUserProfile()
-    loadBrowseProducts(1)
   }, [])
-
-  useEffect(() => {
-    const tabFromState = location.state?.tab
-    const isValidTab = TAB_LIST.some((tab) => tab.id === tabFromState)
-
-    if (tabFromState && isValidTab && !locationTabConsumed) {
-      setActiveTab(tabFromState)
-      setLocationTabConsumed(true)
-    }
-  }, [location.state, locationTabConsumed])
-
-  useEffect(() => {
-    if (activeTab === 'my-bids' && !myBidsState.loaded) {
-      loadMyBids()
-    }
-    if (activeTab === 'watchlist' && !watchlistState.loaded) {
-      loadWatchlist()
-    }
-  }, [activeTab])
 
   const fetchUserProfile = async () => {
     try {
@@ -60,68 +20,20 @@ function BidderDashboard() {
     } catch (error) {
       console.error('Failed to fetch profile:', error)
     } finally {
-      setLoadingProfile(false)
+      setLoading(false)
     }
   }
 
-  const loadBrowseProducts = async (page = 1) => {
-    setBrowseState((prev) => ({ ...prev, loading: true, error: null }))
+  const handleLogout = async () => {
     try {
-      const res = await bidderAPI.getAuctionProducts({ limit: BROWSE_PAGE_SIZE, page, sort: 'ending_soon' })
-      const items = res?.data || []
-      setBrowseState({ data: items, loading: false, error: null })
-
-      const pagination = res?.pagination || {}
-      const totalPages = pagination.totalPages || (pagination.total ? Math.ceil(pagination.total / (pagination.limit || BROWSE_PAGE_SIZE)) : null)
-      const hasMore = pagination.hasMore ?? (items.length === (pagination.limit || BROWSE_PAGE_SIZE))
-
-      setBrowsePagination({
-        page: pagination.page || page,
-        limit: pagination.limit || BROWSE_PAGE_SIZE,
-        total: pagination.total ?? null,
-        totalPages,
-        hasMore
-      })
+      await authAPI.logout()
+      window.location.href = '/'
     } catch (error) {
-      console.error('Failed to load products:', error)
-      setBrowseState({ data: [], loading: false, error: 'Không thể tải danh sách sản phẩm' })
-      setBrowsePagination((prev) => ({ ...prev, page }))
+      console.error('Logout failed:', error)
     }
   }
 
-  const handleBrowsePageChange = (nextPage) => {
-    if (!nextPage || nextPage < 1 || nextPage === browsePagination.page) return
-    loadBrowseProducts(nextPage)
-  }
-
-  const loadMyBids = async () => {
-    setMyBidsState((prev) => ({ ...prev, loading: true, error: null }))
-    try {
-      const res = await bidderAPI.getMyBids()
-      setMyBidsState({ data: res?.data || [], loading: false, loaded: true, error: null })
-    } catch (error) {
-      console.error('Failed to load bids:', error)
-      setMyBidsState({ data: [], loading: false, loaded: true, error: 'Không thể tải lịch sử đấu giá' })
-    }
-  }
-
-  const loadWatchlist = async () => {
-    setWatchlistState((prev) => ({ ...prev, loading: true, error: null }))
-    try {
-      const res = await bidderAPI.getWatchlist()
-      setWatchlistState({ data: res?.data || [], loading: false, loaded: true, error: null })
-    } catch (error) {
-      console.error('Failed to load watchlist:', error)
-      setWatchlistState({ data: [], loading: false, loaded: true, error: 'Không thể tải danh sách theo dõi' })
-    }
-  }
-
-  const handleTabChange = (tabId) => {
-    if (!TAB_LIST.some((tab) => tab.id === tabId)) return
-    setActiveTab(tabId)
-  }
-
-  if (loadingProfile) {
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
@@ -131,26 +43,111 @@ function BidderDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <BidderMarketplaceNavbar user={user} onTabSelect={handleTabChange} />
+      {/* Header / Navbar */}
+      <nav className="bg-white shadow-md sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            {/* Logo */}
+            <div className="flex items-center">
+              <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span className="ml-2 text-2xl font-bold text-gray-800">AuctionHub</span>
+            </div>
+
+            {/* Search bar */}
+            <div className="hidden md:flex flex-1 max-w-lg mx-8">
+              <div className="w-full relative">
+                <input
+                  type="text"
+                  placeholder="Tìm kiếm sản phẩm..."
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                />
+                <button className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-blue-600">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            {/* User menu */}
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 px-4 py-2 bg-gray-100 rounded-lg">
+                <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold">
+                  {user?.full_name?.charAt(0).toUpperCase() || 'U'}
+                </div>
+                <div className="hidden sm:block">
+                  <div className="text-sm font-medium text-gray-800">{user?.full_name}</div>
+                  <div className="text-xs text-gray-500 capitalize">{user?.role || 'Bidder'}</div>
+                </div>
+              </div>
+              <button
+                onClick={handleLogout}
+                className="px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition"
+              >
+                Đăng xuất
+              </button>
+            </div>
+          </div>
+        </div>
+      </nav>
+
+      {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Tabs */}
         <div className="bg-white rounded-xl shadow-md mb-6">
-          <TabNavigation activeTab={activeTab} onChange={handleTabChange} />
+          <div className="border-b border-gray-200">
+            <nav className="flex -mb-px">
+              <button
+                onClick={() => setActiveTab('browse')}
+                className={`px-6 py-4 text-sm font-medium border-b-2 transition ${
+                  activeTab === 'browse'
+                    ? 'border-blue-600 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                🔍 Khám phá đấu giá
+              </button>
+              <button
+                onClick={() => setActiveTab('my-bids')}
+                className={`px-6 py-4 text-sm font-medium border-b-2 transition ${
+                  activeTab === 'my-bids'
+                    ? 'border-blue-600 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                💰 Đấu giá của tôi
+              </button>
+              <button
+                onClick={() => setActiveTab('watchlist')}
+                className={`px-6 py-4 text-sm font-medium border-b-2 transition ${
+                  activeTab === 'watchlist'
+                    ? 'border-blue-600 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                ⭐ Theo dõi
+              </button>
+              <button
+                onClick={() => setActiveTab('profile')}
+                className={`px-6 py-4 text-sm font-medium border-b-2 transition ${
+                  activeTab === 'profile'
+                    ? 'border-blue-600 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                👤 Hồ sơ
+              </button>
+            </nav>
+          </div>
+
+          {/* Tab Content */}
           <div className="p-6">
-            {activeTab === 'browse' && (
-              <BrowseAuctionsTab
-                state={browseState}
-                onRefresh={() => loadBrowseProducts(browsePagination.page)}
-                pagination={browsePagination}
-                onPageChange={handleBrowsePageChange}
-              />
-            )}
-            {activeTab === 'my-bids' && (
-              <MyBidsTab state={myBidsState} onRefresh={loadMyBids} />
-            )}
-            {activeTab === 'watchlist' && (
-              <WatchlistTab state={watchlistState} onRefresh={loadWatchlist} />
-            )}
-            {activeTab === 'profile' && <ProfileTab user={user} />}
+            {activeTab === 'browse' && <BrowseAuctions />}
+            {activeTab === 'my-bids' && <MyBids />}
+            {activeTab === 'watchlist' && <Watchlist />}
+            {activeTab === 'profile' && <Profile user={user} />}
           </div>
         </div>
       </div>
@@ -158,174 +155,168 @@ function BidderDashboard() {
   )
 }
 
-function TabNavigation({ activeTab, onChange }) {
-  return (
-    <div className="border-b border-gray-200">
-      <nav className="flex -mb-px overflow-x-auto">
-        {TAB_LIST.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => onChange(tab.id)}
-            className={`px-6 py-4 text-sm font-medium border-b-2 transition whitespace-nowrap ${
-              activeTab === tab.id
-                ? 'border-blue-600 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </nav>
-    </div>
-  )
-}
+// Tab: Khám phá đấu giá
+function BrowseAuctions() {
+  // TODO: Fetch từ Backend API /api/products
+  const mockProducts = [
+    {
+      id: 1,
+      title: 'iPhone 15 Pro Max 256GB',
+      description: 'Máy mới 99%, fullbox, chưa qua sử dụng',
+      current_price: 25000000,
+      buy_now_price: 30000000,
+      end_time: new Date(Date.now() + 2 * 60 * 60 * 1000), // 2h
+      image_url: null,
+      bid_count: 15
+    },
+    {
+      id: 2,
+      title: 'MacBook Pro M3 16inch',
+      description: 'Nguyên seal, chưa kích hoạt bảo hành',
+      current_price: 45000000,
+      buy_now_price: 52000000,
+      end_time: new Date(Date.now() + 5 * 60 * 60 * 1000), // 5h
+      image_url: null,
+      bid_count: 23
+    },
+    {
+      id: 3,
+      title: 'Sony A7 IV Camera',
+      description: 'Body only, đã qua sử dụng 6 tháng',
+      current_price: 38000000,
+      buy_now_price: 42000000,
+      end_time: new Date(Date.now() + 24 * 60 * 60 * 1000), // 1 ngày
+      image_url: null,
+      bid_count: 8
+    }
+  ]
 
-function BrowseAuctionsTab({ state, onRefresh, pagination, onPageChange }) {
-  const page = pagination?.page || 1
-  const totalPages = pagination?.totalPages
-  const pageSize = pagination?.limit || BROWSE_PAGE_SIZE
-  const hasPrev = page > 1
-  const hasNext = pagination?.hasMore ?? (state.data.length === pageSize && state.data.length > 0)
-
-  const goToPage = (target) => {
-    if (!onPageChange || !target || target < 1 || target === page) return
-    if (target > page && !hasNext) return
-    onPageChange(target)
-  }
-
-  if (state.loading) {
-    return <SectionLoading label="Đang tải danh sách đấu giá" />
-  }
-
-  if (state.error) {
-    return <SectionError message={state.error} onRetry={onRefresh} />
-  }
-
-  if (!state.data.length) {
-    return <EmptyState icon="📦" title="Chưa có sản phẩm" subtitle="Hãy thử quay lại sau." actionLabel="Tải lại" onAction={onRefresh} />
+  const getTimeRemaining = (endTime) => {
+    const diff = endTime - new Date()
+    const hours = Math.floor(diff / (1000 * 60 * 60))
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
+    
+    if (hours > 24) {
+      return `${Math.floor(hours / 24)} ngày`
+    } else if (hours > 0) {
+      return `${hours}h ${minutes}m`
+    } else {
+      return `${minutes} phút`
+    }
   }
 
   return (
     <div>
-      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-        <h2 className="text-2xl font-bold text-gray-800">Sản phẩm đang đấu giá</h2>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => goToPage(page - 1)}
-            disabled={!hasPrev}
-            className="w-9 h-9 border border-gray-200 rounded-full flex items-center justify-center text-gray-600 hover:text-blue-600 hover:border-blue-300 disabled:opacity-40"
-          >
-            ←
-          </button>
-          <span className="text-sm font-medium text-gray-700">
-            Trang {page}
-            {totalPages ? ` / ${totalPages}` : ''}
-          </span>
-          <button
-            type="button"
-            onClick={() => goToPage(page + 1)}
-            disabled={!hasNext}
-            className="w-9 h-9 border border-gray-200 rounded-full flex items-center justify-center text-gray-600 hover:text-blue-600 hover:border-blue-300 disabled:opacity-40"
-          >
-            →
-          </button>
-          <button onClick={onRefresh} className="text-sm text-blue-600 hover:text-blue-700">Tải lại</button>
-        </div>
-      </div>
+      <h2 className="text-2xl font-bold text-gray-800 mb-6">Sản phẩm đang đấu giá</h2>
+      
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {state.data.map((product) => (
-          <ProductCard key={product.id} product={product} />
+        {mockProducts.map((product) => (
+          <div key={product.id} className="bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-xl transition group">
+            <div className="relative h-48 bg-gray-200 overflow-hidden">
+              <img
+                src={product.image_url || DEFAULT_IMAGE}
+                alt={product.title}
+                className="w-full h-full object-cover group-hover:scale-110 transition duration-300"
+                onError={(e) => { e.target.src = DEFAULT_IMAGE; }}
+              />
+              <div className="absolute top-2 right-2 bg-red-500 text-white px-3 py-1 rounded-full text-xs font-bold">
+                ⏰ {getTimeRemaining(product.end_time)}
+              </div>
+            </div>
+            
+            <div className="p-5">
+              <h3 className="font-bold text-lg text-gray-800 mb-2 line-clamp-1">
+                {product.title}
+              </h3>
+              <p className="text-gray-600 text-sm mb-3 line-clamp-2">
+                {product.description}
+              </p>
+              
+              <div className="flex justify-between items-center mb-3">
+                <div>
+                  <div className="text-xs text-gray-500">Giá hiện tại</div>
+                  <div className="text-xl font-bold text-blue-600">
+                    {product.current_price.toLocaleString('vi-VN')} đ
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-xs text-gray-500">Lượt đấu</div>
+                  <div className="text-lg font-medium text-gray-700">
+                    {product.bid_count}
+                  </div>
+                </div>
+              </div>
+              
+              <div className="flex gap-2">
+                <button className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition font-medium">
+                  Đấu giá ngay
+                </button>
+                <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition">
+                  ⭐
+                </button>
+              </div>
+            </div>
+          </div>
         ))}
       </div>
     </div>
   )
 }
 
-function MyBidsTab({ state, onRefresh }) {
-  const navigate = useNavigate()
-
-  if (state.loading && !state.loaded) {
-    return <SectionLoading label="Đang tải lịch sử đấu giá" />
-  }
-
-  if (state.error) {
-    return <SectionError message={state.error} onRetry={onRefresh} />
-  }
-
-  if (!state.data.length) {
-    return (
-      <EmptyState
-        icon="📋"
-        title="Bạn chưa tham gia đấu giá nào"
-        subtitle="Hãy khám phá thêm sản phẩm và đặt giá ngay."
-        actionLabel="Xem sản phẩm"
-        onAction={() => navigate('/auctions')}
-      />
-    )
-  }
-
+// Tab: Đấu giá của tôi
+function MyBids() {
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-gray-800">Đấu giá của tôi</h2>
-        <button onClick={onRefresh} className="text-sm text-blue-600 hover:text-blue-700">Tải lại</button>
-      </div>
-      <ul className="space-y-4">
-        {state.data.map((bid) => (
-          <BidHistoryCard key={bid.id} bid={bid} onView={() => navigate(`/products/${bid.product_id || bid.products?.id}`)} />
-        ))}
-      </ul>
-    </div>
-  )
-}
-
-function WatchlistTab({ state, onRefresh }) {
-  const navigate = useNavigate()
-
-  if (state.loading && !state.loaded) {
-    return <SectionLoading label="Đang tải danh sách theo dõi" />
-  }
-
-  if (state.error) {
-    return <SectionError message={state.error} onRetry={onRefresh} />
-  }
-
-  if (!state.data.length) {
-    return (
-      <EmptyState
-        icon="⭐"
-        title="Chưa có sản phẩm theo dõi"
-        subtitle="Thêm sản phẩm bạn yêu thích để nhận thông báo sớm nhất."
-        actionLabel="Tìm sản phẩm"
-        onAction={() => navigate('/auctions')}
-      />
-    )
-  }
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-gray-800">Danh sách theo dõi</h2>
-        <button onClick={onRefresh} className="text-sm text-blue-600 hover:text-blue-700">Tải lại</button>
-      </div>
-      <div className="grid grid-cols-1 gap-4">
-        {state.data.map((item) => (
-          <WatchlistCard key={item.id} item={item} onView={() => navigate(`/products/${item.product_id || item.products?.id}`)} />
-        ))}
+    <div>
+      <h2 className="text-2xl font-bold text-gray-800 mb-6">Lịch sử đấu giá của tôi</h2>
+      <div className="text-center py-12 text-gray-500">
+        <div className="text-6xl mb-4">📋</div>
+        <p className="text-lg">Bạn chưa tham gia đấu giá nào</p>
+        <button 
+          onClick={() => window.location.href = '#browse'}
+          className="mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+        >
+          Khám phá ngay
+        </button>
       </div>
     </div>
   )
 }
 
-function ProfileTab({ user }) {
+// Tab: Danh sách theo dõi
+function Watchlist() {
   return (
-    <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-gray-800">Thông tin cá nhân</h2>
+    <div>
+      <h2 className="text-2xl font-bold text-gray-800 mb-6">Sản phẩm theo dõi</h2>
+      <div className="text-center py-12 text-gray-500">
+        <div className="text-6xl mb-4">⭐</div>
+        <p className="text-lg">Chưa có sản phẩm nào trong danh sách theo dõi</p>
+      </div>
+    </div>
+  )
+}
+
+// Tab: Hồ sơ
+function Profile({ user }) {
+  return (
+    <div>
+      <h2 className="text-2xl font-bold text-gray-800 mb-6">Thông tin cá nhân</h2>
+      
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <ProfileField label="Họ và tên" value={user?.full_name} />
-        <ProfileField label="Email" value={user?.email} />
-        <ProfileField label="Vai trò" value={user?.role} />
+        <div className="bg-gray-50 p-6 rounded-lg">
+          <div className="text-sm text-gray-500 mb-1">Họ và tên</div>
+          <div className="text-lg font-medium text-gray-800">{user?.full_name}</div>
+        </div>
+        
+        <div className="bg-gray-50 p-6 rounded-lg">
+          <div className="text-sm text-gray-500 mb-1">Email</div>
+          <div className="text-lg font-medium text-gray-800">{user?.email}</div>
+        </div>
+        
+        <div className="bg-gray-50 p-6 rounded-lg">
+          <div className="text-sm text-gray-500 mb-1">Vai trò</div>
+          <div className="text-lg font-medium text-gray-800 capitalize">{user?.role}</div>
+        </div>
+        
         <div className="bg-gray-50 p-6 rounded-lg">
           <div className="text-sm text-gray-500 mb-1">Đánh giá</div>
           <div className="flex items-center gap-2">
@@ -335,88 +326,6 @@ function ProfileTab({ user }) {
           </div>
         </div>
       </div>
-    </div>
-  )
-}
-
-function ProfileField({ label, value }) {
-  return (
-    <div className="bg-gray-50 p-6 rounded-lg">
-      <div className="text-sm text-gray-500 mb-1">{label}</div>
-      <div className="text-lg font-medium text-gray-800">{value || '—'}</div>
-    </div>
-  )
-}
-
-function SectionLoading({ label }) {
-  return (
-    <div className="flex flex-col items-center justify-center py-12 text-gray-500">
-      <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mb-4"></div>
-      <p>{label}</p>
-    </div>
-  )
-}
-
-function SectionError({ message, onRetry }) {
-  return (
-    <div className="text-center py-12 text-red-500">
-      <div className="text-5xl mb-4">⚠️</div>
-      <p className="mb-4">{message}</p>
-      {onRetry && (
-        <button onClick={onRetry} className="px-6 py-2 bg-blue-600 text-white rounded-lg">
-          Thử lại
-        </button>
-      )}
-    </div>
-  )
-}
-
-function EmptyState({ icon, title, subtitle, actionLabel, onAction }) {
-  return (
-    <div className="text-center py-12 text-gray-500">
-      <div className="text-6xl mb-4">{icon}</div>
-      <p className="text-lg font-semibold text-gray-800 mb-2">{title}</p>
-      <p className="mb-4">{subtitle}</p>
-      {actionLabel && onAction && (
-        <button onClick={onAction} className="px-6 py-2 bg-blue-600 text-white rounded-lg">
-          {actionLabel}
-        </button>
-      )}
-    </div>
-  )
-}
-
-function BidHistoryCard({ bid, onView }) {
-  const product = bid.products || {}
-  const amount = bid.bid_amount || bid.current_price
-  return (
-    <div className="border border-gray-100 rounded-2xl p-4 flex flex-col md:flex-row gap-4">
-      <div className="flex-1">
-        <h4 className="text-lg font-semibold text-gray-900 line-clamp-1">{product.title || 'Sản phẩm'}</h4>
-        <p className="text-sm text-gray-500 mt-1">Giá đã đặt: {(amount || 0).toLocaleString('vi-VN')} đ</p>
-        <p className="text-sm text-gray-500">Trạng thái: {product.status || 'Đang đấu giá'}</p>
-      </div>
-      <div className="flex items-center gap-3">
-        <button onClick={onView} className="px-4 py-2 bg-blue-600 text-white rounded-lg">
-          Xem chi tiết
-        </button>
-      </div>
-    </div>
-  )
-}
-
-function WatchlistCard({ item, onView }) {
-  const product = item.products || {}
-  return (
-    <div className="border border-gray-100 rounded-2xl p-4 flex items-center justify-between gap-4">
-      <div>
-        <h4 className="text-lg font-semibold text-gray-900">{product.title || 'Sản phẩm'}</h4>
-        <p className="text-sm text-gray-500 mt-1">Giá hiện tại: {(product.current_price || 0).toLocaleString('vi-VN')} đ</p>
-        <p className="text-sm text-gray-500">Kết thúc: {product.end_time ? new Date(product.end_time).toLocaleString('vi-VN') : '—'}</p>
-      </div>
-      <button onClick={onView} className="px-4 py-2 bg-blue-600 text-white rounded-lg">
-        Vào trang sản phẩm
-      </button>
     </div>
   )
 }

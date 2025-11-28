@@ -7,7 +7,7 @@ import { DialogProvider } from './context/DialogContext.jsx'
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <DialogProvider>
-      <App />
+    <App />
     </DialogProvider>
   </StrictMode>,
 )
