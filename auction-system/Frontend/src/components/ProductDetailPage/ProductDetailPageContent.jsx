@@ -221,8 +221,10 @@ export default function ProductDetailPageContent({ user = null }) {
             />
             <ProductDescriptionCard
               descriptionHtml={product.description || 'Không có mô tả'}
+              descriptionHistory={product.description_history || []}
+              productCreatedAt={product.created_at}
             />
-            <ProductQACard questions={product.questions || []} />
+            <ProductQACard questions={product.questions || []} currentUserId={currentUser?.id} />
           </div>
 
           <div className="lg:col-span-1 space-y-4">

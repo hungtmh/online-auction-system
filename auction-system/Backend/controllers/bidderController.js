@@ -11,7 +11,7 @@
 
 import { supabase } from '../config/supabase.js'
 import { getSystemSettingMap } from '../utils/systemSettings.js'
-import { uploadBufferToPaymentProofBucket } from '../utils/upload.js'
+import { uploadBufferToPaymentProofBucket, uploadBufferToAvatarBucket } from '../utils/upload.js'
 
 /**
  * @route   GET /api/bidder/products
@@ -224,14 +224,15 @@ export const placeBid = async (req, res) => {
 
 /**
  * @route   GET /api/bidder/bids/my
- * @desc    Lấy lịch sử đấu giá của tôi
+ * @desc    Lấy lịch sử đấu giá của tôi (chỉ lấy bid cao nhất mỗi sản phẩm)
  * @access  Private (Bidder)
  */
 export const getMyBids = async (req, res) => {
   try {
     const bidder_id = req.user.id
 
-    const { data, error } = await supabase
+    // Lấy tất cả bids của user với thông tin sản phẩm
+    const { data: allBids, error } = await supabase
       .from('bids')
       .select(`
         *,
@@ -241,17 +242,33 @@ export const getMyBids = async (req, res) => {
           current_price,
           end_time,
           status,
-          thumbnail_url
+          thumbnail_url,
+          winner_id
         )
       `)
       .eq('bidder_id', bidder_id)
-      .order('created_at', { ascending: false })
+      .order('bid_amount', { ascending: false })
 
     if (error) throw error
 
+    // Group by product_id và chỉ lấy bid cao nhất
+    const productBidsMap = new Map()
+    for (const bid of allBids) {
+      const productId = bid.product_id
+      if (!productBidsMap.has(productId)) {
+        productBidsMap.set(productId, bid)
+      }
+      // Vì đã order by bid_amount desc, bid đầu tiên là cao nhất
+    }
+
+    const uniqueBids = Array.from(productBidsMap.values())
+    
+    // Sort by created_at descending (latest first)
+    uniqueBids.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+
     res.json({
       success: true,
-      data: data
+      data: uniqueBids
     })
   } catch (error) {
     console.error('❌ Error getting my bids:', error)
@@ -481,6 +498,7 @@ export const askSellerQuestion = async (req, res) => {
       })
       .select(`
         id,
+        asker_id,
         question,
         answer,
         created_at,
@@ -705,5 +723,93 @@ export const uploadPaymentProofImage = async (req, res) => {
   } catch (error) {
     console.error('❌ Error uploading payment proof:', error)
     res.status(500).json({ success: false, message: 'Không thể upload chứng từ thanh toán' })
+  }
+}
+
+/**
+ * @route   PUT /api/bidder/profile
+ * @desc    Cập nhật thông tin hồ sơ bidder
+ * @access  Private (Bidder)
+ */
+export const updateBidderProfile = async (req, res) => {
+  try {
+    const bidderId = req.user.id
+    const { full_name, phone, address, date_of_birth } = req.body
+
+    const updates = {
+      updated_at: new Date().toISOString()
+    }
+
+    if (full_name?.trim()) {
+      updates.full_name = full_name.trim()
+    }
+    if (phone !== undefined) {
+      updates.phone = phone?.trim() || null
+    }
+    if (address !== undefined) {
+      updates.address = address?.trim() || null
+    }
+    if (date_of_birth !== undefined) {
+      updates.date_of_birth = date_of_birth || null
+    }
+
+    const { data: profile, error } = await supabase
+      .from('profiles')
+      .update(updates)
+      .eq('id', bidderId)
+      .select('id, email, full_name, phone, address, date_of_birth, avatar_url, rating_positive, rating_negative, role')
+      .single()
+
+    if (error) throw error
+
+    // Sync full_name with Supabase Auth if updated
+    if (updates.full_name) {
+      try {
+        await supabase.auth.admin.updateUserById(bidderId, {
+          user_metadata: { full_name: updates.full_name }
+        })
+      } catch (adminError) {
+        console.warn('⚠️  Không thể đồng bộ tên với Supabase Auth:', adminError.message)
+      }
+    }
+
+    res.json({ success: true, message: 'Cập nhật hồ sơ thành công.', data: profile })
+  } catch (error) {
+    console.error('❌ Error updating bidder profile:', error)
+    res.status(500).json({ success: false, message: 'Không thể cập nhật hồ sơ.' })
+  }
+}
+
+/**
+ * @route   POST /api/bidder/profile/avatar
+ * @desc    Upload ảnh đại diện bidder
+ * @access  Private (Bidder)
+ */
+export const uploadBidderAvatar = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'Không tìm thấy file cần upload.' })
+    }
+
+    const bidderId = req.user.id
+    const { buffer, mimetype } = req.file
+
+    const { publicUrl } = await uploadBufferToAvatarBucket({
+      buffer,
+      mimetype,
+      userId: bidderId
+    })
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({ avatar_url: publicUrl, updated_at: new Date().toISOString() })
+      .eq('id', bidderId)
+
+    if (error) throw error
+
+    res.json({ success: true, data: { avatar_url: publicUrl } })
+  } catch (error) {
+    console.error('❌ Error uploading bidder avatar:', error)
+    res.status(500).json({ success: false, message: 'Không thể upload ảnh đại diện.' })
   }
 }

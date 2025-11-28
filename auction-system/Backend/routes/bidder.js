@@ -18,9 +18,11 @@ import {
   askSellerQuestion,
   getCheckoutOrder,
   upsertCheckoutOrder,
-  uploadPaymentProofImage
+  uploadPaymentProofImage,
+  updateBidderProfile,
+  uploadBidderAvatar
 } from '../controllers/bidderController.js'
-import { paymentProofUpload } from '../utils/upload.js'
+import { paymentProofUpload, avatarImageUpload } from '../utils/upload.js'
 
 const router = express.Router()
 
@@ -93,5 +95,19 @@ router.post('/products/:id/questions', askSellerQuestion)
 router.get('/orders/:productId', getCheckoutOrder)
 router.post('/orders', upsertCheckoutOrder)
 router.post('/uploads/payment-proof', paymentProofUpload.single('proof'), uploadPaymentProofImage)
+
+/**
+ * @route   PUT /api/bidder/profile
+ * @desc    Cập nhật hồ sơ bidder
+ * @access  Private (Bidder)
+ */
+router.put('/profile', updateBidderProfile)
+
+/**
+ * @route   POST /api/bidder/profile/avatar
+ * @desc    Upload ảnh đại diện bidder
+ * @access  Private (Bidder)
+ */
+router.post('/profile/avatar', avatarImageUpload.single('avatar'), uploadBidderAvatar)
 
 export default router

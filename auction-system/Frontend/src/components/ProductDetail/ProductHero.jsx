@@ -1,4 +1,5 @@
 import React from 'react'
+import 'quill/dist/quill.snow.css'
 
 const FALLBACK_IMAGE = 'https://via.placeholder.com/800x500?text=Auction+Item'
 
@@ -76,10 +77,17 @@ export default function ProductHero({ product }) {
               {category}
             </span>
           )}
-          <h1 className="text-2xl font-bold text-gray-900">{product?.title}</h1>
-          <p className="text-gray-600 leading-relaxed">
-            {product?.short_description || product?.description || 'Sản phẩm chưa có mô tả chi tiết.'}
-          </p>
+          <h1 className="text-2xl font-bold text-gray-900">{product?.name}</h1>
+          <div className="max-h-32 overflow-y-auto">
+            <div className="ql-editor ql-snow" style={{ padding: 0, border: 'none' }}>
+              <div 
+                className="text-gray-600 leading-relaxed text-sm"
+                dangerouslySetInnerHTML={{ 
+                  __html: product?.description || '<p>Sản phẩm chưa có mô tả chi tiết.</p>' 
+                }}
+              />
+            </div>
+          </div>
 
           <div className="grid grid-cols-2 gap-4 mt-4">
             <InfoTag label="Bắt đầu" value={formatCurrency(product?.starting_price)} />

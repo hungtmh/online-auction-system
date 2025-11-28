@@ -124,6 +124,18 @@ function App() {
             path="/bidder" 
             element={user?.role === 'bidder' ? <BidderDashboard /> : <Navigate to="/" />} 
           />
+          <Route 
+            path="/bidder/profile" 
+            element={user?.role === 'bidder' ? <BidderDashboard /> : <Navigate to="/" />} 
+          />
+          <Route 
+            path="/bidder/my-bids" 
+            element={user?.role === 'bidder' ? <BidderDashboard /> : <Navigate to="/" />} 
+          />
+          <Route 
+            path="/bidder/watchlist" 
+            element={user?.role === 'bidder' ? <BidderDashboard /> : <Navigate to="/" />} 
+          />
 
           {/* Route for auction list - Tất cả user đều xem được */}
           <Route path="/auctions" element={<AuctionListPage user={user} />} />

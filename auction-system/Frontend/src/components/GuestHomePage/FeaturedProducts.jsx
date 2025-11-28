@@ -1,7 +1,7 @@
 import React from 'react'
 import ProductCard from './ProductCard'
 
-export default function FeaturedProducts({ title = 'Nổi bật', products = [], viewAllHref = '/auctions' }) {
+export default function FeaturedProducts({ title = 'Nổi bật', products = [], viewAllHref = '/auctions', user, watchlistIds = new Set() }) {
   return (
     <section className="py-6">
       <div className="flex justify-between items-center mb-6">
@@ -11,7 +11,7 @@ export default function FeaturedProducts({ title = 'Nổi bật', products = [],
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {products.map((p) => (
-          <ProductCard key={p.id} product={p} />
+          <ProductCard key={p.id} product={p} user={user} isInWatchlist={watchlistIds.has(p.id)} />
         ))}
       </div>
     </section>

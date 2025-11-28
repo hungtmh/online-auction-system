@@ -231,6 +231,9 @@ export const getProfile = async (req, res) => {
         full_name: profile?.full_name || user.user_metadata?.full_name,
         role: profile?.role || 'bidder',
         avatar_url: profile?.avatar_url || null,
+        phone: profile?.phone || null,
+        address: profile?.address || null,
+        date_of_birth: profile?.date_of_birth || null,
         rating_positive: profile?.rating_positive || 0,
         rating_negative: profile?.rating_negative || 0
       }

@@ -3,12 +3,12 @@ import { useNavigate } from 'react-router-dom'
 import { authAPI, clearAccessToken } from '../../services/api'
 
 const MENU_ITEMS = [
-  { label: '👤 Hồ sơ', tab: 'profile' },
-  { label: '⭐ Danh sách yêu thích', tab: 'watchlist' },
-  { label: '📜 Lịch sử đấu giá', tab: 'my-bids' }
+  { label: '👤 Hồ sơ', action: 'profile' },
+  { label: '⭐ Danh sách yêu thích', action: 'watchlist' },
+  { label: '📜 Lịch sử đấu giá', action: 'my-bids' }
 ]
 
-export default function BidderMarketplaceNavbar({ user, onTabSelect }) {
+export default function BidderMarketplaceNavbar({ user }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef(null)
   const navigate = useNavigate()
@@ -34,12 +34,8 @@ export default function BidderMarketplaceNavbar({ user, onTabSelect }) {
     }
   }
 
-  const handleMenuSelect = (tabId) => {
-    if (onTabSelect) {
-      onTabSelect(tabId)
-    } else {
-      navigate('/bidder', { state: { tab: tabId } })
-    }
+  const handleMenuSelect = (action) => {
+    navigate(`/bidder/${action}`)
     setMenuOpen(false)
   }
 
@@ -83,9 +79,17 @@ export default function BidderMarketplaceNavbar({ user, onTabSelect }) {
                 onClick={() => setMenuOpen((prev) => !prev)}
                 className="flex items-center gap-2 px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition"
               >
-                <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold">
-                  {userInitial}
-                </div>
+                {user?.avatar_url ? (
+                  <img
+                    src={user.avatar_url}
+                    alt={user?.full_name || 'Avatar'}
+                    className="w-10 h-10 rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold">
+                    {userInitial}
+                  </div>
+                )}
                 <svg
                   className={`w-4 h-4 text-gray-600 transition-transform ${menuOpen ? 'rotate-180' : ''}`}
                   fill="none"
@@ -99,9 +103,9 @@ export default function BidderMarketplaceNavbar({ user, onTabSelect }) {
                 <div className="absolute right-0 z-10 mt-2 w-56 rounded-xl border border-gray-200 bg-white text-sm text-slate-700 shadow-lg">
                   {MENU_ITEMS.map((item) => (
                     <button
-                      key={item.tab}
+                      key={item.action}
                       type="button"
-                      onClick={() => handleMenuSelect(item.tab)}
+                      onClick={() => handleMenuSelect(item.action)}
                       className="block w-full px-4 py-2 text-left hover:bg-blue-50 first:rounded-t-xl last:rounded-b-xl transition"
                     >
                       {item.label}
@@ -114,7 +118,7 @@ export default function BidderMarketplaceNavbar({ user, onTabSelect }) {
             <button
               type="button"
               onClick={handleLogout}
-              className="px-5 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg shadow-sm hover:bg-blue-700 transition"
+              className="px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition"
             >
               Đăng xuất
             </button>

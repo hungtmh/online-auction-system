@@ -26,6 +26,34 @@ const STATUS_COPY = {
   }
 }
 
+const formatRelativeTime = (target) => {
+  if (!target) return '—'
+  const targetDate = new Date(target)
+  const now = new Date()
+  const diff = targetDate - now
+  
+  if (diff <= 0) return 'Đã kết thúc'
+  
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+  const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+  const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
+  
+  // If less than 3 days, show relative time
+  if (days < 3) {
+    if (days > 0) return `${days} ngày ${hours} giờ nữa`
+    if (hours > 0) return `${hours} giờ ${minutes} phút nữa`
+    return `${minutes} phút nữa`
+  }
+  
+  // Otherwise show full date
+  return targetDate.toLocaleString('vi-VN')
+}
+
+const formatDateTime = (date) => {
+  if (!date) return '—'
+  return new Date(date).toLocaleString('vi-VN')
+}
+
 const useCountdown = (target) => {
   const targetDate = useMemo(() => (target ? new Date(target) : null), [target])
   const [label, setLabel] = useState('')
@@ -137,9 +165,40 @@ export default function BidActionPanel({
         </div>
       )}
 
-      <div className="flex items-center justify-between text-sm text-gray-500">
-        <span>Kết thúc sau</span>
-        <span className="font-semibold text-gray-900">{countdown}</span>
+      {/* Highest bidder info */}
+      {product?.bids?.length > 0 && (() => {
+        const topBid = product.bids.reduce((best, bid) => {
+          if (!best) return bid
+          return Number(bid.bid_amount || 0) > Number(best.bid_amount || 0) ? bid : best
+        }, null)
+        if (!topBid) return null
+        const bidderProfile = topBid.profiles || topBid.bidder || {}
+        const bidderName = bidderProfile.full_name || 'Ẩn danh'
+        const bidderPositive = bidderProfile.rating_positive ?? 0
+        const bidderNegative = bidderProfile.rating_negative ?? 0
+        return (
+          <div className="rounded-xl bg-green-50 px-4 py-3 border border-green-100">
+            <p className="text-sm text-green-600">Người đặt giá cao nhất</p>
+            <p className="font-semibold text-green-700">{bidderName}</p>
+            <p className="text-xs text-green-600">Đánh giá: +{bidderPositive} / -{bidderNegative}</p>
+          </div>
+        )
+      })()}
+
+      {/* Time info */}
+      <div className="space-y-2 text-sm">
+        <div className="flex items-center justify-between text-gray-500">
+          <span>Thời điểm đăng</span>
+          <span className="font-medium text-gray-700">{formatDateTime(product?.created_at)}</span>
+        </div>
+        <div className="flex items-center justify-between text-gray-500">
+          <span>Thời điểm kết thúc</span>
+          <span className="font-medium text-gray-700">{formatRelativeTime(product?.end_time)}</span>
+        </div>
+        <div className="flex items-center justify-between text-gray-500">
+          <span>Còn lại</span>
+          <span className="font-semibold text-orange-600">{countdown}</span>
+        </div>
       </div>
 
       {isGuest && (
