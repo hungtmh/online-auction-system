@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react'
 import { authAPI } from '../services/api'
 
+// Placeholder image khi không có ảnh (SVG inline)
+const DEFAULT_IMAGE = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'%3E%3Crect fill='%23e5e7eb' width='400' height='300'/%3E%3Ctext fill='%239ca3af' font-family='Arial' font-size='16' x='50%25' y='50%25' text-anchor='middle' dy='.3em'%3EKhông có ảnh%3C/text%3E%3C/svg%3E";
+
 function BidderDashboard() {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -163,7 +166,7 @@ function BrowseAuctions() {
       current_price: 25000000,
       buy_now_price: 30000000,
       end_time: new Date(Date.now() + 2 * 60 * 60 * 1000), // 2h
-      image_url: 'https://via.placeholder.com/400x300?text=iPhone+15',
+      image_url: null,
       bid_count: 15
     },
     {
@@ -173,7 +176,7 @@ function BrowseAuctions() {
       current_price: 45000000,
       buy_now_price: 52000000,
       end_time: new Date(Date.now() + 5 * 60 * 60 * 1000), // 5h
-      image_url: 'https://via.placeholder.com/400x300?text=MacBook',
+      image_url: null,
       bid_count: 23
     },
     {
@@ -183,7 +186,7 @@ function BrowseAuctions() {
       current_price: 38000000,
       buy_now_price: 42000000,
       end_time: new Date(Date.now() + 24 * 60 * 60 * 1000), // 1 ngày
-      image_url: 'https://via.placeholder.com/400x300?text=Sony+A7',
+      image_url: null,
       bid_count: 8
     }
   ]
@@ -211,9 +214,10 @@ function BrowseAuctions() {
           <div key={product.id} className="bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-xl transition group">
             <div className="relative h-48 bg-gray-200 overflow-hidden">
               <img
-                src={product.image_url}
+                src={product.image_url || DEFAULT_IMAGE}
                 alt={product.title}
                 className="w-full h-full object-cover group-hover:scale-110 transition duration-300"
+                onError={(e) => { e.target.src = DEFAULT_IMAGE; }}
               />
               <div className="absolute top-2 right-2 bg-red-500 text-white px-3 py-1 rounded-full text-xs font-bold">
                 ⏰ {getTimeRemaining(product.end_time)}

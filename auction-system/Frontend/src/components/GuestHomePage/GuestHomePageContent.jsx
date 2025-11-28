@@ -1,6 +1,9 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
+// Placeholder image khi không có ảnh (SVG inline)
+const DEFAULT_IMAGE = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'%3E%3Crect fill='%23e5e7eb' width='400' height='300'/%3E%3Ctext fill='%239ca3af' font-family='Arial' font-size='16' x='50%25' y='50%25' text-anchor='middle' dy='.3em'%3EKhông có ảnh%3C/text%3E%3C/svg%3E";
+
 function GuestHomePageContent() {
   const navigate = useNavigate()
   const [products, setProducts] = useState([]) // Khởi tạo products là mảng rỗng
@@ -145,9 +148,10 @@ function GuestHomePageContent() {
                 <div key={product.id} className="bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-xl transition group">
                   <div className="aspect-w-16 aspect-h-9 bg-gray-200 overflow-hidden">
                     <img
-                      src={product.image_url || 'https://via.placeholder.com/400x300?text=Product'}
+                      src={product.image_url || DEFAULT_IMAGE}
                       alt={product.title}
                       className="w-full h-48 object-cover group-hover:scale-110 transition duration-300"
+                      onError={(e) => { e.target.src = DEFAULT_IMAGE; }}
                     />
                   </div>
                   <div className="p-5">
