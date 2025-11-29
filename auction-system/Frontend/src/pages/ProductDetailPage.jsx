@@ -7,7 +7,7 @@ import BidActionPanel from '../components/ProductDetail/BidActionPanel'
 import BidHistory from '../components/ProductDetail/BidHistory'
 import QuestionsSection from '../components/ProductDetail/QuestionsSection'
 import AskSellerForm from '../components/ProductDetail/AskSellerForm'
-import BidderMarketplaceNavbar from '../components/common/BidderMarketplaceNavbar'
+import UnifiedNavbar from '../components/common/UnifiedNavbar'
 import ProductDescriptionCard from '../components/ProductDetailPage/sections/ProductDescriptionCard'
 import RelatedProducts from '../components/ProductDetail/RelatedProducts'
 import 'quill/dist/quill.snow.css'
@@ -212,7 +212,7 @@ export default function ProductDetailPage({ user }) {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <BidderMarketplaceNavbar user={user} />
+      <UnifiedNavbar user={user} />
       <div className="max-w-6xl mx-auto px-4 lg:px-0 py-8">
 
         <button
