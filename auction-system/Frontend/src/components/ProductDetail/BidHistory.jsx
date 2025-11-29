@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useMemo } from 'react'
 
 const formatCurrency = (value) => {
   if (value === null || value === undefined) return '—'
@@ -24,6 +24,52 @@ const formatDate = (value) => {
 }
 
 export default function BidHistory({ bids = [] }) {
+  // Tính toán người giữ giá TẠI MỖI THỜI ĐIỂM
+  const bidsWithWinner = useMemo(() => {
+    if (!bids || bids.length === 0) return []
+    
+    // Sắp xếp bids theo thời gian từ CŨ đến MỚI để tính toán tuần tự
+    const sortedByTime = [...bids].sort((a, b) => 
+      new Date(a.created_at) - new Date(b.created_at)
+    )
+    
+    // Tính người giữ giá tại mỗi thời điểm
+    const result = []
+    const bidderMaxMap = new Map() // Lưu max_bid của mỗi bidder tính đến thời điểm đó
+    
+    for (const bid of sortedByTime) {
+      const bidderId = bid.bidder_id
+      const maxBid = Number(bid.max_bid_amount) || Number(bid.bid_amount) || 0
+      
+      // Cập nhật max của bidder này
+      const existing = bidderMaxMap.get(bidderId)
+      if (!existing || maxBid > existing.max) {
+        bidderMaxMap.set(bidderId, {
+          max: maxBid,
+          created_at: bid.created_at,
+          profile: bid.profiles
+        })
+      }
+      
+      // Tìm người giữ giá TẠI THỜI ĐIỂM NÀY (sau khi bid này được đặt)
+      let winner = null
+      for (const [id, data] of bidderMaxMap.entries()) {
+        if (!winner || data.max > winner.max ||
+            (data.max === winner.max && new Date(data.created_at) < new Date(winner.created_at))) {
+          winner = { bidderId: id, ...data }
+        }
+      }
+      
+      result.push({
+        ...bid,
+        winnerAtThisPoint: winner
+      })
+    }
+    
+    // Đảo ngược để hiển thị mới nhất lên đầu
+    return result.reverse()
+  }, [bids])
+
   return (
     <section className="bg-white rounded-2xl shadow-sm p-6">
       <div className="flex items-center justify-between mb-4">
@@ -39,15 +85,18 @@ export default function BidHistory({ bids = [] }) {
             <thead>
               <tr className="text-left text-gray-500 border-b">
                 <th className="py-2 pr-4">Thời điểm</th>
-                <th className="py-2 pr-4">Người mua</th>
+                <th className="py-2 pr-4">Người giữ giá</th>
                 <th className="py-2 text-right">Giá</th>
               </tr>
             </thead>
             <tbody>
-              {bids.map((bid) => (
+              {bidsWithWinner.map((bid) => (
                 <tr key={bid.id} className="border-b last:border-0">
                   <td className="py-3 pr-4 text-gray-700">{formatDate(bid.created_at)}</td>
-                  <td className="py-3 pr-4 font-medium text-gray-900">{maskName(bid.profiles?.full_name)}</td>
+                  <td className="py-3 pr-4 font-medium text-gray-900">
+                    {/* Hiển thị tên người giữ giá TẠI THỜI ĐIỂM ĐÓ */}
+                    {bid.winnerAtThisPoint ? maskName(bid.winnerAtThisPoint.profile?.full_name) : 'Ẩn danh'}
+                  </td>
                   <td className="py-3 text-right font-semibold text-blue-600">{formatCurrency(bid.bid_amount)}</td>
                 </tr>
               ))}

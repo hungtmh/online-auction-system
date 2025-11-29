@@ -89,52 +89,44 @@ export default function BidActionPanel({
   onLoginRedirect,
   onPlaceBid,
   bidSubmitting,
-  actionMessage
+  actionMessage,
+  myMaxBid,
+  isWinning
 }) {
-  const [bidAmount, setBidAmount] = useState(calcNextBid(product))
+  const [maxBid, setMaxBid] = useState('')
   const [inputError, setInputError] = useState(null)
   const countdown = useCountdown(product?.end_time)
   const isActive = mode === 'ACTIVE'
   const isGuest = !user
   const isBidder = user?.role === 'bidder'
   const nextMinimumBid = useMemo(() => calcNextBid(product), [product])
-  const highestBidderId = useMemo(() => {
-    if (!product?.bids || product.bids.length === 0) return null
-    const topBid = product.bids.reduce((best, bid) => {
-      if (!best) return bid
-      return Number(bid.bid_amount || 0) > Number(best.bid_amount || 0) ? bid : best
-    }, null)
-    return topBid?.bidder_id || null
-  }, [product])
-  const isHighestBidder = isBidder && highestBidderId && user?.id === highestBidderId
 
   useEffect(() => {
-    setBidAmount(nextMinimumBid)
     setInputError(null)
-  }, [nextMinimumBid])
+  }, [product])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (!onPlaceBid || !isActive || bidSubmitting) return
 
-    if (isHighestBidder) {
-      setInputError('Bạn đang là người trả giá cao nhất hiện tại. Vui lòng chờ kết quả hoặc sản phẩm có người khác trả giá.')
+    const numericMaxBid = Number(maxBid)
+    if (!Number.isFinite(numericMaxBid) || numericMaxBid <= 0) {
+      setInputError('Vui lòng nhập giá tối đa hợp lệ')
       return
     }
 
-    const numericAmount = Number(bidAmount)
-    if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
-      setInputError('Vui lòng nhập giá đấu hợp lệ')
-      return
-    }
-
-    if (numericAmount < nextMinimumBid) {
-      setInputError(`Giá đấu tối thiểu là ${formatCurrency(nextMinimumBid)}`)
+    if (numericMaxBid < (product?.starting_price || 0)) {
+      setInputError(`Giá tối đa phải >= giá khởi điểm (${formatCurrency(product?.starting_price)})`)
       return
     }
 
     setInputError(null)
-    await onPlaceBid(numericAmount)
+    const result = await onPlaceBid(numericMaxBid)
+    
+    // Nếu đặt giá thành công, clear input
+    if (result?.success) {
+      setMaxBid('')
+    }
   }
 
   if (mode !== 'ACTIVE') {
@@ -162,6 +154,40 @@ export default function BidActionPanel({
             <p className="text-xl font-semibold text-blue-700">{formatCurrency(product?.buy_now_price)}</p>
           </div>
           <span className="text-xs text-blue-500">Liên hệ seller để xác nhận</span>
+        </div>
+      )}
+
+      {/* My max bid status (only visible to the bidder themselves) */}
+      {isBidder && myMaxBid && (
+        <div className={`rounded-xl px-4 py-3 border ${
+          isWinning 
+            ? 'bg-emerald-50 border-emerald-200' 
+            : 'bg-amber-50 border-amber-200'
+        }`}>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className={`text-sm ${isWinning ? 'text-emerald-600' : 'text-amber-600'}`}>
+                Giá tối đa của bạn
+              </p>
+              <p className={`text-xl font-bold ${isWinning ? 'text-emerald-700' : 'text-amber-700'}`}>
+                {formatCurrency(myMaxBid)}
+              </p>
+            </div>
+            <div className={`text-right`}>
+              {isWinning ? (
+                <span className="inline-flex items-center gap-1 px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-sm font-medium">
+                  ✓ Đang giữ giá
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 px-3 py-1 bg-amber-100 text-amber-700 rounded-full text-sm font-medium">
+                  ⚠ Bị vượt qua
+                </span>
+              )}
+            </div>
+          </div>
+          <p className="mt-2 text-xs text-gray-500">
+            💡 Thông tin này chỉ hiển thị với bạn
+          </p>
         </div>
       )}
 
@@ -218,38 +244,51 @@ export default function BidActionPanel({
 
       {isBidder && (
         <form onSubmit={handleSubmit} className="space-y-4">
-          {isHighestBidder && (
-            <div className="text-sm text-blue-600 bg-blue-50 border border-blue-100 rounded-xl px-4 py-3">
-              Bạn đang là người trả giá cao nhất hiện tại.
-            </div>
-          )}
           <div>
-            <label className="text-sm text-gray-600">Nhập giá đấu</label>
+            <label className="text-sm font-medium text-gray-700 mb-2 block">
+              Nhập giá tối đa bạn sẵn sàng trả
+            </label>
             <input
               type="number"
-              className="mt-1 w-full rounded-xl border border-gray-200 px-4 py-2 focus:border-blue-500 focus:outline-none"
-              min={nextMinimumBid}
+              className="mt-1 w-full rounded-xl border border-gray-200 px-4 py-3 text-lg focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
+              min={product?.starting_price || 0}
               step={product?.step_price || 1}
-              value={bidAmount}
+              value={maxBid}
               onChange={(e) => {
-                setBidAmount(e.target.value)
+                setMaxBid(e.target.value)
                 if (inputError) setInputError(null)
               }}
+              placeholder={formatCurrency(product?.starting_price || 0)}
               required
             />
-            <p className="mt-1 text-xs text-gray-500">
-              Tối thiểu: {formatCurrency(nextMinimumBid)} (bao gồm bước giá {formatCurrency(product?.step_price)})
-            </p>
-            {inputError && <p className="mt-1 text-xs text-red-500">{inputError}</p>}
+            <div className="mt-2 space-y-1">
+              <p className="text-xs text-gray-500">
+                💡 <strong>Đấu giá tự động:</strong> Bạn chỉ cần nhập giá tối đa 1 lần
+              </p>
+              <p className="text-xs text-gray-500">
+                • Hệ thống sẽ tự động đấu giá thay bạn với giá vừa đủ thắng
+              </p>
+              <p className="text-xs text-gray-500">
+                • Giá khởi điểm: {formatCurrency(product?.starting_price)}
+              </p>
+              <p className="text-xs text-gray-500">
+                • Bước giá: {formatCurrency(product?.step_price)}
+              </p>
+            </div>
+            {inputError && <p className="mt-2 text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{inputError}</p>}
           </div>
           <button
             type="submit"
-            disabled={bidSubmitting || isHighestBidder}
-            className="w-full bg-blue-600 text-white py-3 rounded-xl font-semibold hover:bg-blue-700 transition disabled:opacity-60"
+            disabled={bidSubmitting}
+            className="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white py-3 rounded-xl font-semibold hover:from-blue-700 hover:to-blue-800 transition disabled:opacity-60 disabled:cursor-not-allowed shadow-lg shadow-blue-200"
           >
-            {bidSubmitting ? 'Đang gửi...' : 'Đặt giá ngay'}
+            {bidSubmitting ? '⏳ Đang xử lý...' : '🚀 Đặt giá tự động'}
           </button>
-          {actionMessage && <p className="text-sm text-center text-gray-500">{actionMessage}</p>}
+          {actionMessage && (
+            <div className="text-sm text-center px-4 py-3 rounded-xl bg-blue-50 text-blue-700 border border-blue-100">
+              {actionMessage}
+            </div>
+          )}
         </form>
       )}
     </div>

@@ -33,11 +33,23 @@ export default function ProductDetailPage({ user }) {
   const [actionMessage, setActionMessage] = useState(null)
   const [isInWatchlist, setIsInWatchlist] = useState(false)
   const [watchlistLoading, setWatchlistLoading] = useState(false)
+  const [myMaxBid, setMyMaxBid] = useState(null)
+  const [isWinning, setIsWinning] = useState(false)
+
+  // Reset bid status khi user thay đổi (đổi tài khoản)
+  useEffect(() => {
+    setMyMaxBid(null)
+    setIsWinning(false)
+  }, [user?.id])
 
   const loadProduct = useCallback(async () => {
     if (!id) return
     setLoading(true)
     setError(null)
+    // Reset bid status khi load lại (quan trọng khi đổi user)
+    setMyMaxBid(null)
+    setIsWinning(false)
+    
     try {
       const res = await guestAPI.getProductById(id)
       const detail = res?.data || res
@@ -55,13 +67,28 @@ export default function ProductDetailPage({ user }) {
           setRelatedProducts([])
         }
       }
+
+      // Load my max bid status if user is bidder
+      if (user?.role === 'bidder') {
+        try {
+          const statusRes = await bidderAPI.getMyAutoBidStatus(id)
+          if (statusRes?.data) {
+            setMyMaxBid(statusRes.data.your_max_bid)
+            setIsWinning(statusRes.data.is_winning)
+          }
+        } catch (err) {
+          // Not a problem if we can't get the status (user might not have bid yet)
+          console.log('No previous bid status')
+          // Đã reset ở trên rồi nên không cần set lại
+        }
+      }
     } catch (err) {
       console.error('Load product error', err)
       setError('Không thể tải sản phẩm')
     } finally {
       setLoading(false)
     }
-  }, [id])
+  }, [id, user])
 
   useEffect(() => {
     loadProduct()
@@ -156,9 +183,19 @@ export default function ProductDetailPage({ user }) {
     setBidSubmitting(true)
     setActionMessage(null)
     try {
-      await bidderAPI.placeBid(product.id, amount)
+      const res = await bidderAPI.placeBid(product.id, amount)
       await loadProduct()
-      setActionMessage('Đặt giá thành công')
+      
+      // Update my max bid from response
+      if (res?.data) {
+        setMyMaxBid(res.data.your_max_bid)
+        setIsWinning(res.data.is_winning)
+      }
+      
+      const message = res?.data?.is_winning 
+        ? '✅ Đặt giá thành công! Bạn đang giữ giá.'
+        : '⚠️ Đặt giá thành công nhưng bạn không phải người giữ giá cao nhất.'
+      setActionMessage(message)
       return { success: true }
     } catch (err) {
       const message = err?.response?.data?.message || 'Không thể đặt giá'
@@ -256,6 +293,8 @@ export default function ProductDetailPage({ user }) {
               onPlaceBid={handlePlaceBid}
               bidSubmitting={bidSubmitting}
               actionMessage={actionMessage}
+              myMaxBid={myMaxBid}
+              isWinning={isWinning}
             />
 
             {/* Watchlist Button */}
