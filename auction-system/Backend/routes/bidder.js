@@ -11,6 +11,7 @@ import {
   getAuctionProducts,
   placeBid,
   getMyBids,
+  getMyAutoBidStatus,
   addToWatchlist,
   removeFromWatchlist,
   getWatchlist,
@@ -20,7 +21,9 @@ import {
   upsertCheckoutOrder,
   uploadPaymentProofImage,
   updateBidderProfile,
-  uploadBidderAvatar
+  uploadBidderAvatar,
+  getUserBidStatus,
+  getCurrentWinner
 } from '../controllers/bidderController.js'
 import { paymentProofUpload, avatarImageUpload } from '../utils/upload.js'
 
@@ -40,8 +43,8 @@ router.get('/products', getAuctionProducts)
 
 /**
  * @route   POST /api/bidder/bids
- * @desc    Đặt giá đấu
- * @body    { product_id, bid_amount }
+ * @desc    Đặt giá tự động (Auto Bidding)
+ * @body    { product_id, max_bid }
  * @access  Private (Bidder)
  */
 router.post('/bids', placeBid)
@@ -52,6 +55,27 @@ router.post('/bids', placeBid)
  * @access  Private (Bidder)
  */
 router.get('/bids/my', getMyBids)
+
+/**
+ * @route   GET /api/bidder/bids/my/status/:productId
+ * @desc    Lấy trạng thái auto bid của tôi cho sản phẩm
+ * @access  Private (Bidder)
+ */
+router.get('/bids/my/status/:productId', getMyAutoBidStatus)
+
+/**
+ * @route   GET /api/bidder/products/:id/bid-status
+ * @desc    Kiểm tra trạng thái bid của user
+ * @access  Private (Bidder)
+ */
+router.get('/products/:id/bid-status', getUserBidStatus)
+
+/**
+ * @route   GET /api/bidder/products/:id/current-winner
+ * @desc    Lấy thông tin người đang thắng
+ * @access  Private (Bidder)
+ */
+router.get('/products/:id/current-winner', getCurrentWinner)
 
 /**
  * @route   POST /api/bidder/watchlist

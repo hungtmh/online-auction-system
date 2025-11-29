@@ -18,14 +18,14 @@ const bidderAPI = {
   },
 
   /**
-   * Đặt giá đấu
+   * Đặt giá tự động (Auto Bidding)
    * @param {string} productId
-   * @param {number} bidAmount
+   * @param {number} maxBid - Giá tối đa sẵn sàng trả
    */
-  placeBid: async (productId, bidAmount) => {
-  const response = await api.post('/bidder/bids', {
+  placeBid: async (productId, maxBid) => {
+    const response = await api.post('/bidder/bids', {
       product_id: productId,
-      bid_amount: bidAmount
+      max_bid: maxBid
     })
     return response.data
   },
@@ -129,6 +129,33 @@ const bidderAPI = {
     const formData = new FormData()
     formData.append('avatar', file)
     const response = await api.post('/bidder/profile/avatar', formData)
+    return response.data
+  },
+
+  /**
+   * Kiểm tra trạng thái bid của user cho sản phẩm
+   * @param {string} productId
+   */
+  getUserBidStatus: async (productId) => {
+    const response = await api.get(`/bidder/products/${productId}/bid-status`)
+    return response.data
+  },
+
+  /**
+   * Lấy thông tin người đang thắng đấu giá
+   * @param {string} productId
+   */
+  getCurrentWinner: async (productId) => {
+    const response = await api.get(`/bidder/products/${productId}/current-winner`)
+    return response.data
+  },
+
+  /**
+   * Lấy trạng thái auto bid của tôi cho sản phẩm
+   * @param {string} productId
+   */
+  getMyAutoBidStatus: async (productId) => {
+    const response = await api.get(`/bidder/bids/my/status/${productId}`)
     return response.data
   }
 }
