@@ -37,8 +37,18 @@ function UnifiedNavbar({ user }) {
   };
 
   const handleMenuSelect = (action) => {
-    const basePath = user?.role === 'seller' ? '/seller' : '/bidder';
-    navigate(`${basePath}/${action}`);
+    // Các action của bidder (seller kế thừa bidder)
+    const bidderActions = ['profile', 'watchlist', 'my-bids'];
+    
+    // Nếu là action của bidder, luôn navigate đến /bidder
+    // Nếu là action riêng của seller, navigate đến /seller
+    if (bidderActions.includes(action)) {
+      navigate(`/bidder/${action}`);
+    } else {
+      // Các action riêng của seller: my-products, add-product, sales
+      navigate(`/seller/${action}`);
+    }
+    
     setMenuOpen(false);
   };
 
