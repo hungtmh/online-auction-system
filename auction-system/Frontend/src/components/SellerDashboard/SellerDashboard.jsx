@@ -2,7 +2,7 @@
 import { useNavigate, useLocation } from 'react-router-dom'
 import guestAPI from '../../services/guestAPI'
 import { authAPI, clearAccessToken } from '../../services/api'
-import DashboardHeader from './components/DashboardHeader'
+import UnifiedNavbar from '../common/UnifiedNavbar'
 import EmptySection from './components/EmptySection'
 import MyProductsSection from './components/MyProductsSection'
 import ProductCreation from './ProductCreation/ProductCreation'
@@ -119,13 +119,7 @@ const SellerDashboard = () => {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <DashboardHeader
-        user={user}
-        profileError={profileError}
-        onLogout={handleLogout}
-        onGoToMarketplace={goToMarketplace}
-        onSelectTab={handleSelectTab}
-      />
+      <UnifiedNavbar user={user} />
 
       <main className="container mx-auto px-6 py-8">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-4">

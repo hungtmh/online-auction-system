@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { authAPI } from '../../services/api'
-import BidderMarketplaceNavbar from '../common/BidderMarketplaceNavbar'
+import UnifiedNavbar from '../common/UnifiedNavbar'
 import ProfileSection from './sections/ProfileSection'
 import MyBidsSection from './sections/MyBidsSection'
 import WatchlistSection from './sections/WatchlistSection'
@@ -84,7 +84,7 @@ function BidderDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <BidderMarketplaceNavbar user={user} />
+      <UnifiedNavbar user={user} />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-6">
           <h1 className="text-3xl font-bold text-gray-900">{TAB_TITLES[activeTab] || 'Bảng điều khiển'}</h1>

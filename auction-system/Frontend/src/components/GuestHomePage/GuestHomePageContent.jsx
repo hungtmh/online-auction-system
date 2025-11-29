@@ -6,8 +6,7 @@ import CategoryMenu from "./CategoryMenu";
 import FeaturedProducts from "./FeaturedProducts";
 import SearchBar from "./SearchBar";
 import ProductCard from "./ProductCard";
-import SellerMarketplaceNavbar from "../common/SellerMarketplaceNavbar";
-import BidderMarketplaceNavbar from "../common/BidderMarketplaceNavbar";
+import UnifiedNavbar from "../common/UnifiedNavbar";
 import heroImg from "../../assets/image/hero-auction.png";
 
 function GuestHomePageContent({ user }) {
@@ -68,43 +67,8 @@ function GuestHomePageContent({ user }) {
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-800">
-      {/* Top Header - Conditional based on user role */}
-      {user?.role === 'seller' ? (
-        <SellerMarketplaceNavbar user={user} />
-      ) : user ? (
-        <BidderMarketplaceNavbar user={user} />
-      ) : (
-        <header className="bg-white shadow-sm sticky top-0 z-50">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-between h-16">
-              {/* Logo */}
-              <div className="flex items-center gap-2">
-                <button onClick={() => navigate("/")} className="flex items-center gap-2 group">
-                  <svg className="w-8 h-8 text-blue-600 group-hover:text-blue-700 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <span className="text-xl font-bold text-gray-900">AuctionHub</span>
-                </button>
-              </div>
-
-              {/* Search Bar */}
-              <div className="flex-1 max-w-2xl px-8 hidden md:block">
-                <SearchBar />
-              </div>
-
-              {/* Auth Buttons */}
-              <div className="flex items-center gap-3">
-                <button onClick={() => navigate("/login")} className="px-4 py-2 text-sm font-medium text-blue-600 hover:text-blue-700 transition">
-                  Đăng nhập
-                </button>
-                <button onClick={() => navigate("/register")} className="px-5 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg shadow-sm hover:bg-blue-700 transition">
-                  Đăng ký
-                </button>
-              </div>
-            </div>
-          </div>
-        </header>
-      )}
+      {/* Unified Navbar for all roles */}
+      <UnifiedNavbar user={user} />
 
       {/* Category Menu 2 cấp */}
       <CategoryMenu categories={categories} />
