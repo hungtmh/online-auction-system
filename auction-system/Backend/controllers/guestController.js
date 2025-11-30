@@ -148,12 +148,12 @@ export const getProductById = async (req, res) => {
       .eq("id", product.seller_id)
       .single();
 
-    // Query bids với bidder profiles
+    // Query bids với bidder profiles - QUAN TRỌNG: lấy cả max_bid_amount để xác định người giữ giá
     const { data: bids } = await supabase
       .from("bids")
-      .select("id, bid_amount, created_at, bidder_id, profiles:bidder_id ( id, full_name, rating_positive, rating_negative )")
+      .select("id, bid_amount, max_bid_amount, created_at, bidder_id, profiles:bidder_id ( id, full_name, rating_positive, rating_negative )")
       .eq("product_id", id)
-      .order("bid_amount", { ascending: false });
+      .order("created_at", { ascending: false });
 
     // Query questions với asker profiles
     const { data: questions } = await supabase
@@ -163,8 +163,38 @@ export const getProductById = async (req, res) => {
       .order("created_at", { ascending: false });
 
     const sortedBids = bids || [];
-    const highest = sortedBids.length > 0 ? sortedBids[0] : null;
-    const current_price = highest ? highest.bid_amount : product.current_price || product.starting_price || 0;
+    
+    // Tìm người giữ giá cao nhất dựa trên max_bid_amount (không phải bid_amount)
+    // Nếu cùng max thì người đặt trước thắng
+    let highest = null;
+    const bidderMaxMap = new Map();
+    
+    for (const bid of sortedBids) {
+      const bidderId = bid.bidder_id;
+      const maxBid = Number(bid.max_bid_amount) || Number(bid.bid_amount) || 0;
+      const existing = bidderMaxMap.get(bidderId);
+      
+      if (!existing || maxBid > existing.max) {
+        bidderMaxMap.set(bidderId, {
+          max: maxBid,
+          created_at: bid.created_at,
+          bid: bid
+        });
+      }
+    }
+    
+    // Tìm người có max cao nhất
+    for (const [bidderId, data] of bidderMaxMap.entries()) {
+      if (!highest || data.max > highest.max ||
+          (data.max === highest.max && new Date(data.created_at) < new Date(highest.created_at))) {
+        highest = data;
+      }
+    }
+    
+    const highestBid = highest?.bid || null;
+    const current_price = sortedBids.length > 0 
+      ? Math.max(...sortedBids.map(b => Number(b.bid_amount) || 0))
+      : (product.current_price || product.starting_price || 0);
 
     // Format response với đầy đủ thông tin
     const response = {
@@ -175,10 +205,10 @@ export const getProductById = async (req, res) => {
       seller_name: seller?.full_name,
       seller_rating_positive: seller?.rating_positive || 0,
       seller_rating_negative: seller?.rating_negative || 0,
-      highest_bidder: highest?.profiles || null,
-      highest_bidder_name: highest?.profiles?.full_name || null,
-      highest_bidder_rating_positive: highest?.profiles?.rating_positive || 0,
-      highest_bidder_rating_negative: highest?.profiles?.rating_negative || 0,
+      highest_bidder: highestBid?.profiles || null,
+      highest_bidder_name: highestBid?.profiles?.full_name || null,
+      highest_bidder_rating_positive: highestBid?.profiles?.rating_positive || 0,
+      highest_bidder_rating_negative: highestBid?.profiles?.rating_negative || 0,
       description: product.description || "",
       description_history: (product.product_descriptions || []).sort((a, b) => new Date(a.added_at) - new Date(b.added_at)),
       questions: questions || [],
