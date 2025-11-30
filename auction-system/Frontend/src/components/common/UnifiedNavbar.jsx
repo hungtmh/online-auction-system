@@ -38,7 +38,7 @@ function UnifiedNavbar({ user }) {
 
   const handleMenuSelect = (action) => {
     // Các action của bidder (seller kế thừa bidder)
-    const bidderActions = ['profile', 'watchlist', 'my-bids'];
+    const bidderActions = ['profile', 'watchlist', 'my-bids', 'password'];
     
     // Nếu là action của bidder, luôn navigate đến /bidder
     // Nếu là action riêng của seller, navigate đến /seller
@@ -57,6 +57,7 @@ function UnifiedNavbar({ user }) {
     // Base items cho cả bidder và seller
     const baseItems = [
       { label: '👤 Hồ sơ cá nhân', action: 'profile' },
+      { label: '🔐 Đổi mật khẩu', action: 'password' },
       { label: '⭐ Danh mục yêu thích', action: 'watchlist' },
       { label: '📜 Lịch sử đấu giá', action: 'my-bids' }
     ];

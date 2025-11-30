@@ -5,11 +5,13 @@ import UnifiedNavbar from '../common/UnifiedNavbar'
 import ProfileSection from './sections/ProfileSection'
 import MyBidsSection from './sections/MyBidsSection'
 import WatchlistSection from './sections/WatchlistSection'
+import PasswordSection from './sections/PasswordSection'
 
 const TAB_TITLES = {
   profile: 'Hồ sơ cá nhân',
   'my-bids': 'Lịch sử đấu giá',
-  watchlist: 'Danh sách yêu thích'
+  watchlist: 'Danh sách yêu thích',
+  password: 'Đổi mật khẩu'
 }
 
 const DEFAULT_TAB = 'profile'
@@ -26,6 +28,7 @@ function BidderDashboard() {
     if (path.includes('/profile')) return 'profile'
     if (path.includes('/my-bids')) return 'my-bids'
     if (path.includes('/watchlist')) return 'watchlist'
+    if (path.includes('/password')) return 'password'
     return DEFAULT_TAB
   }
 
@@ -69,6 +72,10 @@ function BidderDashboard() {
 
     if (activeTab === 'watchlist') {
       return <WatchlistSection />
+    }
+
+    if (activeTab === 'password') {
+      return <PasswordSection />
     }
 
     return null
