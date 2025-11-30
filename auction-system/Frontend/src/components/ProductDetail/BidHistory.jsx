@@ -46,7 +46,8 @@ export default function BidHistory({ bids = [] }) {
       if (!existing || maxBid > existing.max) {
         bidderMaxMap.set(bidderId, {
           max: maxBid,
-          created_at: bid.created_at,
+          // Giữ lại created_at của lần đầu tiên đặt max này (để xác định ai đặt trước khi cùng max)
+          created_at: existing && maxBid === existing.max ? existing.created_at : bid.created_at,
           profile: bid.profiles
         })
       }

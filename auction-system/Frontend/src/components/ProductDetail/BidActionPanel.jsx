@@ -98,7 +98,8 @@ export default function BidActionPanel({
   const countdown = useCountdown(product?.end_time)
   const isActive = mode === 'ACTIVE'
   const isGuest = !user
-  const isBidder = user?.role === 'bidder'
+  // Seller thừa hưởng tất cả tính năng của bidder (có thể đặt giá)
+  const canBid = user?.role === 'bidder' || user?.role === 'seller'
   const nextMinimumBid = useMemo(() => calcNextBid(product), [product])
 
   useEffect(() => {
@@ -157,8 +158,8 @@ export default function BidActionPanel({
         </div>
       )}
 
-      {/* My max bid status (only visible to the bidder themselves) */}
-      {isBidder && myMaxBid && (
+      {/* My max bid status (only visible to the user themselves) */}
+      {canBid && myMaxBid && (
         <div className={`rounded-xl px-4 py-3 border ${
           isWinning 
             ? 'bg-emerald-50 border-emerald-200' 
@@ -191,20 +192,42 @@ export default function BidActionPanel({
         </div>
       )}
 
-      {/* Highest bidder info */}
+      {/* Highest bidder info - Người đang giữ giá cao nhất */}
       {product?.bids?.length > 0 && (() => {
-        const topBid = product.bids.reduce((best, bid) => {
-          if (!best) return bid
-          return Number(bid.bid_amount || 0) > Number(best.bid_amount || 0) ? bid : best
-        }, null)
-        if (!topBid) return null
-        const bidderProfile = topBid.profiles || topBid.bidder || {}
+        // Tìm người có max_bid_amount cao nhất, nếu bằng thì người đặt trước thắng
+        const bidderMaxMap = new Map()
+        for (const bid of product.bids) {
+          const bidderId = bid.bidder_id
+          const maxBid = Number(bid.max_bid_amount) || Number(bid.bid_amount) || 0
+          const existing = bidderMaxMap.get(bidderId)
+          
+          if (!existing || maxBid > existing.max || 
+              (maxBid === existing.max && new Date(bid.created_at) < new Date(existing.created_at))) {
+            bidderMaxMap.set(bidderId, {
+              max: maxBid,
+              created_at: bid.created_at,
+              profile: bid.profiles
+            })
+          }
+        }
+        
+        // Tìm người có max cao nhất
+        let winner = null
+        for (const [bidderId, data] of bidderMaxMap.entries()) {
+          if (!winner || data.max > winner.max ||
+              (data.max === winner.max && new Date(data.created_at) < new Date(winner.created_at))) {
+            winner = { bidderId, ...data }
+          }
+        }
+        
+        if (!winner) return null
+        const bidderProfile = winner.profile || {}
         const bidderName = bidderProfile.full_name || 'Ẩn danh'
         const bidderPositive = bidderProfile.rating_positive ?? 0
         const bidderNegative = bidderProfile.rating_negative ?? 0
         return (
           <div className="rounded-xl bg-green-50 px-4 py-3 border border-green-100">
-            <p className="text-sm text-green-600">Người đặt giá cao nhất</p>
+            <p className="text-sm text-green-600">Người giữ giá cao nhất</p>
             <p className="font-semibold text-green-700">{bidderName}</p>
             <p className="text-xs text-green-600">Đánh giá: +{bidderPositive} / -{bidderNegative}</p>
           </div>
@@ -236,13 +259,13 @@ export default function BidActionPanel({
         </button>
       )}
 
-      {!isGuest && !isBidder && (
+      {!isGuest && !canBid && (
         <div className="text-sm text-orange-600 bg-orange-50 border border-orange-100 rounded-xl px-4 py-3">
-          Chỉ tài khoản bidder mới có thể đặt giá.
+          Chỉ tài khoản bidder hoặc seller mới có thể đặt giá.
         </div>
       )}
 
-      {isBidder && (
+      {canBid && (
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="text-sm font-medium text-gray-700 mb-2 block">

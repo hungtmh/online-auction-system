@@ -29,9 +29,10 @@ import { paymentProofUpload, avatarImageUpload } from '../utils/upload.js'
 
 const router = express.Router()
 
-// Tất cả routes cần authentication và role = bidder
+// Tất cả routes cần authentication và role = bidder hoặc seller
+// Seller thừa hưởng tất cả tính năng của bidder
 router.use(authenticateToken)
-router.use(requireRole('bidder'))
+router.use(requireRole('bidder', 'seller'))
 
 /**
  * @route   GET /api/bidder/products

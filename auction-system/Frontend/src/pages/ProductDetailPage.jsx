@@ -68,8 +68,8 @@ export default function ProductDetailPage({ user }) {
         }
       }
 
-      // Load my max bid status if user is bidder
-      if (user?.role === 'bidder') {
+      // Load my max bid status if user is bidder or seller
+      if (user?.role === 'bidder' || user?.role === 'seller') {
         try {
           const statusRes = await bidderAPI.getMyAutoBidStatus(id)
           if (statusRes?.data) {
@@ -97,7 +97,8 @@ export default function ProductDetailPage({ user }) {
   // Check if product is in watchlist
   useEffect(() => {
     const checkWatchlist = async () => {
-      if (!user || user.role !== 'bidder' || !id) return
+      // Seller cũng có thể thêm vào watchlist
+      if (!user || (user.role !== 'bidder' && user.role !== 'seller') || !id) return
       try {
         const res = await bidderAPI.getWatchlist()
         const watchlistItems = res?.data || []
@@ -136,8 +137,8 @@ export default function ProductDetailPage({ user }) {
       handleLoginRedirect()
       return
     }
-    if (user.role !== 'bidder') {
-      setActionMessage('Chỉ tài khoản bidder mới có thể thêm vào yêu thích')
+    if (user.role !== 'bidder' && user.role !== 'seller') {
+      setActionMessage('Chỉ tài khoản bidder hoặc seller mới có thể thêm vào yêu thích')
       return
     }
     
@@ -175,9 +176,10 @@ export default function ProductDetailPage({ user }) {
       handleLoginRedirect()
       return { success: false, message: 'Vui lòng đăng nhập để đấu giá' }
     }
-    if (user.role !== 'bidder') {
-      setActionMessage('Chỉ bidder mới có thể đặt giá')
-      return { success: false, message: 'Chỉ bidder mới có thể đặt giá' }
+    // Seller cũng có thể đặt giá như bidder
+    if (user.role !== 'bidder' && user.role !== 'seller') {
+      setActionMessage('Chỉ bidder hoặc seller mới có thể đặt giá')
+      return { success: false, message: 'Chỉ bidder hoặc seller mới có thể đặt giá' }
     }
 
     setBidSubmitting(true)
@@ -298,7 +300,7 @@ export default function ProductDetailPage({ user }) {
             />
 
             {/* Watchlist Button */}
-            {user?.role === 'bidder' && (
+            {(user?.role === 'bidder' || user?.role === 'seller') && (
               <button
                 onClick={handleToggleWatchlist}
                 disabled={watchlistLoading}
