@@ -98,7 +98,8 @@ export default function BidActionPanel({
   const countdown = useCountdown(product?.end_time)
   const isActive = mode === 'ACTIVE'
   const isGuest = !user
-  const isBidder = user?.role === 'bidder'
+  // Seller thừa hưởng tất cả tính năng của bidder (có thể đặt giá)
+  const canBid = user?.role === 'bidder' || user?.role === 'seller'
   const nextMinimumBid = useMemo(() => calcNextBid(product), [product])
 
   useEffect(() => {
@@ -157,8 +158,8 @@ export default function BidActionPanel({
         </div>
       )}
 
-      {/* My max bid status (only visible to the bidder themselves) */}
-      {isBidder && myMaxBid && (
+      {/* My max bid status (only visible to the user themselves) */}
+      {canBid && myMaxBid && (
         <div className={`rounded-xl px-4 py-3 border ${
           isWinning 
             ? 'bg-emerald-50 border-emerald-200' 
@@ -236,13 +237,13 @@ export default function BidActionPanel({
         </button>
       )}
 
-      {!isGuest && !isBidder && (
+      {!isGuest && !canBid && (
         <div className="text-sm text-orange-600 bg-orange-50 border border-orange-100 rounded-xl px-4 py-3">
-          Chỉ tài khoản bidder mới có thể đặt giá.
+          Chỉ tài khoản bidder hoặc seller mới có thể đặt giá.
         </div>
       )}
 
-      {isBidder && (
+      {canBid && (
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="text-sm font-medium text-gray-700 mb-2 block">
