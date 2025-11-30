@@ -276,18 +276,22 @@ export const getFeaturedProducts = async (req, res) => {
 
     console.log("🌟 Loading featured products...");
 
-    // Query TẤT CẢ sản phẩm active (không limit trước)
+    // Lấy thời gian hiện tại để lọc sản phẩm còn đang đấu giá
+    const now = new Date().toISOString();
+
+    // Query TẤT CẢ sản phẩm active VÀ chưa hết thời gian đấu giá
     const allProductsQuery = supabase
       .from("products")
       .select("*, categories(id, name, parent_id)")
-      .eq("status", "active");
+      .eq("status", "active")
+      .gt("end_time", now); // Chỉ lấy sản phẩm có end_time > hiện tại
 
-    // Lấy tất cả sản phẩm
+    // Lấy tất cả sản phẩm còn đang đấu giá
     const { data: allProducts, error } = await allProductsQuery;
     
     if (error) throw error;
 
-    console.log("📦 Total active products:", allProducts?.length);
+    console.log("📦 Total active products (still ongoing):", allProducts?.length);
 
     // Enrich tất cả sản phẩm
     const enrichedAll = await enrichProducts(allProducts || []);
