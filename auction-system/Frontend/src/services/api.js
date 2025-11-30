@@ -127,6 +127,35 @@ export const authAPI = {
     return data.user
   },
 
+  // ═══════════════════════════════════════════════════════════
+  // PASSWORD MANAGEMENT
+  // ═══════════════════════════════════════════════════════════
+  
+  // Lấy loại tài khoản: 'google_only' | 'local' | 'hybrid'
+  getAccountType: async () => {
+    const { data } = await api.get('/auth/account-type')
+    return data.data
+  },
+
+  // Đổi mật khẩu (TH2, TH3 - tài khoản đã có mật khẩu)
+  changePassword: async (old_password, new_password, confirm_password) => {
+    const { data } = await api.post('/auth/change-password', { 
+      old_password, 
+      new_password, 
+      confirm_password 
+    })
+    return data
+  },
+
+  // Tạo mật khẩu cho tài khoản Google (TH1 - chưa có mật khẩu)
+  createPassword: async (new_password, confirm_password) => {
+    const { data } = await api.post('/auth/create-password', { 
+      new_password, 
+      confirm_password 
+    })
+    return data
+  },
+
   // Backward compatibility
   resendVerification: async (email) => {
     return authAPI.resendOTP(email)

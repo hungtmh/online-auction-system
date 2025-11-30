@@ -1,7 +1,7 @@
 ﻿import express from 'express'
 import passport from '../config/passport.js'
 import jwt from 'jsonwebtoken'
-import { register, login, refresh, logout, getProfile, resendVerification, verifyOTPCode } from '../controllers/authController.js'
+import { register, login, refresh, logout, getProfile, resendVerification, verifyOTPCode, getAccountType, changePassword, createPassword } from '../controllers/authController.js'
 import { authenticate } from '../middleware/auth.js'
 
 const router = express.Router()
@@ -18,6 +18,13 @@ router.post('/login', login)
 router.post('/refresh', refresh)
 router.post('/logout', logout)
 router.get('/profile', authenticate, getProfile)
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PASSWORD MANAGEMENT
+// ═══════════════════════════════════════════════════════════════════════════
+router.get('/account-type', authenticate, getAccountType)      // Kiểm tra loại tài khoản
+router.post('/change-password', authenticate, changePassword)  // Đổi mật khẩu (TH2, TH3)
+router.post('/create-password', authenticate, createPassword)  // Tạo mật khẩu cho Google (TH1)
 
 // ═══════════════════════════════════════════════════════════════════════════
 // GOOGLE OAUTH

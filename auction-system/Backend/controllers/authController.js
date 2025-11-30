@@ -148,9 +148,15 @@ export const login = async (req, res) => {
       })
     }
 
-  
-    if (!user) {
-      return res.status(401).json({ success: false, message: 'Đăng nhập thất bại' })
+    // ═══════════════════════════════════════════════════════════
+    // KIỂM TRA MẬT KHẨU BẰNG BCRYPT
+    // ═══════════════════════════════════════════════════════════
+    const isPasswordValid = await bcrypt.compare(password, passwordHash)
+    if (!isPasswordValid) {
+      return res.status(401).json({ 
+        success: false, 
+        message: 'Email hoặc mật khẩu không đúng' 
+      })
     }
 
     console.log('✅ User authenticated:', user.id, user.email)
@@ -358,6 +364,187 @@ export const verifyOTPCode = async (req, res) => {
     })
   } catch (error) {
     console.error('Verify OTP error:', error)
+    res.status(500).json({ success: false, message: 'Lỗi server' })
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// GET ACCOUNT TYPE - Kiểm tra loại tài khoản (TH1, TH2, TH3)
+// ═══════════════════════════════════════════════════════════
+export const getAccountType = async (req, res) => {
+  try {
+    const userId = req.user.userId
+    
+    const { data: authData, error } = await supabase.auth.admin.getUserById(userId)
+    
+    if (error || !authData.user) {
+      return res.status(404).json({ success: false, message: 'Không tìm thấy tài khoản' })
+    }
+
+    const user = authData.user
+    const hasPassword = !!user.user_metadata?.password_hash
+    const hasGoogle = user.user_metadata?.provider === 'google' || !!user.user_metadata?.google_id
+    
+    let accountType = 'local' // TH2 - Chỉ có mật khẩu local
+    
+    if (hasGoogle && !hasPassword) {
+      accountType = 'google_only' // TH1 - Chỉ Google, chưa có mật khẩu
+    } else if (hasGoogle && hasPassword) {
+      accountType = 'hybrid' // TH3 - Có cả Google và mật khẩu local
+    }
+    
+    res.json({
+      success: true,
+      data: {
+        accountType, // 'google_only' | 'local' | 'hybrid'
+        hasPassword,
+        hasGoogle,
+        email: user.email
+      }
+    })
+  } catch (error) {
+    console.error('Get account type error:', error)
+    res.status(500).json({ success: false, message: 'Lỗi server' })
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// CHANGE PASSWORD - Đổi mật khẩu (TH2, TH3)
+// ═══════════════════════════════════════════════════════════
+export const changePassword = async (req, res) => {
+  try {
+    const userId = req.user.userId
+    const { old_password, new_password, confirm_password } = req.body
+
+    // Validate input
+    if (!new_password || !confirm_password) {
+      return res.status(400).json({ success: false, message: 'Vui lòng nhập mật khẩu mới và xác nhận' })
+    }
+
+    if (new_password !== confirm_password) {
+      return res.status(400).json({ success: false, message: 'Mật khẩu xác nhận không khớp' })
+    }
+
+    if (new_password.length < 6) {
+      return res.status(400).json({ success: false, message: 'Mật khẩu mới phải có ít nhất 6 ký tự' })
+    }
+
+    // Lấy thông tin user
+    const { data: authData, error } = await supabase.auth.admin.getUserById(userId)
+    
+    if (error || !authData.user) {
+      return res.status(404).json({ success: false, message: 'Không tìm thấy tài khoản' })
+    }
+
+    const user = authData.user
+    const currentPasswordHash = user.user_metadata?.password_hash
+
+    // Nếu tài khoản ĐÃ CÓ mật khẩu → bắt buộc kiểm tra mật khẩu cũ
+    if (currentPasswordHash) {
+      if (!old_password) {
+        return res.status(400).json({ success: false, message: 'Vui lòng nhập mật khẩu hiện tại' })
+      }
+
+      const isOldPasswordValid = await bcrypt.compare(old_password, currentPasswordHash)
+      if (!isOldPasswordValid) {
+        return res.status(401).json({ success: false, message: 'Mật khẩu hiện tại không đúng' })
+      }
+    }
+
+    // Hash mật khẩu mới bằng bcrypt
+    const newPasswordHash = await bcrypt.hash(new_password, 10)
+
+    // Cập nhật password_hash vào user_metadata
+    const { error: updateError } = await supabase.auth.admin.updateUserById(userId, {
+      password: new_password, // Supabase Auth cũng cần password
+      user_metadata: {
+        ...user.user_metadata,
+        password_hash: newPasswordHash
+      }
+    })
+
+    if (updateError) {
+      console.error('Update password error:', updateError)
+      return res.status(500).json({ success: false, message: 'Không thể cập nhật mật khẩu' })
+    }
+
+    console.log(`✅ Password changed for user: ${user.email}`)
+
+    res.json({
+      success: true,
+      message: currentPasswordHash 
+        ? 'Đổi mật khẩu thành công!' 
+        : 'Tạo mật khẩu thành công! Bạn có thể đăng nhập bằng email và mật khẩu.'
+    })
+  } catch (error) {
+    console.error('Change password error:', error)
+    res.status(500).json({ success: false, message: 'Lỗi server' })
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// CREATE PASSWORD - Tạo mật khẩu cho tài khoản Google (TH1)
+// ═══════════════════════════════════════════════════════════
+export const createPassword = async (req, res) => {
+  try {
+    const userId = req.user.userId
+    const { new_password, confirm_password } = req.body
+
+    // Validate input
+    if (!new_password || !confirm_password) {
+      return res.status(400).json({ success: false, message: 'Vui lòng nhập mật khẩu mới và xác nhận' })
+    }
+
+    if (new_password !== confirm_password) {
+      return res.status(400).json({ success: false, message: 'Mật khẩu xác nhận không khớp' })
+    }
+
+    if (new_password.length < 6) {
+      return res.status(400).json({ success: false, message: 'Mật khẩu phải có ít nhất 6 ký tự' })
+    }
+
+    // Lấy thông tin user
+    const { data: authData, error } = await supabase.auth.admin.getUserById(userId)
+    
+    if (error || !authData.user) {
+      return res.status(404).json({ success: false, message: 'Không tìm thấy tài khoản' })
+    }
+
+    const user = authData.user
+
+    // Kiểm tra đã có mật khẩu chưa
+    if (user.user_metadata?.password_hash) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Tài khoản đã có mật khẩu. Vui lòng sử dụng chức năng đổi mật khẩu.' 
+      })
+    }
+
+    // Hash mật khẩu mới bằng bcrypt
+    const newPasswordHash = await bcrypt.hash(new_password, 10)
+
+    // Cập nhật password_hash vào user_metadata
+    const { error: updateError } = await supabase.auth.admin.updateUserById(userId, {
+      password: new_password, // Supabase Auth cũng cần password
+      user_metadata: {
+        ...user.user_metadata,
+        password_hash: newPasswordHash
+      }
+    })
+
+    if (updateError) {
+      console.error('Create password error:', updateError)
+      return res.status(500).json({ success: false, message: 'Không thể tạo mật khẩu' })
+    }
+
+    console.log(`✅ Password created for Google user: ${user.email}`)
+
+    res.json({
+      success: true,
+      message: 'Tạo mật khẩu thành công! Bạn có thể đăng nhập bằng email và mật khẩu.'
+    })
+  } catch (error) {
+    console.error('Create password error:', error)
     res.status(500).json({ success: false, message: 'Lỗi server' })
   }
 }

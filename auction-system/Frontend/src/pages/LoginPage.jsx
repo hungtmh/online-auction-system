@@ -49,18 +49,16 @@ function LoginPage() {
         console.log('🔍 Login successful, role:', role)
         
         // Force full page reload để App.jsx fetch lại user data
+        // Bidder và Seller sau đăng nhập vào trang chủ (GuestHomePage với navbar riêng)
         switch (role) {
           case 'admin':
             window.location.href = '/admin'
             break
           case 'seller':
-            window.location.href = '/seller'
-            break
           case 'bidder':
-            window.location.href = '/bidder'
-            break
           default:
-            window.location.href = '/dashboard'
+            window.location.href = '/'
+            break
         }
       }
     } catch (err) {
