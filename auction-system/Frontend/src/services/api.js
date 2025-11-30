@@ -156,6 +156,32 @@ export const authAPI = {
     return data
   },
 
+  // ═══════════════════════════════════════════════════════════
+  // FORGOT PASSWORD
+  // ═══════════════════════════════════════════════════════════
+  
+  // Gửi OTP đặt lại mật khẩu
+  forgotPassword: async (email) => {
+    const { data } = await api.post('/auth/forgot-password', { email })
+    return data
+  },
+
+  // Xác thực OTP reset password
+  verifyResetOTP: async (email, otp_code) => {
+    const { data } = await api.post('/auth/verify-reset-otp', { email, otp_code })
+    return data
+  },
+
+  // Đặt mật khẩu mới (sau khi verify OTP)
+  resetPassword: async (reset_token, new_password, confirm_password) => {
+    const { data } = await api.post('/auth/reset-password', { 
+      reset_token, 
+      new_password, 
+      confirm_password 
+    })
+    return data
+  },
+
   // Backward compatibility
   resendVerification: async (email) => {
     return authAPI.resendOTP(email)

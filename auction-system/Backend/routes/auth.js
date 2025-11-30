@@ -1,7 +1,7 @@
 ﻿import express from 'express'
 import passport from '../config/passport.js'
 import jwt from 'jsonwebtoken'
-import { register, login, refresh, logout, getProfile, resendVerification, verifyOTPCode, getAccountType, changePassword, createPassword } from '../controllers/authController.js'
+import { register, login, refresh, logout, getProfile, resendVerification, verifyOTPCode, getAccountType, changePassword, createPassword, forgotPassword, verifyResetOTP, resetPassword } from '../controllers/authController.js'
 import { authenticate } from '../middleware/auth.js'
 
 const router = express.Router()
@@ -25,6 +25,13 @@ router.get('/profile', authenticate, getProfile)
 router.get('/account-type', authenticate, getAccountType)      // Kiểm tra loại tài khoản
 router.post('/change-password', authenticate, changePassword)  // Đổi mật khẩu (TH2, TH3)
 router.post('/create-password', authenticate, createPassword)  // Tạo mật khẩu cho Google (TH1)
+
+// ═══════════════════════════════════════════════════════════════════════════
+// FORGOT PASSWORD (Public - không cần auth)
+// ═══════════════════════════════════════════════════════════════════════════
+router.post('/forgot-password', forgotPassword)      // Gửi OTP reset password
+router.post('/verify-reset-otp', verifyResetOTP)     // Xác thực OTP reset
+router.post('/reset-password', resetPassword)        // Đặt mật khẩu mới
 
 // ═══════════════════════════════════════════════════════════════════════════
 // GOOGLE OAUTH
