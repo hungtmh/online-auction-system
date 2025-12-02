@@ -3,7 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { authAPI, getAccessToken } from './services/api'
 import GuestHomePage from './pages/GuestHomePage'
 import BidderDashboard from './pages/BidderDashboard'
-import SellerDashboard from './pages/SellerDashboard'
+import SellerDashboardPage from './pages/SellerDashboardPage'
 import AdminDashboard from './pages/AdminDashboard'
 import AuctionListPage from './pages/AuctionListPage'
 import ProductDetailPage from './pages/ProductDetailPage'
@@ -107,20 +107,12 @@ function App() {
             element={user?.role === 'seller' ? <GuestHomePage user={user} /> : <Navigate to="/" />} 
           />
           <Route 
-            path="/seller/profile" 
-            element={user?.role === 'seller' ? <SellerDashboard /> : <Navigate to="/" />} 
-          />
-          <Route 
             path="/seller/my-products" 
-            element={user?.role === 'seller' ? <SellerDashboard /> : <Navigate to="/" />} 
+            element={user?.role === 'seller' ? <SellerDashboardPage /> : <Navigate to="/" />} 
           />
           <Route 
             path="/seller/add-product" 
-            element={user?.role === 'seller' ? <SellerDashboard /> : <Navigate to="/" />} 
-          />
-          <Route 
-            path="/seller/sales" 
-            element={user?.role === 'seller' ? <SellerDashboard /> : <Navigate to="/" />} 
+            element={user?.role === 'seller' ? <SellerDashboardPage /> : <Navigate to="/" />} 
           />
           <Route 
             path="/bidder" 

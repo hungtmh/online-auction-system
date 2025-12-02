@@ -424,6 +424,75 @@ export const deleteProduct = async (req, res) => {
 }
 
 /**
+ * @route   POST /api/seller/questions/:questionId/answer
+ * @desc    Trả lời câu hỏi của bidder
+ * @access  Private (Seller)
+ */
+export const answerBidderQuestion = async (req, res) => {
+  try {
+    const { questionId } = req.params
+    const sellerId = req.user.id
+    const { answer } = req.body
+
+    const trimmedAnswer = answer?.trim()
+    if (!trimmedAnswer) {
+      return res.status(400).json({ success: false, message: 'Vui lòng nhập nội dung trả lời.' })
+    }
+
+    if (trimmedAnswer.length < 3) {
+      return res.status(400).json({ success: false, message: 'Câu trả lời cần ít nhất 3 ký tự.' })
+    }
+
+    const { data: question, error: questionError } = await supabase
+      .from('questions')
+      .select('id, product_id')
+      .eq('id', questionId)
+      .single()
+
+    if (questionError || !question) {
+      return res.status(404).json({ success: false, message: 'Không tìm thấy câu hỏi.' })
+    }
+
+    const { data: product, error: productError } = await supabase
+      .from('products')
+      .select('id, seller_id')
+      .eq('id', question.product_id)
+      .single()
+
+    if (productError || !product) {
+      return res.status(404).json({ success: false, message: 'Không tìm thấy sản phẩm.' })
+    }
+
+    if (product.seller_id !== sellerId) {
+      return res.status(403).json({ success: false, message: 'Bạn không có quyền trả lời câu hỏi này.' })
+    }
+
+    const updates = {
+      answer: trimmedAnswer,
+      answered_at: new Date().toISOString()
+    }
+
+    const { data: updated, error: updateError } = await supabase
+      .from('questions')
+      .update(updates)
+      .eq('id', questionId)
+      .select('id, product_id, asker_id, question, answer, answered_at, created_at, profiles:asker_id ( full_name )')
+      .single()
+
+    if (updateError) throw updateError
+
+    res.json({
+      success: true,
+      message: 'Đã gửi trả lời cho bidder.',
+      data: updated
+    })
+  } catch (error) {
+    console.error('❌ Error answering bidder question:', error)
+    res.status(500).json({ success: false, message: 'Không thể gửi trả lời cho câu hỏi này.' })
+  }
+}
+
+/**
  * @route   GET /api/seller/products/:id/bids
  * @desc    Xem danh sách giá đấu của sản phẩm
  * @access  Private (Seller)

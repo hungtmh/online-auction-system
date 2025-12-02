@@ -67,8 +67,7 @@ function UnifiedNavbar({ user }) {
       return [
         ...baseItems,
         { label: '📦 Sản phẩm của tôi', action: 'my-products' },
-        { label: '➕ Đăng sản phẩm', action: 'add-product' },
-        { label: '💰 Doanh thu', action: 'sales' }
+        { label: '➕ Đăng sản phẩm', action: 'add-product' }
       ];
     }
 

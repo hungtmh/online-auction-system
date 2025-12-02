@@ -12,10 +12,6 @@ const calcNextBid = (product) => {
 }
 
 const STATUS_COPY = {
-  SELLER_PLACEHOLDER: {
-    title: 'Đang xem với tư cách người bán',
-    body: 'Trang quản trị dành riêng cho người bán sẽ được bổ sung trong sprint kế tiếp.'
-  },
   ENDED_OTHER: {
     title: 'Phiên đấu giá đã kết thúc',
     body: 'Bạn không phải người thắng cuộc trong phiên đấu giá này. Hãy theo dõi các sản phẩm khác nhé!'
@@ -98,8 +94,10 @@ export default function BidActionPanel({
   const countdown = useCountdown(product?.end_time)
   const isActive = mode === 'ACTIVE'
   const isGuest = !user
-  // Seller thừa hưởng tất cả tính năng của bidder (có thể đặt giá)
-  const canBid = user?.role === 'bidder' || user?.role === 'seller'
+  // Check if seller is viewing their own product
+  const isOwnProduct = user?.role === 'seller' && user?.id === product?.seller_id
+  // Seller can bid on OTHER products, not their own
+  const canBid = (user?.role === 'bidder' || user?.role === 'seller') && !isOwnProduct
   const nextMinimumBid = useMemo(() => calcNextBid(product), [product])
 
   useEffect(() => {
@@ -259,7 +257,14 @@ export default function BidActionPanel({
         </button>
       )}
 
-      {!isGuest && !canBid && (
+      {!isGuest && !canBid && isOwnProduct && (
+        <div className="text-sm text-blue-600 bg-blue-50 border border-blue-100 rounded-xl px-4 py-3">
+          <p className="font-semibold mb-1">Đây là sản phẩm của bạn</p>
+          <p className="text-xs">Bạn có thể theo dõi tiến trình đấu giá và trả lời câu hỏi của bidder.</p>
+        </div>
+      )}
+      
+      {!isGuest && !canBid && !isOwnProduct && (
         <div className="text-sm text-orange-600 bg-orange-50 border border-orange-100 rounded-xl px-4 py-3">
           Chỉ tài khoản bidder hoặc seller mới có thể đặt giá.
         </div>

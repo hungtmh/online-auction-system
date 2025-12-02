@@ -14,6 +14,7 @@ const ProductCreation = ({ categories, loadingCategories }) => {
   const [uploading, setUploading] = useState(false)
   const [status, setStatus] = useState(null)
   const [submitting, setSubmitting] = useState(false)
+  const [fieldErrors, setFieldErrors] = useState({})
 
   const categoryOptions = useMemo(() => {
     if (!Array.isArray(categories)) return []
@@ -26,6 +27,14 @@ const ProductCreation = ({ categories, loadingCategories }) => {
   const handleInputChange = (event) => {
     const { name, value } = event.target
     setFormData((prev) => ({ ...prev, [name]: value }))
+    
+    // Clear field error when user starts typing
+    if (fieldErrors[name]) {
+      setFieldErrors((prev) => ({ ...prev, [name]: null }))
+    }
+    if (errors[name]) {
+      setErrors((prev) => ({ ...prev, [name]: null }))
+    }
   }
 
   const handleCheckboxChange = (event) => {
@@ -40,6 +49,14 @@ const ProductCreation = ({ categories, loadingCategories }) => {
 
   const handleDescriptionChange = (value) => {
     setFormData((prev) => ({ ...prev, description: value }))
+    
+    // Clear description error when user starts typing
+    if (fieldErrors.description) {
+      setFieldErrors((prev) => ({ ...prev, description: null }))
+    }
+    if (errors.description) {
+      setErrors((prev) => ({ ...prev, description: null }))
+    }
   }
 
   const handleImageUpload = async (event) => {
@@ -83,14 +100,28 @@ const ProductCreation = ({ categories, loadingCategories }) => {
 
   const validateStepOne = () => {
     const nextErrors = {}
+    // Lấy thời gian hiện tại
+    const now = new Date()
+    const FUTURE_BUFFER_MS = 60 * 1000 // 1 phút
 
-    if (!formData.name.trim()) nextErrors.name = 'Vui lòng nhập tên sản phẩm.'
+    // --- LOG ĐỂ DEBUG (Xem giá trị thực tế máy tính nhận được) ---
+    console.log("Start input:", formData.start_time)
+    console.log("End input:", formData.end_time)
+
+    // 1. Validate Text Inputs
+    if (!formData.name.trim()) {
+      nextErrors.name = 'Vui lòng nhập tên sản phẩm.'
+    } else if (formData.name.trim().length < 5) {
+      nextErrors.name = 'Tên sản phẩm phải có ít nhất 5 ký tự.'
+    }
+
     if (!formData.category_id) nextErrors.category_id = 'Vui lòng chọn danh mục.'
 
     if (!stripHtml(formData.description)) {
       nextErrors.description = 'Mô tả sản phẩm không được để trống.'
     }
 
+    // 2. Validate Giá
     if (!formData.starting_price || Number(formData.starting_price) < 0) {
       nextErrors.starting_price = 'Giá khởi điểm không hợp lệ.'
     }
@@ -105,20 +136,46 @@ const ProductCreation = ({ categories, loadingCategories }) => {
       }
     }
 
+    // 3. Validate Thời gian (Chia tách validation rõ ràng)
+    let startTimeObj = null
+    let endTimeObj = null
+
+    // ========== VALIDATE END TIME (Kết thúc) ==========
     if (!formData.end_time) {
       nextErrors.end_time = 'Vui lòng chọn thời điểm kết thúc.'
     } else {
-      const end = new Date(formData.end_time)
-      if (Number.isNaN(end.getTime()) || end <= new Date()) {
-        nextErrors.end_time = 'Thời điểm kết thúc phải nằm trong tương lai.'
+      endTimeObj = new Date(formData.end_time)
+      
+      if (isNaN(endTimeObj.getTime())) {
+        nextErrors.end_time = 'Định dạng thời gian kết thúc không hợp lệ.'
+      } else {
+        // Check 1: End time phải trong tương lai (buffer 1 phút)
+        const minEndTime = new Date(now.getTime() + FUTURE_BUFFER_MS)
+        if (endTimeObj < minEndTime) {
+          nextErrors.end_time = 'Thời điểm kết thúc phải nằm trong tương lai (ít nhất sau 1 phút từ bây giờ).'
+        }
       }
     }
 
+    // ========== VALIDATE START TIME (Bắt đầu) ==========
     if (formData.start_time) {
-      const start = new Date(formData.start_time)
-      const end = new Date(formData.end_time)
-      if (start >= end) {
-        nextErrors.start_time = 'Thời điểm bắt đầu phải trước thời điểm kết thúc.'
+      startTimeObj = new Date(formData.start_time)
+      
+      if (isNaN(startTimeObj.getTime())) {
+        // Check 1: Format không hợp lệ
+        nextErrors.start_time = 'Định dạng thời gian bắt đầu không hợp lệ.'
+      } else {
+        // Check 2: Start time không được ở quá khứ (buffer 1 phút)
+        const minStartTime = new Date(now.getTime() + FUTURE_BUFFER_MS)
+        if (startTimeObj < minStartTime) {
+          nextErrors.start_time = 'Thời điểm bắt đầu phải nằm trong tương lai (ít nhất sau 1 phút từ bây giờ).'
+        } 
+        // Check 3: Start time phải nhỏ hơn End time (chỉ check khi End hợp lệ)
+        else if (endTimeObj && !isNaN(endTimeObj.getTime()) && !nextErrors.end_time) {
+          if (startTimeObj.getTime() >= endTimeObj.getTime()) {
+            nextErrors.start_time = 'Thời điểm bắt đầu phải trước thời điểm kết thúc.'
+          }
+        }
       }
     }
 
@@ -132,9 +189,15 @@ const ProductCreation = ({ categories, loadingCategories }) => {
   const handleGoToReview = () => {
     const validationErrors = validateStepOne()
     setErrors(validationErrors)
+    setFieldErrors(validationErrors)
 
     if (Object.keys(validationErrors).length === 0) {
       setStep(2)
+    } else {
+      // Auto-dismiss field errors after 10 seconds
+      setTimeout(() => {
+        setFieldErrors({})
+      }, 10000)
     }
   }
 
@@ -197,6 +260,7 @@ const ProductCreation = ({ categories, loadingCategories }) => {
         <ProductFormStep
           formData={formData}
           errors={errors}
+          fieldErrors={fieldErrors}
           categoryOptions={categoryOptions}
           loadingCategories={loadingCategories}
           uploading={uploading}
