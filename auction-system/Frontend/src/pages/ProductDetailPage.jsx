@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import guestAPI from '../services/guestAPI'
 import bidderAPI from '../services/bidderAPI'
+import sellerAPI from '../services/sellerAPI'
 import ProductHero from '../components/ProductDetail/ProductHero'
 import BidActionPanel from '../components/ProductDetail/BidActionPanel'
 import BidHistory from '../components/ProductDetail/BidHistory'
@@ -10,13 +11,14 @@ import AskSellerForm from '../components/ProductDetail/AskSellerForm'
 import UnifiedNavbar from '../components/common/UnifiedNavbar'
 import ProductDescriptionCard from '../components/ProductDetailPage/sections/ProductDescriptionCard'
 import RelatedProducts from '../components/ProductDetail/RelatedProducts'
+import QuillEditor from '../components/Seller/ProductCreation/QuillEditor'
+import { quillModules } from '../components/Seller/ProductCreation/constants'
 import 'quill/dist/quill.snow.css'
 
 const MODES = {
   ACTIVE: 'ACTIVE',
   ENDED_OTHER: 'ENDED_OTHER',
-  WINNER_PAYMENT: 'WINNER_PAYMENT',
-  SELLER_PLACEHOLDER: 'SELLER_PLACEHOLDER'
+  WINNER_PAYMENT: 'WINNER_PAYMENT'
 }
 
 export default function ProductDetailPage({ user }) {
@@ -35,6 +37,11 @@ export default function ProductDetailPage({ user }) {
   const [watchlistLoading, setWatchlistLoading] = useState(false)
   const [myMaxBid, setMyMaxBid] = useState(null)
   const [isWinning, setIsWinning] = useState(false)
+  const [showAppendPanel, setShowAppendPanel] = useState(false)
+  const [appendContent, setAppendContent] = useState('')
+  const [appendSubmitting, setAppendSubmitting] = useState(false)
+  const [appendError, setAppendError] = useState(null)
+  const [appendSuccess, setAppendSuccess] = useState(null)
 
   // Reset bid status khi user thay đổi (đổi tài khoản)
   useEffect(() => {
@@ -111,16 +118,25 @@ export default function ProductDetailPage({ user }) {
     checkWatchlist()
   }, [user, id])
 
+  const isSellerOwner = useMemo(() => user?.role === 'seller' && user?.id === product?.seller_id, [user, product])
+
   const mode = useMemo(() => {
     if (!product) return MODES.ACTIVE
-    const isSeller = user?.role === 'seller' && user?.id === product.seller_id
-    if (isSeller) return MODES.SELLER_PLACEHOLDER
     const isWinner = !!(user?.id && product.winner_id && user.id === product.winner_id)
     if (isWinner) return MODES.WINNER_PAYMENT
     const ended = new Date(product.end_time) < new Date() || ['completed', 'cancelled'].includes(product.status)
     if (ended) return MODES.ENDED_OTHER
     return MODES.ACTIVE
   }, [product, user])
+
+  useEffect(() => {
+    if (!isSellerOwner) {
+      setShowAppendPanel(false)
+      setAppendContent('')
+      setAppendError(null)
+      setAppendSuccess(null)
+    }
+  }, [isSellerOwner])
 
   useEffect(() => {
     if (mode === MODES.WINNER_PAYMENT && id) {
@@ -139,6 +155,12 @@ export default function ProductDetailPage({ user }) {
     }
     if (user.role !== 'bidder' && user.role !== 'seller') {
       setActionMessage('Chỉ tài khoản bidder hoặc seller mới có thể thêm vào yêu thích')
+      return
+    }
+    
+    // Seller không được thêm sản phẩm của mình vào yêu thích
+    if (user.role === 'seller' && user.id === product.seller_id) {
+      setActionMessage('Bạn không thể thêm sản phẩm của mình vào yêu thích')
       return
     }
     
@@ -214,8 +236,13 @@ export default function ProductDetailPage({ user }) {
       handleLoginRedirect()
       return { success: false, message: 'Vui lòng đăng nhập để hỏi người bán' }
     }
-    if (user.role !== 'bidder') {
-      return { success: false, message: 'Chỉ tài khoản bidder mới có thể đặt câu hỏi' }
+    if (user.role !== 'bidder' && user.role !== 'seller') {
+      return { success: false, message: 'Chỉ tài khoản bidder hoặc seller mới có thể đặt câu hỏi' }
+    }
+    
+    // Seller không được hỏi sản phẩm của chính mình
+    if (user.role === 'seller' && user.id === product.seller_id) {
+      return { success: false, message: 'Bạn không thể đặt câu hỏi cho sản phẩm của mình' }
     }
 
     setQuestionSubmitting(true)
@@ -233,6 +260,23 @@ export default function ProductDetailPage({ user }) {
     }
   }
 
+  const handleAnswerQuestion = async (questionId, answerContent) => {
+    if (!isSellerOwner) {
+      return { success: false, message: 'Chỉ người bán của sản phẩm mới có thể trả lời.' }
+    }
+    try {
+      const res = await sellerAPI.answerQuestion(questionId, answerContent)
+      const updated = res?.data || res
+      if (updated) {
+        setQuestions((prev) => prev.map((q) => (q.id === updated.id ? { ...q, ...updated } : q)))
+      }
+      return { success: true }
+    } catch (err) {
+      const message = err?.response?.data?.message || 'Không thể gửi trả lời'
+      return { success: false, message }
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -243,6 +287,37 @@ export default function ProductDetailPage({ user }) {
 
   if (error) {
     return <div className="min-h-screen flex items-center justify-center text-red-500">{error}</div>
+  }
+
+  const handleAppendDescription = async () => {
+    if (!product) return
+    const plainText = appendContent
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/&nbsp;/g, ' ')
+      .trim()
+
+    if (!plainText || plainText.length < 10) {
+      setAppendError('Mô tả bổ sung cần tối thiểu 10 ký tự nội dung thực.')
+      setAppendSuccess(null)
+      return
+    }
+
+    setAppendSubmitting(true)
+    setAppendError(null)
+    setAppendSuccess(null)
+
+    try {
+      await sellerAPI.appendProductDescription(product.id, appendContent)
+      setAppendSuccess('Đã bổ sung mô tả mới. Hệ thống sẽ hiển thị ngay bên dưới.')
+      setAppendContent('')
+      setShowAppendPanel(false)
+      await loadProduct()
+    } catch (err) {
+      const message = err?.response?.data?.message || 'Không thể bổ sung mô tả. Vui lòng thử lại.'
+      setAppendError(message)
+    } finally {
+      setAppendSubmitting(false)
+    }
   }
 
   if (!product) {
@@ -275,6 +350,86 @@ export default function ProductDetailPage({ user }) {
                 descriptionHistory={product.description_history || []}
                 productCreatedAt={product.created_at}
               />
+
+              {isSellerOwner && (
+                <div className="mt-6 bg-slate-900 text-white rounded-2xl shadow-lg">
+                  <div className="p-6 flex flex-col gap-3">
+                    <div>
+                      <p className="text-sm font-semibold uppercase tracking-wide text-slate-200">Bổ sung thông tin</p>
+                      <h3 className="text-xl font-bold mt-1">Thêm mô tả mới cho sản phẩm của bạn</h3>
+                      <p className="text-sm text-slate-300">
+                        Việc bổ sung chỉ thêm nội dung mới và không ghi đè mô tả cũ. Mỗi cập nhật sẽ được đánh dấu thời gian để bidder theo dõi.
+                      </p>
+                    </div>
+
+                    {!showAppendPanel ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowAppendPanel(true)
+                          setAppendError(null)
+                          setAppendSuccess(null)
+                        }}
+                        className="inline-flex items-center justify-center bg-white text-slate-900 font-semibold rounded-xl px-4 py-2 hover:bg-slate-100 focus:outline-none"
+                      >
+                        + Thêm mô tả bổ sung
+                      </button>
+                    ) : (
+                      <div className="space-y-4">
+                        <div className="bg-white rounded-xl p-4 text-slate-900">
+                          <QuillEditor
+                            value={appendContent}
+                            onChange={setAppendContent}
+                            modules={quillModules}
+                            placeholder="Nhập nội dung cần bổ sung (ví dụ: cập nhật tình trạng, phụ kiện đi kèm, lưu ý mới...)"
+                          />
+                        </div>
+
+                        {appendError && (
+                          <div className="text-sm text-red-200 bg-red-900/40 border border-red-500 rounded-lg px-3 py-2">
+                            {appendError}
+                          </div>
+                        )}
+
+                        <div className="flex flex-wrap gap-3">
+                          <button
+                            type="button"
+                            onClick={handleAppendDescription}
+                            disabled={appendSubmitting}
+                            className="flex-1 min-w-[160px] bg-emerald-400 text-emerald-950 font-semibold rounded-xl py-2 hover:bg-emerald-300 disabled:opacity-60"
+                          >
+                            {appendSubmitting ? 'Đang lưu...' : 'Lưu mô tả mới'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowAppendPanel(false)
+                              setAppendContent('')
+                              setAppendError(null)
+                              setAppendSuccess(null)
+                            }}
+                            className="flex-1 min-w-[160px] border border-white/40 text-white font-semibold rounded-xl py-2 hover:bg-white/10"
+                          >
+                            Hủy
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {!showAppendPanel && appendError && (
+                      <div className="text-sm text-red-200 bg-red-900/40 border border-red-500 rounded-lg px-3 py-2">
+                        {appendError}
+                      </div>
+                    )}
+
+                    {appendSuccess && (
+                      <div className="text-sm text-emerald-200 bg-emerald-900/40 border border-emerald-500 rounded-lg px-3 py-2">
+                        {appendSuccess}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </section>
 
             <section id="history">
@@ -282,7 +437,12 @@ export default function ProductDetailPage({ user }) {
             </section>
 
             <section id="questions">
-              <QuestionsSection questions={questions} currentUserId={user?.id} />
+              <QuestionsSection
+                questions={questions}
+                currentUserId={user?.id}
+                canAnswer={isSellerOwner}
+                onAnswerQuestion={handleAnswerQuestion}
+              />
             </section>
           </div>
 
@@ -299,31 +459,48 @@ export default function ProductDetailPage({ user }) {
               isWinning={isWinning}
             />
 
-            {/* Watchlist Button */}
             {(user?.role === 'bidder' || user?.role === 'seller') && (
               <button
                 onClick={handleToggleWatchlist}
-                disabled={watchlistLoading}
+                disabled={watchlistLoading || isSellerOwner}
                 className={`w-full flex items-center justify-center gap-2 py-3 rounded-2xl font-semibold transition ${
-                  isInWatchlist
-                    ? 'bg-pink-100 text-pink-600 hover:bg-pink-200'
-                    : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'
+                  isSellerOwner
+                    ? 'bg-gray-100 text-gray-500 border border-dashed border-gray-300'
+                    : isInWatchlist
+                        ? 'bg-pink-100 text-pink-600 hover:bg-pink-200'
+                        : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'
                 } disabled:opacity-60`}
               >
-                <span>{isInWatchlist ? '❤️' : '🤍'}</span>
-                {watchlistLoading ? 'Đang xử lý...' : isInWatchlist ? 'Bỏ yêu thích' : 'Thêm vào yêu thích'}
+                <span>{isSellerOwner ? 'ℹ️' : isInWatchlist ? '❤️' : '🤍'}</span>
+                {isSellerOwner
+                  ? 'Đây là sản phẩm của bạn'
+                  : watchlistLoading
+                    ? 'Đang xử lý...'
+                    : isInWatchlist
+                      ? 'Bỏ yêu thích'
+                      : 'Thêm vào yêu thích'}
               </button>
             )}
 
             <section id="ask-seller">
+              {/* Bidder can always ask questions */}
               {user?.role === 'bidder' ? (
                 <AskSellerForm onSubmit={handleAskSeller} disabled={mode !== MODES.ACTIVE} loading={questionSubmitting} />
+              ) : user?.role === 'seller' && user?.id !== product?.seller_id ? (
+                /* Seller can ask questions on OTHER sellers' products */
+                <AskSellerForm onSubmit={handleAskSeller} disabled={mode !== MODES.ACTIVE} loading={questionSubmitting} />
+              ) : user?.role === 'seller' && user?.id === product?.seller_id ? (
+                /* Seller viewing own product - will answer questions in QuestionsSection */
+                <div className="bg-white rounded-2xl shadow-sm p-6 text-sm text-gray-600">
+                  <p className="font-semibold text-gray-900 mb-2">Quản lý câu hỏi</p>
+                  <p>Bạn có thể trả lời các câu hỏi của bidder ở phần "Hỏi người bán" bên dưới.</p>
+                </div>
               ) : (
                 <div className="bg-white rounded-2xl shadow-sm p-6 text-sm text-gray-600">
                   <p className="font-semibold text-gray-900 mb-2">Hỏi người bán về sản phẩm</p>
                   <p>
                     {user
-                      ? 'Chỉ tài khoản bidder mới có thể đặt câu hỏi.'
+                      ? 'Chỉ tài khoản bidder hoặc seller mới có thể đặt câu hỏi.'
                       : 'Đăng nhập để gửi câu hỏi cho người bán và nhận phản hồi nhanh chóng.'}
                   </p>
                   {!user && (
