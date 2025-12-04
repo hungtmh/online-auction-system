@@ -11,6 +11,7 @@ import {
   getAuctionProducts,
   placeBid,
   getMyBids,
+  getMyAutoBidStatus,
   addToWatchlist,
   removeFromWatchlist,
   getWatchlist,
@@ -18,15 +19,20 @@ import {
   askSellerQuestion,
   getCheckoutOrder,
   upsertCheckoutOrder,
-  uploadPaymentProofImage
+  uploadPaymentProofImage,
+  updateBidderProfile,
+  uploadBidderAvatar,
+  getUserBidStatus,
+  getCurrentWinner
 } from '../controllers/bidderController.js'
-import { paymentProofUpload } from '../utils/upload.js'
+import { paymentProofUpload, avatarImageUpload } from '../utils/upload.js'
 
 const router = express.Router()
 
-// Tất cả routes cần authentication và role = bidder
+// Tất cả routes cần authentication và role = bidder hoặc seller
+// Seller thừa hưởng tất cả tính năng của bidder
 router.use(authenticateToken)
-router.use(requireRole('bidder'))
+router.use(requireRole('bidder', 'seller'))
 
 /**
  * @route   GET /api/bidder/products
@@ -38,8 +44,8 @@ router.get('/products', getAuctionProducts)
 
 /**
  * @route   POST /api/bidder/bids
- * @desc    Đặt giá đấu
- * @body    { product_id, bid_amount }
+ * @desc    Đặt giá tự động (Auto Bidding)
+ * @body    { product_id, max_bid }
  * @access  Private (Bidder)
  */
 router.post('/bids', placeBid)
@@ -50,6 +56,27 @@ router.post('/bids', placeBid)
  * @access  Private (Bidder)
  */
 router.get('/bids/my', getMyBids)
+
+/**
+ * @route   GET /api/bidder/bids/my/status/:productId
+ * @desc    Lấy trạng thái auto bid của tôi cho sản phẩm
+ * @access  Private (Bidder)
+ */
+router.get('/bids/my/status/:productId', getMyAutoBidStatus)
+
+/**
+ * @route   GET /api/bidder/products/:id/bid-status
+ * @desc    Kiểm tra trạng thái bid của user
+ * @access  Private (Bidder)
+ */
+router.get('/products/:id/bid-status', getUserBidStatus)
+
+/**
+ * @route   GET /api/bidder/products/:id/current-winner
+ * @desc    Lấy thông tin người đang thắng
+ * @access  Private (Bidder)
+ */
+router.get('/products/:id/current-winner', getCurrentWinner)
 
 /**
  * @route   POST /api/bidder/watchlist
@@ -93,5 +120,19 @@ router.post('/products/:id/questions', askSellerQuestion)
 router.get('/orders/:productId', getCheckoutOrder)
 router.post('/orders', upsertCheckoutOrder)
 router.post('/uploads/payment-proof', paymentProofUpload.single('proof'), uploadPaymentProofImage)
+
+/**
+ * @route   PUT /api/bidder/profile
+ * @desc    Cập nhật hồ sơ bidder
+ * @access  Private (Bidder)
+ */
+router.put('/profile', updateBidderProfile)
+
+/**
+ * @route   POST /api/bidder/profile/avatar
+ * @desc    Upload ảnh đại diện bidder
+ * @access  Private (Bidder)
+ */
+router.post('/profile/avatar', avatarImageUpload.single('avatar'), uploadBidderAvatar)
 
 export default router

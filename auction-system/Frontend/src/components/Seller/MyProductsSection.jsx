@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import sellerAPI from '../../../services/sellerAPI'
+import sellerAPI from '../../services/sellerAPI'
 
 const STATUS_TABS = [
   { id: 'all', label: 'Tất cả' },
@@ -59,7 +59,8 @@ const MyProductsSection = () => {
         if (!response?.success) {
           throw new Error(response?.message || 'Không thể tải dữ liệu.')
         }
-        setProducts(Array.isArray(response.data) ? response.data : [])
+        const list = Array.isArray(response.data) ? response.data : []
+        setProducts(enforceCompletedStatus(list))
       } catch (err) {
         console.error('Error fetching my products:', err)
         setError(err.message || 'Đã có lỗi xảy ra khi tải dữ liệu.')
@@ -152,6 +153,20 @@ const InfoRow = ({ label, value }) => (
     <p className="text-base font-semibold text-slate-800">{value}</p>
   </div>
 )
+
+const enforceCompletedStatus = (items) => {
+  const now = Date.now()
+  return items.map((product) => {
+    if (!product || product.status !== 'active' || !product.end_time) {
+      return product
+    }
+    const endTime = new Date(product.end_time).getTime()
+    if (Number.isNaN(endTime) || endTime > now) {
+      return product
+    }
+    return { ...product, status: 'completed' }
+  })
+}
 
 const statusLabel = (status) => {
   switch (status) {

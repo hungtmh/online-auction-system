@@ -17,7 +17,8 @@ import {
   uploadProductImage,
   getSellerProfile,
   updateSellerProfile,
-  uploadSellerAvatar
+  uploadSellerAvatar,
+  answerBidderQuestion
 } from '../controllers/sellerController.js'
 import { productImageUpload, avatarImageUpload } from '../utils/upload.js'
 
@@ -81,5 +82,12 @@ router.get('/products/:id/bids', getProductBids)
  * @access  Private (Seller)
  */
 router.get('/stats', getSalesStats)
+
+/**
+ * @route   POST /api/seller/questions/:questionId/answer
+ * @desc    Trả lời câu hỏi từ bidder
+ * @access  Private (Seller)
+ */
+router.post('/questions/:questionId/answer', answerBidderQuestion)
 
 export default router

@@ -17,10 +17,9 @@ export const initialFormState = {
 
 export const quillModules = {
   toolbar: [
-    [{ header: [1, 2, 3, false] }],
-    ['bold', 'italic', 'underline', 'strike'],
+    ['bold', 'italic', 'underline'],
     [{ list: 'ordered' }, { list: 'bullet' }],
-    ['link', 'blockquote'],
+    ['link'],
     ['clean']
   ]
 }

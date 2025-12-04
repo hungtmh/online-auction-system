@@ -11,7 +11,7 @@
 
 import { supabase } from '../config/supabase.js'
 import { getSystemSettingMap } from '../utils/systemSettings.js'
-import { uploadBufferToPaymentProofBucket } from '../utils/upload.js'
+import { uploadBufferToPaymentProofBucket, uploadBufferToAvatarBucket } from '../utils/upload.js'
 
 /**
  * @route   GET /api/bidder/products
@@ -84,24 +84,33 @@ export const getAuctionProducts = async (req, res) => {
 
 /**
  * @route   POST /api/bidder/bids
- * @desc    Đặt giá đấu
+ * @desc    Đặt giá tự động (Auto Bidding)
  * @access  Private (Bidder)
+ * 
+ * THUẬT TOÁN:
+ * - Tìm bidder A = người có max_bid CAO NHẤT (trong tất cả bidders)
+ * - Tìm bidder B = người có max_bid CAO THỨ 2
+ * 
+ * TH1: max_A >= max_B → giá_hệ_thống = max(max_B, giá_hiện_tại)
+ * TH2: max_A < max_B  → giá_hệ_thống = max_A + step (B trở thành người giữ giá)
+ * 
+ * Nếu chỉ có 1 người bid → giá = starting_price
  */
 export const placeBid = async (req, res) => {
   try {
-    const { product_id, bid_amount } = req.body
+    const { product_id, max_bid } = req.body
     const bidder_id = req.user.id
-    const parsedBidAmount = Number(bid_amount)
+    const parsedMaxBid = Number(max_bid)
 
     // Validate input
-    if (!product_id || !Number.isFinite(parsedBidAmount) || parsedBidAmount <= 0) {
+    if (!product_id || !Number.isFinite(parsedMaxBid) || parsedMaxBid <= 0) {
       return res.status(400).json({
         success: false,
-        message: 'Thiếu thông tin sản phẩm hoặc giá đấu'
+        message: 'Thiếu thông tin sản phẩm hoặc giá tối đa không hợp lệ'
       })
     }
 
-    // Kiểm tra sản phẩm có tồn tại
+    // 1. Lấy thông tin sản phẩm
     const { data: product, error: productError } = await supabase
       .from('products')
       .select('*')
@@ -131,6 +140,14 @@ export const placeBid = async (req, res) => {
       })
     }
 
+    // Kiểm tra giá tối đa >= giá khởi điểm
+    if (parsedMaxBid < Number(product.starting_price)) {
+      return res.status(400).json({
+        success: false,
+        message: `Giá tối đa phải >= giá khởi điểm (${Number(product.starting_price).toLocaleString('vi-VN')} đ)`
+      })
+    }
+
     // Kiểm tra bidder có bị reject không
     const { data: rejected } = await supabase
       .from('rejected_bidders')
@@ -146,39 +163,106 @@ export const placeBid = async (req, res) => {
       })
     }
 
-    // Kiểm tra giá đấu phải lớn hơn giá hiện tại + step
-    const minBid = Number(product.current_price) + Number(product.step_price)
-    if (bid_amount < minBid) {
+    const stepPrice = Number(product.step_price)
+    const startingPrice = Number(product.starting_price)
+    const currentPrice = Number(product.current_price) || startingPrice
+
+    // 2. Lấy max_bid cao nhất của bidder này (nếu đã bid trước đó)
+    const { data: myPreviousBid } = await supabase
+      .from('bids')
+      .select('max_bid_amount')
+      .eq('product_id', product_id)
+      .eq('bidder_id', bidder_id)
+      .eq('is_rejected', false)
+      .order('max_bid_amount', { ascending: false })
+      .limit(1)
+      .single()
+
+    const myPreviousMaxBid = myPreviousBid ? Number(myPreviousBid.max_bid_amount) : 0
+
+    // Kiểm tra giá mới phải cao hơn giá max trước đó của chính mình
+    if (parsedMaxBid <= myPreviousMaxBid) {
       return res.status(400).json({
         success: false,
-        message: `Giá đấu phải lớn hơn ${minBid.toLocaleString('vi-VN')} đ`
+        message: `Giá tối đa mới phải cao hơn giá bạn đã đặt trước đó (${myPreviousMaxBid.toLocaleString('vi-VN')} đ)`,
+        data: {
+          your_current_max_bid: myPreviousMaxBid,
+          current_price: currentPrice
+        }
       })
     }
 
-    // Tạo bid mới
-    const { data: newBid, error: bidError } = await supabase
+    // 3. Lấy người đang giữ giá CAO NHẤT TRƯỚC KHI tôi đặt (không tính tôi)
+    const { data: currentWinner } = await supabase
+      .from('bids')
+      .select('bidder_id, max_bid_amount, created_at')
+      .eq('product_id', product_id)
+      .neq('bidder_id', bidder_id)
+      .eq('is_rejected', false)
+      .order('max_bid_amount', { ascending: false })
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .single()
+
+    // 4. Tính giá theo công thức
+    // A = người đang giữ giá cao nhất TRƯỚC KHI B (tôi) vào
+    // B = tôi (người mới đặt)
+    
+    let newCurrentPrice
+    let winnerBidderId
+    let isWinning
+
+    if (!currentWinner) {
+      // Chưa ai bid trước tôi → tôi là người đầu tiên
+      newCurrentPrice = startingPrice
+      winnerBidderId = bidder_id
+      isWinning = true
+    } else {
+      const maxA = Number(currentWinner.max_bid_amount) // max của người đang giữ giá
+      const maxB = parsedMaxBid // max của tôi (người mới vào)
+
+      if (maxA >= maxB) {
+        // TH1: max_A >= max_B → A vẫn giữ giá
+        // Giá = max(max_B, giá_hiện_tại)
+        newCurrentPrice = Math.max(maxB, currentPrice)
+        winnerBidderId = currentWinner.bidder_id
+        isWinning = false
+      } else {
+        // TH2: max_A < max_B → B (tôi) giữ giá
+        // Giá = max_A + step
+        newCurrentPrice = maxA + stepPrice
+        // Nhưng không vượt quá max của tôi
+        if (newCurrentPrice > maxB) {
+          newCurrentPrice = maxB
+        }
+        winnerBidderId = bidder_id
+        isWinning = true
+      }
+    }
+
+    // 5. Tạo bid record mới cho tôi
+    const { error: bidError } = await supabase
       .from('bids')
       .insert({
         product_id,
         bidder_id,
-        bid_amount
+        bid_amount: newCurrentPrice,
+        max_bid_amount: parsedMaxBid,
+        is_auto_bid: true
       })
-      .select()
-      .single()
 
     if (bidError) throw bidError
 
-    // Cập nhật current_price của product
-    const { error: updateError } = await supabase
+    // 6. Cập nhật current_price và bid_count của sản phẩm
+    await supabase
       .from('products')
-      .update({
-        current_price: parsedBidAmount,
-        updated_at: new Date().toISOString()
+      .update({ 
+        current_price: newCurrentPrice,
+        bid_count: product.bid_count + 1
       })
       .eq('id', product_id)
 
-    if (updateError) throw updateError
-
+    // 7. Xử lý auto extend nếu cần
     if (product.auto_extend) {
       const now = Date.now()
       const endTimeMs = new Date(product.end_time).getTime()
@@ -200,7 +284,6 @@ export const placeBid = async (req, res) => {
 
       if (timeRemaining <= thresholdMs) {
         const newEndTime = new Date(endTimeMs + extendMinutes * 60 * 1000).toISOString()
-
         await supabase
           .from('products')
           .update({ end_time: newEndTime })
@@ -208,30 +291,134 @@ export const placeBid = async (req, res) => {
       }
     }
 
+    // 8. Trả về kết quả
     res.json({
       success: true,
-      message: 'Đặt giá thành công',
-      data: newBid
+      message: isWinning 
+        ? 'Đặt giá thành công! Bạn đang giữ giá sản phẩm.' 
+        : 'Đặt giá thành công! Tuy nhiên có người khác đã đặt giá cao hơn.',
+      data: {
+        current_price: newCurrentPrice,
+        your_max_bid: parsedMaxBid,
+        is_winning: isWinning
+      }
     })
   } catch (error) {
-    console.error('❌ Error placing bid:', error)
+    console.error('❌ Error placing auto bid:', error)
     res.status(500).json({
       success: false,
-      message: 'Không thể đặt giá'
+      message: 'Không thể đặt giá tự động'
+    })
+  }
+}
+
+/**
+ * @route   GET /api/bidder/bids/my/status/:productId
+ * @desc    Lấy trạng thái auto bid của tôi cho sản phẩm cụ thể
+ * @access  Private (Bidder)
+ */
+export const getMyAutoBidStatus = async (req, res) => {
+  try {
+    const { productId } = req.params
+    const bidder_id = req.user.id
+
+    // Lấy max bid của tôi cho sản phẩm này
+    const { data: myBid, error: myBidError } = await supabase
+      .from('bids')
+      .select('max_bid_amount, bid_amount, created_at')
+      .eq('product_id', productId)
+      .eq('bidder_id', bidder_id)
+      .eq('is_rejected', false)
+      .order('max_bid_amount', { ascending: false })
+      .limit(1)
+      .single()
+
+    if (myBidError && myBidError.code !== 'PGRST116') {
+      throw myBidError
+    }
+
+    if (!myBid) {
+      return res.status(404).json({
+        success: false,
+        message: 'Bạn chưa đặt giá cho sản phẩm này'
+      })
+    }
+
+    // Lấy bid cao nhất của người khác
+    const { data: highestOtherBid } = await supabase
+      .from('bids')
+      .select('max_bid_amount, bidder_id, created_at')
+      .eq('product_id', productId)
+      .neq('bidder_id', bidder_id)
+      .eq('is_rejected', false)
+      .order('max_bid_amount', { ascending: false })
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .single()
+
+    const myMaxBid = Number(myBid.max_bid_amount)
+    let isWinning = true
+
+    if (highestOtherBid) {
+      const otherMaxBid = Number(highestOtherBid.max_bid_amount)
+      if (otherMaxBid > myMaxBid) {
+        isWinning = false
+      } else if (otherMaxBid === myMaxBid) {
+        // Cùng giá -> ai đặt trước thắng
+        // So sánh thời gian: tìm bid đầu tiên của mỗi người với max_bid này
+        const { data: myFirstBid } = await supabase
+          .from('bids')
+          .select('created_at')
+          .eq('product_id', productId)
+          .eq('bidder_id', bidder_id)
+          .gte('max_bid_amount', myMaxBid)
+          .order('created_at', { ascending: true })
+          .limit(1)
+          .single()
+
+        const { data: otherFirstBid } = await supabase
+          .from('bids')
+          .select('created_at')
+          .eq('product_id', productId)
+          .eq('bidder_id', highestOtherBid.bidder_id)
+          .gte('max_bid_amount', otherMaxBid)
+          .order('created_at', { ascending: true })
+          .limit(1)
+          .single()
+
+        if (myFirstBid && otherFirstBid) {
+          isWinning = new Date(myFirstBid.created_at) <= new Date(otherFirstBid.created_at)
+        }
+      }
+    }
+
+    res.json({
+      success: true,
+      data: {
+        your_max_bid: myMaxBid,
+        is_winning: isWinning
+      }
+    })
+  } catch (error) {
+    console.error('❌ Error getting auto bid status:', error)
+    res.status(500).json({
+      success: false,
+      message: 'Không thể lấy trạng thái đấu giá'
     })
   }
 }
 
 /**
  * @route   GET /api/bidder/bids/my
- * @desc    Lấy lịch sử đấu giá của tôi
+ * @desc    Lấy lịch sử đấu giá của tôi (chỉ lấy bid cao nhất mỗi sản phẩm)
  * @access  Private (Bidder)
  */
 export const getMyBids = async (req, res) => {
   try {
     const bidder_id = req.user.id
 
-    const { data, error } = await supabase
+    // Lấy tất cả bids của user với thông tin sản phẩm
+    const { data: allBids, error } = await supabase
       .from('bids')
       .select(`
         *,
@@ -241,17 +428,33 @@ export const getMyBids = async (req, res) => {
           current_price,
           end_time,
           status,
-          thumbnail_url
+          thumbnail_url,
+          winner_id
         )
       `)
       .eq('bidder_id', bidder_id)
-      .order('created_at', { ascending: false })
+      .order('bid_amount', { ascending: false })
 
     if (error) throw error
 
+    // Group by product_id và chỉ lấy bid cao nhất
+    const productBidsMap = new Map()
+    for (const bid of allBids) {
+      const productId = bid.product_id
+      if (!productBidsMap.has(productId)) {
+        productBidsMap.set(productId, bid)
+      }
+      // Vì đã order by bid_amount desc, bid đầu tiên là cao nhất
+    }
+
+    const uniqueBids = Array.from(productBidsMap.values())
+    
+    // Sort by created_at descending (latest first)
+    uniqueBids.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+
     res.json({
       success: true,
-      data: data
+      data: uniqueBids
     })
   } catch (error) {
     console.error('❌ Error getting my bids:', error)
@@ -481,6 +684,7 @@ export const askSellerQuestion = async (req, res) => {
       })
       .select(`
         id,
+        asker_id,
         question,
         answer,
         created_at,
@@ -707,3 +911,167 @@ export const uploadPaymentProofImage = async (req, res) => {
     res.status(500).json({ success: false, message: 'Không thể upload chứng từ thanh toán' })
   }
 }
+
+/**
+ * @route   PUT /api/bidder/profile
+ * @desc    Cập nhật thông tin hồ sơ bidder
+ * @access  Private (Bidder)
+ */
+export const updateBidderProfile = async (req, res) => {
+  try {
+    const bidderId = req.user.id
+    const { full_name, phone, address, date_of_birth } = req.body
+
+    const updates = {
+      updated_at: new Date().toISOString()
+    }
+
+    if (full_name?.trim()) {
+      updates.full_name = full_name.trim()
+    }
+    if (phone !== undefined) {
+      updates.phone = phone?.trim() || null
+    }
+    if (address !== undefined) {
+      updates.address = address?.trim() || null
+    }
+    if (date_of_birth !== undefined) {
+      updates.date_of_birth = date_of_birth || null
+    }
+
+    const { data: profile, error } = await supabase
+      .from('profiles')
+      .update(updates)
+      .eq('id', bidderId)
+      .select('id, email, full_name, phone, address, date_of_birth, avatar_url, rating_positive, rating_negative, role')
+      .single()
+
+    if (error) throw error
+
+    // Sync full_name with Supabase Auth if updated
+    if (updates.full_name) {
+      try {
+        await supabase.auth.admin.updateUserById(bidderId, {
+          user_metadata: { full_name: updates.full_name }
+        })
+      } catch (adminError) {
+        console.warn('⚠️  Không thể đồng bộ tên với Supabase Auth:', adminError.message)
+      }
+    }
+
+    res.json({ success: true, message: 'Cập nhật hồ sơ thành công.', data: profile })
+  } catch (error) {
+    console.error('❌ Error updating bidder profile:', error)
+    res.status(500).json({ success: false, message: 'Không thể cập nhật hồ sơ.' })
+  }
+}
+
+/**
+ * @route   POST /api/bidder/profile/avatar
+ * @desc    Upload ảnh đại diện bidder
+ * @access  Private (Bidder)
+ */
+export const uploadBidderAvatar = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'Không tìm thấy file cần upload.' })
+    }
+
+    const bidderId = req.user.id
+    const { buffer, mimetype } = req.file
+
+    const { publicUrl } = await uploadBufferToAvatarBucket({
+      buffer,
+      mimetype,
+      userId: bidderId
+    })
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({ avatar_url: publicUrl, updated_at: new Date().toISOString() })
+      .eq('id', bidderId)
+
+    if (error) throw error
+
+    res.json({ success: true, data: { avatar_url: publicUrl } })
+  } catch (error) {
+    console.error('❌ Error uploading bidder avatar:', error)
+    res.status(500).json({ success: false, message: 'Không thể upload ảnh đại diện.' })
+  }
+}
+
+/**
+ * @route   GET /api/bidder/products/:id/bid-status
+ * @desc    Kiểm tra trạng thái bid của user cho sản phẩm
+ * @access  Private (Bidder)
+ */
+export const getUserBidStatus = async (req, res) => {
+  try {
+    const { id: product_id } = req.params
+    const user_id = req.user.id
+
+    // Gọi stored function
+    const { data, error } = await supabase.rpc('get_user_bid_status', {
+      p_product_id: product_id,
+      p_user_id: user_id
+    })
+
+    if (error) {
+      console.error('❌ Get bid status error:', error)
+      throw error
+    }
+
+    res.json({
+      success: true,
+      data: data || {}
+    })
+  } catch (error) {
+    console.error('❌ Error getting user bid status:', error)
+    res.status(500).json({
+      success: false,
+      message: 'Không thể lấy trạng thái đấu giá'
+    })
+  }
+}
+
+/**
+ * @route   GET /api/bidder/products/:id/current-winner
+ * @desc    Lấy thông tin người đang thắng đấu giá
+ * @access  Private (Bidder)
+ */
+export const getCurrentWinner = async (req, res) => {
+  try {
+    const { id: product_id } = req.params
+
+    // Gọi stored function
+    const { data, error } = await supabase.rpc('get_current_winner', {
+      p_product_id: product_id
+    })
+
+    if (error) {
+      console.error('❌ Get current winner error:', error)
+      throw error
+    }
+
+    // Nếu không có ai bid
+    if (!data || data.length === 0) {
+      return res.json({
+        success: true,
+        data: null,
+        message: 'Chưa có ai đấu giá'
+      })
+    }
+
+    res.json({
+      success: true,
+      data: data[0] // Function trả về array, lấy phần tử đầu tiên
+    })
+  } catch (error) {
+    console.error('❌ Error getting current winner:', error)
+    res.status(500).json({
+      success: false,
+      message: 'Không thể lấy thông tin người thắng'
+    })
+  }
+}
+

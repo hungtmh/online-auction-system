@@ -68,6 +68,28 @@ const sellerAPI = {
   },
 
   /**
+   * Bổ sung mô tả mới cho sản phẩm (append-only)
+   * @param {string} productId
+   * @param {string} descriptionChunk
+   */
+  appendProductDescription: async (productId, descriptionChunk) => {
+    const response = await api.put(`/seller/products/${productId}`, {
+      append_description: descriptionChunk
+    })
+    return response.data
+  },
+
+  /**
+   * Trả lời câu hỏi của bidder
+   * @param {string} questionId
+   * @param {string} answer
+   */
+  answerQuestion: async (questionId, answer) => {
+    const response = await api.post(`/seller/questions/${questionId}/answer`, { answer })
+    return response.data
+  },
+
+  /**
    * Xóa sản phẩm
    * @param {string} productId
    */

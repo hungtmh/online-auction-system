@@ -1,19 +1,20 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import guestAPI from "../../services/guestAPI";
+import bidderAPI from "../../services/bidderAPI";
 import ProductCard from "../GuestHomePage/ProductCard";
 import CategoryMenu from "../GuestHomePage/CategoryMenu";
 import SearchBar from "../GuestHomePage/SearchBar";
+import UnifiedNavbar from "../common/UnifiedNavbar";
 
 function AuctionListPageContent({ user }) {
   const [auctions, setAuctions] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
-  const [menuOpen, setMenuOpen] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
-  const menuRef = useRef(null);
+  const [watchlistIds, setWatchlistIds] = useState(new Set());
 
   const page = parseInt(searchParams.get("page") || "1", 10);
   const limit = parseInt(searchParams.get("limit") || "12", 10);
@@ -24,6 +25,21 @@ function AuctionListPageContent({ user }) {
   useEffect(() => {
     loadCategories();
   }, []);
+
+  // Load watchlist for bidder
+  useEffect(() => {
+    const loadWatchlist = async () => {
+      if (!user || user.role !== 'bidder') return;
+      try {
+        const res = await bidderAPI.getWatchlist();
+        const ids = (res?.data || []).map(item => item.product_id || item.products?.id);
+        setWatchlistIds(new Set(ids));
+      } catch (err) {
+        console.error('Load watchlist error:', err);
+      }
+    };
+    loadWatchlist();
+  }, [user]);
 
   useEffect(() => {
     loadAuctions();
@@ -86,116 +102,12 @@ function AuctionListPageContent({ user }) {
     setSearchParams({ ...current, ...newParams, page: 1 });
   };
 
-  const handleMenuSelect = (action) => {
-    if (user?.role === 'seller') {
-      navigate(`/seller/${action}`);
-    } else if (user?.role === 'bidder') {
-      navigate('/dashboard');
-    }
-    setMenuOpen(false);
-  };
-
-  const getMenuItems = () => {
-    if (user?.role === 'seller') {
-      return [
-        { label: '👤 Hồ sơ cá nhân', action: 'profile' },
-        { label: '📦 Sản phẩm của tôi', action: 'my-products' },
-        { label: '➕ Đăng sản phẩm', action: 'add-product' },
-        { label: '💰 Doanh thu', action: 'sales' }
-      ];
-    }
-    return [];
-  };
-
   const totalPages = Math.ceil(total / limit);
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <button onClick={() => navigate("/")} className="flex items-center gap-2">
-              <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <span className="text-xl font-bold text-gray-900">AuctionHub</span>
-            </button>
-            
-            {/* Search Bar */}
-            <div className="flex-1 max-w-2xl px-8 hidden md:block">
-              <SearchBar initial={q} />
-            </div>
-
-            <div className="flex items-center gap-4">
-              {user ? (
-                <>
-                  <div className="relative" ref={menuRef}>
-                    <button
-                      type="button"
-                      onClick={() => setMenuOpen((prev) => !prev)}
-                      className="flex items-center gap-2 px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition"
-                    >
-                      <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold overflow-hidden">
-                        {user.avatar_url ? (
-                          <img src={user.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
-                        ) : (
-                          user.full_name?.charAt(0)?.toUpperCase() || 'U'
-                        )}
-                      </div>
-                      <div className="hidden sm:block text-left">
-                        <div className="text-sm font-medium text-gray-800">{user.full_name || user.email}</div>
-                        <div className="text-xs text-gray-500 capitalize">{user.role === 'seller' ? 'Seller' : 'Bidder'}</div>
-                      </div>
-                      <svg 
-                        className={`w-4 h-4 text-gray-600 transition-transform ${menuOpen ? 'rotate-180' : ''}`}
-                        fill="none" 
-                        stroke="currentColor" 
-                        viewBox="0 0 24 24"
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </button>
-                    
-                    {menuOpen && user.role === 'seller' && (
-                      <div className="absolute right-0 z-10 mt-2 w-56 rounded-xl border border-gray-200 bg-white text-sm text-slate-700 shadow-lg">
-                        {getMenuItems().map((item) => (
-                          <button
-                            key={item.label}
-                            type="button"
-                            onClick={() => handleMenuSelect(item.action)}
-                            className="block w-full px-4 py-2 text-left hover:bg-blue-50 first:rounded-t-xl last:rounded-b-xl transition"
-                          >
-                            {item.label}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  
-                  {user.role === 'bidder' && (
-                    <button
-                      onClick={() => navigate('/dashboard')}
-                      className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition"
-                    >
-                      Quay về bảng điều khiển
-                    </button>
-                  )}
-                </>
-              ) : (
-                <>
-                  <button onClick={() => navigate("/login")} className="px-4 py-2 text-sm font-medium text-blue-600">
-                    Đăng nhập
-                  </button>
-                  <button onClick={() => navigate("/register")} className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg">
-                    Đăng ký
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      </header>
+      {/* Unified Navbar */}
+      <UnifiedNavbar user={user} />
 
       {/* Category Menu */}
       <CategoryMenu categories={categories} />
@@ -269,7 +181,7 @@ function AuctionListPageContent({ user }) {
         ) : auctions.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {auctions.map((auction) => (
-              <ProductCard key={auction.id} product={auction} />
+              <ProductCard key={auction.id} product={auction} user={user} isInWatchlist={watchlistIds.has(auction.id)} />
             ))}
           </div>
         ) : (
