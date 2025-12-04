@@ -78,6 +78,19 @@ const useCountdown = (target) => {
   return label
 }
 
+const maskName = (name) => {
+  if (!name) return 'Ẩn danh'
+  const cleaned = name.trim().replace(/\s+/g, ' ')
+  if (!cleaned) return 'Ẩn danh'
+
+  const lettersOnly = cleaned.replace(/\s/g, '')
+  if (!lettersOnly) return 'Ẩn danh'
+
+  const visibleChars = Math.min(2, lettersOnly.length)
+  const suffix = lettersOnly.slice(-visibleChars)
+  return `****${suffix}`
+}
+
 export default function BidActionPanel({
   product,
   mode,
@@ -226,7 +239,7 @@ export default function BidActionPanel({
         return (
           <div className="rounded-xl bg-green-50 px-4 py-3 border border-green-100">
             <p className="text-sm text-green-600">Người giữ giá cao nhất</p>
-            <p className="font-semibold text-green-700">{bidderName}</p>
+            <p className="font-semibold text-green-700">{maskName(bidderName)}</p>
             <p className="text-xs text-green-600">Đánh giá: +{bidderPositive} / -{bidderNegative}</p>
           </div>
         )

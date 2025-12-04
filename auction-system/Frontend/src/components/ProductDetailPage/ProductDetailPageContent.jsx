@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import guestAPI from '../../services/guestAPI'
+import sellerAPI from '../../services/sellerAPI'
 import AppHeader from '../common/AppHeader'
 import GuestTopBar from './sections/GuestTopBar'
 import ProductMediaGallery from './sections/ProductMediaGallery'
@@ -9,6 +10,7 @@ import ProductQACard from './sections/ProductQACard'
 import WinnerCheckoutSidebar from './sections/WinnerCheckoutSidebar'
 import AuctionSidebar from './sections/AuctionSidebar'
 import RelatedProductsGrid from './sections/RelatedProductsGrid'
+import WinnerSummaryCard from './sections/WinnerSummaryCard'
 
 const ORDER_STATUS_META = {
   pending_payment: { label: 'Chờ thanh toán', chip: 'bg-amber-100 text-amber-700 border border-amber-200' },
@@ -38,12 +40,38 @@ export default function ProductDetailPageContent({ user = null }) {
   const [currentUser, setCurrentUser] = useState(user)
   const [shippingAddress, setShippingAddress] = useState('')
   const [checkoutNotice, setCheckoutNotice] = useState(null)
+  const [winnerSummary, setWinnerSummary] = useState(null)
+  const [winnerSummaryLoading, setWinnerSummaryLoading] = useState(false)
+  const [winnerSummaryError, setWinnerSummaryError] = useState(null)
+  const [actionMessage, setActionMessage] = useState(null)
+  const [ratingSubmitting, setRatingSubmitting] = useState(false)
+  const [cancelSubmitting, setCancelSubmitting] = useState(false)
+  const [reopenSubmitting, setReopenSubmitting] = useState(false)
+
+  const loadProduct = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await guestAPI.getProductById(id)
+      const productData = res?.data || res
+      setProduct(productData)
+
+      if (productData?.category_id) {
+        const relatedRes = await guestAPI.getProducts({ category: productData.category_id, limit: 5 })
+        setRelatedProducts(relatedRes?.data?.filter((p) => p.id !== id) || [])
+      }
+    } catch (err) {
+      console.error('Load product error', err)
+      setError('Không thể tải sản phẩm')
+    } finally {
+      setLoading(false)
+    }
+  }, [id])
 
   useEffect(() => {
     if (!id) return
     loadProduct()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id])
+  }, [id, loadProduct])
 
   useEffect(() => {
     setCurrentUser(user || null)
@@ -53,6 +81,12 @@ export default function ProductDetailPageContent({ user = null }) {
     if (!product) return
     setShippingAddress(product.order?.shipping_address || currentUser?.address || '')
   }, [product, currentUser])
+
+  useEffect(() => {
+    if (!actionMessage) return
+    const timer = setTimeout(() => setActionMessage(null), 4000)
+    return () => clearTimeout(timer)
+  }, [actionMessage])
 
   const fetchSellerProfile = useCallback(async (sellerId) => {
     if (!sellerId) return null
@@ -87,25 +121,90 @@ export default function ProductDetailPageContent({ user = null }) {
     }
   }, [product, fetchSellerProfile])
 
-  async function loadProduct() {
-    setLoading(true)
-    setError(null)
+  const fetchWinnerSummary = useCallback(async () => {
+    if (!product?.id) return
+    setWinnerSummaryLoading(true)
+    setWinnerSummaryError(null)
     try {
-      const res = await guestAPI.getProductById(id)
-      const productData = res?.data || res
-      setProduct(productData)
-
-      if (productData?.category_id) {
-        const relatedRes = await guestAPI.getProducts({ category: productData.category_id, limit: 5 })
-        setRelatedProducts(relatedRes?.data?.filter((p) => p.id !== id) || [])
-      }
+      const res = await sellerAPI.getWinnerSummary(product.id)
+      setWinnerSummary(res?.data || null)
     } catch (err) {
-      console.error('Load product error', err)
-      setError('Không thể tải sản phẩm')
+      const message = err?.response?.data?.message || 'Không thể tải thông tin người thắng.'
+      setWinnerSummaryError(message)
+      setWinnerSummary(null)
     } finally {
-      setLoading(false)
+      setWinnerSummaryLoading(false)
     }
-  }
+  }, [product?.id])
+
+  const handleRateWinner = useCallback(
+    async (ratingType, comment) => {
+      if (!product?.id || !ratingType) return
+      setRatingSubmitting(true)
+      setWinnerSummaryError(null)
+      try {
+        await sellerAPI.rateWinner(product.id, { rating: ratingType, comment })
+        setActionMessage('Đã gửi đánh giá người thắng cuộc.')
+        await fetchWinnerSummary()
+      } catch (err) {
+        const message = err?.response?.data?.message || 'Không thể gửi đánh giá.'
+        setWinnerSummaryError(message)
+      } finally {
+        setRatingSubmitting(false)
+      }
+    },
+    [product?.id, fetchWinnerSummary]
+  )
+
+  const handleCancelTransaction = useCallback(async () => {
+    if (!product?.id) return
+    const confirmed = window.confirm('Bạn có chắc chắn muốn hủy giao dịch này?')
+    if (!confirmed) return
+    setCancelSubmitting(true)
+    setWinnerSummaryError(null)
+    try {
+      await sellerAPI.cancelWinnerTransaction(product.id)
+      setActionMessage('Đã hủy giao dịch và ghi nhận đánh giá tiêu cực.')
+      await loadProduct()
+      await fetchWinnerSummary()
+    } catch (err) {
+      const message = err?.response?.data?.message || 'Không thể hủy giao dịch.'
+      setWinnerSummaryError(message)
+    } finally {
+      setCancelSubmitting(false)
+    }
+  }, [product?.id, fetchWinnerSummary, loadProduct])
+
+  const handleReopenAuction = useCallback(
+    async (newEndTime) => {
+      if (!product?.id) return
+      if (!newEndTime) {
+        setWinnerSummaryError('Vui lòng chọn thời điểm kết thúc mới.')
+        return
+      }
+      const parsed = new Date(newEndTime)
+      if (Number.isNaN(parsed.getTime())) {
+        setWinnerSummaryError('Thời điểm kết thúc mới không hợp lệ.')
+        return
+      }
+      const confirmed = window.confirm('Mở lại phiên đấu giá sẽ xóa toàn bộ lượt đấu và đơn hàng hiện tại. Tiếp tục?')
+      if (!confirmed) return
+      setReopenSubmitting(true)
+      setWinnerSummaryError(null)
+      try {
+        await sellerAPI.reopenAuction(product.id, { new_end_time: parsed.toISOString() })
+        setActionMessage('Đã mở lại phiên đấu giá. Sản phẩm đã trở lại trạng thái hoạt động.')
+        setWinnerSummary(null)
+        await loadProduct()
+      } catch (err) {
+        const message = err?.response?.data?.message || 'Không thể mở lại đấu giá.'
+        setWinnerSummaryError(message)
+      } finally {
+        setReopenSubmitting(false)
+      }
+    },
+    [product?.id, loadProduct]
+  )
 
   const handleShippingAddressChange = (event) => {
     setShippingAddress(event.target.value)
@@ -159,6 +258,19 @@ export default function ProductDetailPageContent({ user = null }) {
     if (!currentUser || !product?.winner_id) return false
     return currentUser.id === product.winner_id
   }, [currentUser, product])
+
+  const isSellerOwner = useMemo(() => {
+    if (!currentUser || !product) return false
+    return currentUser.id === product.seller_id
+  }, [currentUser, product])
+
+  useEffect(() => {
+    if (!isSellerOwner || !product?.winner_id) {
+      setWinnerSummary(null)
+      return
+    }
+    fetchWinnerSummary()
+  }, [isSellerOwner, product?.winner_id, fetchWinnerSummary])
 
   const orderFromProduct = product.order || null
 
@@ -238,6 +350,19 @@ export default function ProductDetailPageContent({ user = null }) {
                 onShippingChange={handleShippingAddressChange}
                 onShippingSave={handleShippingAddressSave}
                 notice={checkoutNotice}
+              />
+            ) : isSellerOwner && product.winner_id ? (
+              <WinnerSummaryCard
+                summary={winnerSummary}
+                loading={winnerSummaryLoading}
+                error={winnerSummaryError}
+                actionMessage={actionMessage}
+                onRate={handleRateWinner}
+                ratingSubmitting={ratingSubmitting}
+                onCancel={handleCancelTransaction}
+                cancelSubmitting={cancelSubmitting}
+                onReopen={handleReopenAuction}
+                reopenSubmitting={reopenSubmitting}
               />
             ) : (
               <AuctionSidebar

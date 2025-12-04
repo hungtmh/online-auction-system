@@ -108,10 +108,40 @@ const sellerAPI = {
   },
 
   /**
+   * Từ chối một lượt đấu giá cụ thể
+   * @param {string} productId
+   * @param {string} bidId
+   */
+  rejectBid: async (productId, bidId) => {
+    const response = await api.post(`/seller/products/${productId}/bids/${bidId}/reject`)
+    return response.data
+  },
+
+  /**
    * Lấy thống kê doanh thu
    */
   getSalesStats: async () => {
     const response = await api.get('/seller/stats')
+    return response.data
+  },
+
+  getWinnerSummary: async (productId) => {
+    const response = await api.get(`/seller/products/${productId}/winner-summary`)
+    return response.data
+  },
+
+  rateWinner: async (productId, payload) => {
+    const response = await api.post(`/seller/products/${productId}/winner/rate`, payload)
+    return response.data
+  },
+
+  cancelWinnerTransaction: async (productId) => {
+    const response = await api.post(`/seller/products/${productId}/winner/cancel`)
+    return response.data
+  },
+
+  reopenAuction: async (productId, payload) => {
+    const response = await api.post(`/seller/products/${productId}/reopen`, payload)
     return response.data
   }
 }

@@ -18,7 +18,12 @@ import {
   getSellerProfile,
   updateSellerProfile,
   uploadSellerAvatar,
-  answerBidderQuestion
+  answerBidderQuestion,
+  rejectBid,
+  getWinnerSummary,
+  rateWinner,
+  cancelWinnerTransaction,
+  reopenAuction
 } from '../controllers/sellerController.js'
 import { productImageUpload, avatarImageUpload } from '../utils/upload.js'
 
@@ -77,6 +82,13 @@ router.delete('/products/:id', deleteProduct)
 router.get('/products/:id/bids', getProductBids)
 
 /**
+ * @route   POST /api/seller/products/:productId/bids/:bidId/reject
+ * @desc    Từ chối một lượt đặt giá
+ * @access  Private (Seller)
+ */
+router.post('/products/:productId/bids/:bidId/reject', rejectBid)
+
+/**
  * @route   GET /api/seller/stats
  * @desc    Thống kê doanh thu
  * @access  Private (Seller)
@@ -89,5 +101,10 @@ router.get('/stats', getSalesStats)
  * @access  Private (Seller)
  */
 router.post('/questions/:questionId/answer', answerBidderQuestion)
+
+router.get('/products/:id/winner-summary', getWinnerSummary)
+router.post('/products/:id/winner/rate', rateWinner)
+router.post('/products/:id/winner/cancel', cancelWinnerTransaction)
+router.post('/products/:id/reopen', reopenAuction)
 
 export default router
