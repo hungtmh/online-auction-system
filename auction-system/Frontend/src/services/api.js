@@ -1,130 +1,125 @@
-import axios from 'axios'
+import axios from "axios";
 
+<<<<<<< Updated upstream
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api'
+=======
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+>>>>>>> Stashed changes
 
 // Create axios instance
 const api = axios.create({
   baseURL: API_URL,
-  withCredentials: true // Gửi cookies (refresh token)
-})
+  withCredentials: true, // Gửi cookies (refresh token)
+});
 
 // Access token (lưu trong memory, không lưu localStorage)
-let accessToken = null
+let accessToken = null;
 
 export const setAccessToken = (token) => {
-  accessToken = token
-}
+  accessToken = token;
+};
 
 export const getAccessToken = () => {
-  return accessToken
-}
+  return accessToken;
+};
 
 export const clearAccessToken = () => {
-  accessToken = null
-}
+  accessToken = null;
+};
 
 // Request interceptor - tự động attach access token
 api.interceptors.request.use(
   (config) => {
     if (accessToken) {
-      config.headers.Authorization = `Bearer ${accessToken}`
+      config.headers.Authorization = `Bearer ${accessToken}`;
     }
-    return config
+    return config;
   },
   (error) => {
-    return Promise.reject(error)
+    return Promise.reject(error);
   }
-)
+);
 
 // Response interceptor - tự động refresh token khi hết hạn
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
-    const originalRequest = error.config
+    const originalRequest = error.config;
 
     // Nếu lỗi 401, chưa retry, và không phải request refresh
-    if (
-      error.response?.status === 401 && 
-      !originalRequest._retry &&
-      !originalRequest.url?.includes('/auth/refresh') &&
-      !originalRequest.url?.includes('/auth/login')
-    ) {
-      originalRequest._retry = true
+    if (error.response?.status === 401 && !originalRequest._retry && !originalRequest.url?.includes("/auth/refresh") && !originalRequest.url?.includes("/auth/login")) {
+      originalRequest._retry = true;
 
       try {
-        console.log('🔄 Access token hết hạn, đang refresh...')
-        
+        console.log("Access token hết hạn, đang refresh...");
+
         // Gọi API refresh token (cookie tự động gửi)
-        const { data } = await axios.post(
-          `${API_URL}/auth/refresh`,
-          {},
-          { withCredentials: true }
-        )
+        const { data } = await axios.post(`${API_URL}/auth/refresh`, {}, { withCredentials: true });
 
         if (data.success && data.accessToken) {
           // Lưu access token mới
-          setAccessToken(data.accessToken)
-          console.log('✅ Đã refresh access token thành công')
+          setAccessToken(data.accessToken);
+          console.log("Đã refresh access token thành công");
 
           // Retry request ban đầu với token mới
-          originalRequest.headers.Authorization = `Bearer ${data.accessToken}`
-          return api(originalRequest)
+          originalRequest.headers.Authorization = `Bearer ${data.accessToken}`;
+          return api(originalRequest);
         }
       } catch (refreshError) {
         // Refresh token hết hạn → Đăng xuất
-        console.error('❌ Refresh token hết hạn, vui lòng đăng nhập lại')
-        clearAccessToken()
-        window.location.href = '/'
-        return Promise.reject(refreshError)
+        console.error("Refresh token hết hạn, vui lòng đăng nhập lại");
+        clearAccessToken();
+        window.location.href = "/";
+        return Promise.reject(refreshError);
       }
     }
 
-    return Promise.reject(error)
+    return Promise.reject(error);
   }
-)
+);
 
 // Auth API
 export const authAPI = {
-  register: async (email, password, full_name, address = '') => {
-    const { data } = await api.post('/auth/register', { email, password, full_name, address })
+  register: async (email, password, full_name, address = "", recaptchaToken = null) => {
+    const { data } = await api.post("/auth/register", { email, password, full_name, address, recaptchaToken });
     // Không set token vì cần verify OTP trước
-    return data
+    return data;
   },
 
   verifyOTP: async (email, otp_code) => {
-    const { data } = await api.post('/auth/verify-otp', { email, otp_code })
-    return data
+    const { data } = await api.post("/auth/verify-otp", { email, otp_code });
+    return data;
   },
 
   resendOTP: async (email) => {
-    const { data } = await api.post('/auth/resend-otp', { email })
-    return data
+    const { data } = await api.post("/auth/resend-otp", { email });
+    return data;
   },
 
-  login: async (email, password) => {
-    const { data } = await api.post('/auth/login', { email, password })
+  login: async (email, password, recaptchaToken = null) => {
+    const { data } = await api.post("/auth/login", { email, password, recaptchaToken });
     if (data.success) {
-      setAccessToken(data.accessToken)
+      setAccessToken(data.accessToken);
     }
-    return data
+    return data;
   },
 
   refreshToken: async () => {
-    const { data } = await api.post('/auth/refresh')
+    const { data } = await api.post("/auth/refresh");
     if (data.success) {
-      setAccessToken(data.accessToken)
+      setAccessToken(data.accessToken);
     }
-    return data
+    return data;
   },
 
   logout: async () => {
-    await api.post('/auth/logout')
-    clearAccessToken()
+    await api.post("/auth/logout");
+    clearAccessToken();
   },
 
   getProfile: async () => {
-    const { data } = await api.get('/auth/profile')
-    return data.user
+    const { data } = await api.get("/auth/profile");
+    return data.user;
   },
 
   // ═══════════════════════════════════════════════════════════
@@ -184,8 +179,8 @@ export const authAPI = {
 
   // Backward compatibility
   resendVerification: async (email) => {
-    return authAPI.resendOTP(email)
-  }
-}
+    return authAPI.resendOTP(email);
+  },
+};
 
-export default api
+export default api;
