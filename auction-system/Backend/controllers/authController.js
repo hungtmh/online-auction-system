@@ -139,7 +139,7 @@ export const login = async (req, res) => {
         return res.status(400).json({ success: false, message: "reCAPTCHA verification failed" });
       }
     }
-    
+
     // Tìm user qua profiles table (tránh listUsers gây lỗi database)
     const { data: profile, error: profileError } = await supabase.from("profiles").select("id, email, full_name, role").eq("email", email).single();
 
@@ -173,20 +173,15 @@ export const login = async (req, res) => {
       });
     }
 
-<<<<<<< Updated upstream
     // ═══════════════════════════════════════════════════════════
     // KIỂM TRA MẬT KHẨU BẰNG BCRYPT
     // ═══════════════════════════════════════════════════════════
-    const isPasswordValid = await bcrypt.compare(password, passwordHash)
+    const isPasswordValid = await bcrypt.compare(password, passwordHash);
     if (!isPasswordValid) {
-      return res.status(401).json({ 
-        success: false, 
-        message: 'Email hoặc mật khẩu không đúng' 
-      })
-=======
-    if (!user) {
-      return res.status(401).json({ success: false, message: "Đăng nhập thất bại" });
->>>>>>> Stashed changes
+      return res.status(401).json({
+        success: false,
+        message: "Email hoặc mật khẩu không đúng",
+      });
     }
 
     console.log("✅ User authenticated:", user.id, user.email);
@@ -394,371 +389,353 @@ export const verifyOTPCode = async (req, res) => {
     console.error("Verify OTP error:", error);
     res.status(500).json({ success: false, message: "Lỗi server" });
   }
-<<<<<<< Updated upstream
-}
+};
 
 // ═══════════════════════════════════════════════════════════
 // GET ACCOUNT TYPE - Kiểm tra loại tài khoản (TH1, TH2, TH3)
 // ═══════════════════════════════════════════════════════════
 export const getAccountType = async (req, res) => {
   try {
-    const userId = req.user.userId
-    
-    const { data: authData, error } = await supabase.auth.admin.getUserById(userId)
-    
+    const userId = req.user.userId;
+
+    const { data: authData, error } = await supabase.auth.admin.getUserById(userId);
+
     if (error || !authData.user) {
-      return res.status(404).json({ success: false, message: 'Không tìm thấy tài khoản' })
+      return res.status(404).json({ success: false, message: "Không tìm thấy tài khoản" });
     }
 
-    const user = authData.user
-    const hasPassword = !!user.user_metadata?.password_hash
-    const hasGoogle = user.user_metadata?.provider === 'google' || !!user.user_metadata?.google_id
-    
-    let accountType = 'local' // TH2 - Chỉ có mật khẩu local
-    
+    const user = authData.user;
+    const hasPassword = !!user.user_metadata?.password_hash;
+    const hasGoogle = user.user_metadata?.provider === "google" || !!user.user_metadata?.google_id;
+
+    let accountType = "local"; // TH2 - Chỉ có mật khẩu local
+
     if (hasGoogle && !hasPassword) {
-      accountType = 'google_only' // TH1 - Chỉ Google, chưa có mật khẩu
+      accountType = "google_only"; // TH1 - Chỉ Google, chưa có mật khẩu
     } else if (hasGoogle && hasPassword) {
-      accountType = 'hybrid' // TH3 - Có cả Google và mật khẩu local
+      accountType = "hybrid"; // TH3 - Có cả Google và mật khẩu local
     }
-    
+
     res.json({
       success: true,
       data: {
         accountType, // 'google_only' | 'local' | 'hybrid'
         hasPassword,
         hasGoogle,
-        email: user.email
-      }
-    })
+        email: user.email,
+      },
+    });
   } catch (error) {
-    console.error('Get account type error:', error)
-    res.status(500).json({ success: false, message: 'Lỗi server' })
+    console.error("Get account type error:", error);
+    res.status(500).json({ success: false, message: "Lỗi server" });
   }
-}
+};
 
 // ═══════════════════════════════════════════════════════════
 // CHANGE PASSWORD - Đổi mật khẩu (TH2, TH3)
 // ═══════════════════════════════════════════════════════════
 export const changePassword = async (req, res) => {
   try {
-    const userId = req.user.userId
-    const { old_password, new_password, confirm_password } = req.body
+    const userId = req.user.userId;
+    const { old_password, new_password, confirm_password } = req.body;
 
     // Validate input
     if (!new_password || !confirm_password) {
-      return res.status(400).json({ success: false, message: 'Vui lòng nhập mật khẩu mới và xác nhận' })
+      return res.status(400).json({ success: false, message: "Vui lòng nhập mật khẩu mới và xác nhận" });
     }
 
     if (new_password !== confirm_password) {
-      return res.status(400).json({ success: false, message: 'Mật khẩu xác nhận không khớp' })
+      return res.status(400).json({ success: false, message: "Mật khẩu xác nhận không khớp" });
     }
 
     if (new_password.length < 6) {
-      return res.status(400).json({ success: false, message: 'Mật khẩu mới phải có ít nhất 6 ký tự' })
+      return res.status(400).json({ success: false, message: "Mật khẩu mới phải có ít nhất 6 ký tự" });
     }
 
     // Lấy thông tin user
-    const { data: authData, error } = await supabase.auth.admin.getUserById(userId)
-    
+    const { data: authData, error } = await supabase.auth.admin.getUserById(userId);
+
     if (error || !authData.user) {
-      return res.status(404).json({ success: false, message: 'Không tìm thấy tài khoản' })
+      return res.status(404).json({ success: false, message: "Không tìm thấy tài khoản" });
     }
 
-    const user = authData.user
-    const currentPasswordHash = user.user_metadata?.password_hash
+    const user = authData.user;
+    const currentPasswordHash = user.user_metadata?.password_hash;
 
     // Nếu tài khoản ĐÃ CÓ mật khẩu → bắt buộc kiểm tra mật khẩu cũ
     if (currentPasswordHash) {
       if (!old_password) {
-        return res.status(400).json({ success: false, message: 'Vui lòng nhập mật khẩu hiện tại' })
+        return res.status(400).json({ success: false, message: "Vui lòng nhập mật khẩu hiện tại" });
       }
 
-      const isOldPasswordValid = await bcrypt.compare(old_password, currentPasswordHash)
+      const isOldPasswordValid = await bcrypt.compare(old_password, currentPasswordHash);
       if (!isOldPasswordValid) {
-        return res.status(401).json({ success: false, message: 'Mật khẩu hiện tại không đúng' })
+        return res.status(401).json({ success: false, message: "Mật khẩu hiện tại không đúng" });
       }
     }
 
     // Hash mật khẩu mới bằng bcrypt
-    const newPasswordHash = await bcrypt.hash(new_password, 10)
+    const newPasswordHash = await bcrypt.hash(new_password, 10);
 
     // Cập nhật password_hash vào user_metadata
     const { error: updateError } = await supabase.auth.admin.updateUserById(userId, {
       password: new_password, // Supabase Auth cũng cần password
       user_metadata: {
         ...user.user_metadata,
-        password_hash: newPasswordHash
-      }
-    })
+        password_hash: newPasswordHash,
+      },
+    });
 
     if (updateError) {
-      console.error('Update password error:', updateError)
-      return res.status(500).json({ success: false, message: 'Không thể cập nhật mật khẩu' })
+      console.error("Update password error:", updateError);
+      return res.status(500).json({ success: false, message: "Không thể cập nhật mật khẩu" });
     }
 
-    console.log(`✅ Password changed for user: ${user.email}`)
+    console.log(`✅ Password changed for user: ${user.email}`);
 
     res.json({
       success: true,
-      message: currentPasswordHash 
-        ? 'Đổi mật khẩu thành công!' 
-        : 'Tạo mật khẩu thành công! Bạn có thể đăng nhập bằng email và mật khẩu.'
-    })
+      message: currentPasswordHash ? "Đổi mật khẩu thành công!" : "Tạo mật khẩu thành công! Bạn có thể đăng nhập bằng email và mật khẩu.",
+    });
   } catch (error) {
-    console.error('Change password error:', error)
-    res.status(500).json({ success: false, message: 'Lỗi server' })
+    console.error("Change password error:", error);
+    res.status(500).json({ success: false, message: "Lỗi server" });
   }
-}
+};
 
 // ═══════════════════════════════════════════════════════════
 // CREATE PASSWORD - Tạo mật khẩu cho tài khoản Google (TH1)
 // ═══════════════════════════════════════════════════════════
 export const createPassword = async (req, res) => {
   try {
-    const userId = req.user.userId
-    const { new_password, confirm_password } = req.body
+    const userId = req.user.userId;
+    const { new_password, confirm_password } = req.body;
 
     // Validate input
     if (!new_password || !confirm_password) {
-      return res.status(400).json({ success: false, message: 'Vui lòng nhập mật khẩu mới và xác nhận' })
+      return res.status(400).json({ success: false, message: "Vui lòng nhập mật khẩu mới và xác nhận" });
     }
 
     if (new_password !== confirm_password) {
-      return res.status(400).json({ success: false, message: 'Mật khẩu xác nhận không khớp' })
+      return res.status(400).json({ success: false, message: "Mật khẩu xác nhận không khớp" });
     }
 
     if (new_password.length < 6) {
-      return res.status(400).json({ success: false, message: 'Mật khẩu phải có ít nhất 6 ký tự' })
+      return res.status(400).json({ success: false, message: "Mật khẩu phải có ít nhất 6 ký tự" });
     }
 
     // Lấy thông tin user
-    const { data: authData, error } = await supabase.auth.admin.getUserById(userId)
-    
+    const { data: authData, error } = await supabase.auth.admin.getUserById(userId);
+
     if (error || !authData.user) {
-      return res.status(404).json({ success: false, message: 'Không tìm thấy tài khoản' })
+      return res.status(404).json({ success: false, message: "Không tìm thấy tài khoản" });
     }
 
-    const user = authData.user
+    const user = authData.user;
 
     // Kiểm tra đã có mật khẩu chưa
     if (user.user_metadata?.password_hash) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Tài khoản đã có mật khẩu. Vui lòng sử dụng chức năng đổi mật khẩu.' 
-      })
+      return res.status(400).json({
+        success: false,
+        message: "Tài khoản đã có mật khẩu. Vui lòng sử dụng chức năng đổi mật khẩu.",
+      });
     }
 
     // Hash mật khẩu mới bằng bcrypt
-    const newPasswordHash = await bcrypt.hash(new_password, 10)
+    const newPasswordHash = await bcrypt.hash(new_password, 10);
 
     // Cập nhật password_hash vào user_metadata
     const { error: updateError } = await supabase.auth.admin.updateUserById(userId, {
       password: new_password, // Supabase Auth cũng cần password
       user_metadata: {
         ...user.user_metadata,
-        password_hash: newPasswordHash
-      }
-    })
+        password_hash: newPasswordHash,
+      },
+    });
 
     if (updateError) {
-      console.error('Create password error:', updateError)
-      return res.status(500).json({ success: false, message: 'Không thể tạo mật khẩu' })
+      console.error("Create password error:", updateError);
+      return res.status(500).json({ success: false, message: "Không thể tạo mật khẩu" });
     }
 
-    console.log(`✅ Password created for Google user: ${user.email}`)
+    console.log(`✅ Password created for Google user: ${user.email}`);
 
     res.json({
       success: true,
-      message: 'Tạo mật khẩu thành công! Bạn có thể đăng nhập bằng email và mật khẩu.'
-    })
+      message: "Tạo mật khẩu thành công! Bạn có thể đăng nhập bằng email và mật khẩu.",
+    });
   } catch (error) {
-    console.error('Create password error:', error)
-    res.status(500).json({ success: false, message: 'Lỗi server' })
+    console.error("Create password error:", error);
+    res.status(500).json({ success: false, message: "Lỗi server" });
   }
-}
+};
 
 // ═══════════════════════════════════════════════════════════
 // FORGOT PASSWORD - Gửi OTP đặt lại mật khẩu
 // ═══════════════════════════════════════════════════════════
 export const forgotPassword = async (req, res) => {
   try {
-    const { email } = req.body
+    const { email } = req.body;
 
     if (!email) {
-      return res.status(400).json({ success: false, message: 'Vui lòng nhập email' })
+      return res.status(400).json({ success: false, message: "Vui lòng nhập email" });
     }
 
     // Kiểm tra email tồn tại
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('id, email')
-      .eq('email', email)
-      .single()
+    const { data: profile, error: profileError } = await supabase.from("profiles").select("id, email").eq("email", email).single();
 
     if (profileError || !profile) {
       // Không tiết lộ email không tồn tại (bảo mật)
-      return res.json({ 
-        success: true, 
-        message: 'Nếu email tồn tại, mã OTP sẽ được gửi đến hộp thư của bạn.' 
-      })
+      return res.json({
+        success: true,
+        message: "Nếu email tồn tại, mã OTP sẽ được gửi đến hộp thư của bạn.",
+      });
     }
 
     // Cleanup old OTP
-    await cleanupOldOTP(email)
+    await cleanupOldOTP(email);
 
     // Tạo OTP mới
-    const otpCode = generateOTP()
+    const otpCode = generateOTP();
 
     // Lưu OTP vào database
     const metadata = {
       ip: req.ip || req.connection.remoteAddress,
-      userAgent: req.headers['user-agent']
-    }
-    await saveOTP(email, otpCode, 'password_reset', metadata)
+      userAgent: req.headers["user-agent"],
+    };
+    await saveOTP(email, otpCode, "password_reset", metadata);
 
     // Gửi OTP qua email
-    const emailResult = await sendOTPEmail(email, otpCode, 'password_reset')
+    const emailResult = await sendOTPEmail(email, otpCode, "password_reset");
 
     if (!emailResult.success) {
-      console.error('❌ Lỗi gửi OTP email:', emailResult.error)
-      return res.status(500).json({ 
-        success: false, 
-        message: 'Không thể gửi email. Vui lòng thử lại sau.' 
-      })
+      console.error("❌ Lỗi gửi OTP email:", emailResult.error);
+      return res.status(500).json({
+        success: false,
+        message: "Không thể gửi email. Vui lòng thử lại sau.",
+      });
     }
 
-    console.log(`✅ Password reset OTP sent to: ${email}`)
+    console.log(`✅ Password reset OTP sent to: ${email}`);
 
     res.json({
       success: true,
-      message: 'Mã OTP đã được gửi đến email của bạn.'
-    })
+      message: "Mã OTP đã được gửi đến email của bạn.",
+    });
   } catch (error) {
-    console.error('Forgot password error:', error)
-    res.status(500).json({ success: false, message: 'Lỗi server' })
+    console.error("Forgot password error:", error);
+    res.status(500).json({ success: false, message: "Lỗi server" });
   }
-}
+};
 
 // ═══════════════════════════════════════════════════════════
 // VERIFY RESET OTP - Xác thực OTP đặt lại mật khẩu
 // ═══════════════════════════════════════════════════════════
 export const verifyResetOTP = async (req, res) => {
   try {
-    const { email, otp_code } = req.body
+    const { email, otp_code } = req.body;
 
     if (!email || !otp_code) {
-      return res.status(400).json({ success: false, message: 'Vui lòng cung cấp email và mã OTP' })
+      return res.status(400).json({ success: false, message: "Vui lòng cung cấp email và mã OTP" });
     }
 
     // Verify OTP với purpose = 'password_reset'
-    const result = await verifyOTP(email, otp_code, 'password_reset')
+    const result = await verifyOTP(email, otp_code, "password_reset");
 
     if (!result.success) {
-      return res.status(400).json({ success: false, message: result.message })
+      return res.status(400).json({ success: false, message: result.message });
     }
 
     // Tạo reset token tạm thời (có hiệu lực 5 phút)
-    const resetToken = jwt.sign(
-      { email, purpose: 'password_reset' },
-      JWT_SECRET,
-      { expiresIn: '5m' }
-    )
+    const resetToken = jwt.sign({ email, purpose: "password_reset" }, JWT_SECRET, { expiresIn: "5m" });
 
-    console.log(`✅ Reset OTP verified for: ${email}`)
+    console.log(`✅ Reset OTP verified for: ${email}`);
 
     res.json({
       success: true,
-      message: 'Xác thực OTP thành công!',
-      resetToken // Token để dùng trong bước đặt mật khẩu mới
-    })
+      message: "Xác thực OTP thành công!",
+      resetToken, // Token để dùng trong bước đặt mật khẩu mới
+    });
   } catch (error) {
-    console.error('Verify reset OTP error:', error)
-    res.status(500).json({ success: false, message: 'Lỗi server' })
+    console.error("Verify reset OTP error:", error);
+    res.status(500).json({ success: false, message: "Lỗi server" });
   }
-}
+};
 
 // ═══════════════════════════════════════════════════════════
 // RESET PASSWORD - Đặt mật khẩu mới (sau khi verify OTP)
 // ═══════════════════════════════════════════════════════════
 export const resetPassword = async (req, res) => {
   try {
-    const { reset_token, new_password, confirm_password } = req.body
+    const { reset_token, new_password, confirm_password } = req.body;
 
     if (!reset_token || !new_password || !confirm_password) {
-      return res.status(400).json({ success: false, message: 'Vui lòng điền đầy đủ thông tin' })
+      return res.status(400).json({ success: false, message: "Vui lòng điền đầy đủ thông tin" });
     }
 
     if (new_password !== confirm_password) {
-      return res.status(400).json({ success: false, message: 'Mật khẩu xác nhận không khớp' })
+      return res.status(400).json({ success: false, message: "Mật khẩu xác nhận không khớp" });
     }
 
     if (new_password.length < 6) {
-      return res.status(400).json({ success: false, message: 'Mật khẩu phải có ít nhất 6 ký tự' })
+      return res.status(400).json({ success: false, message: "Mật khẩu phải có ít nhất 6 ký tự" });
     }
 
     // Verify reset token
-    let decoded
+    let decoded;
     try {
-      decoded = jwt.verify(reset_token, JWT_SECRET)
+      decoded = jwt.verify(reset_token, JWT_SECRET);
     } catch (err) {
-      return res.status(401).json({ success: false, message: 'Phiên đặt lại mật khẩu đã hết hạn. Vui lòng thử lại.' })
+      return res.status(401).json({ success: false, message: "Phiên đặt lại mật khẩu đã hết hạn. Vui lòng thử lại." });
     }
 
-    if (decoded.purpose !== 'password_reset') {
-      return res.status(401).json({ success: false, message: 'Token không hợp lệ' })
+    if (decoded.purpose !== "password_reset") {
+      return res.status(401).json({ success: false, message: "Token không hợp lệ" });
     }
 
-    const email = decoded.email
+    const email = decoded.email;
 
     // Tìm user
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('email', email)
-      .single()
+    const { data: profile } = await supabase.from("profiles").select("id").eq("email", email).single();
 
     if (!profile) {
-      return res.status(404).json({ success: false, message: 'Không tìm thấy tài khoản' })
+      return res.status(404).json({ success: false, message: "Không tìm thấy tài khoản" });
     }
 
     // Lấy thông tin auth user
-    const { data: authData, error: authError } = await supabase.auth.admin.getUserById(profile.id)
+    const { data: authData, error: authError } = await supabase.auth.admin.getUserById(profile.id);
 
     if (authError || !authData.user) {
-      return res.status(404).json({ success: false, message: 'Không tìm thấy tài khoản' })
+      return res.status(404).json({ success: false, message: "Không tìm thấy tài khoản" });
     }
 
-    const user = authData.user
+    const user = authData.user;
 
     // Hash mật khẩu mới bằng bcrypt
-    const newPasswordHash = await bcrypt.hash(new_password, 10)
+    const newPasswordHash = await bcrypt.hash(new_password, 10);
 
     // Cập nhật password
     const { error: updateError } = await supabase.auth.admin.updateUserById(profile.id, {
       password: new_password,
       user_metadata: {
         ...user.user_metadata,
-        password_hash: newPasswordHash
-      }
-    })
+        password_hash: newPasswordHash,
+      },
+    });
 
     if (updateError) {
-      console.error('Reset password error:', updateError)
-      return res.status(500).json({ success: false, message: 'Không thể đặt lại mật khẩu' })
+      console.error("Reset password error:", updateError);
+      return res.status(500).json({ success: false, message: "Không thể đặt lại mật khẩu" });
     }
 
-    console.log(`✅ Password reset successful for: ${email}`)
+    console.log(`✅ Password reset successful for: ${email}`);
 
     res.json({
       success: true,
-      message: 'Đặt lại mật khẩu thành công! Bạn có thể đăng nhập bằng mật khẩu mới.'
-    })
+      message: "Đặt lại mật khẩu thành công! Bạn có thể đăng nhập bằng mật khẩu mới.",
+    });
   } catch (error) {
-    console.error('Reset password error:', error)
-    res.status(500).json({ success: false, message: 'Lỗi server' })
+    console.error("Reset password error:", error);
+    res.status(500).json({ success: false, message: "Lỗi server" });
   }
-}
-=======
 };
->>>>>>> Stashed changes

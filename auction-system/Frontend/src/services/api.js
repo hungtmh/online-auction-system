@@ -1,10 +1,6 @@
 import axios from "axios";
 
-<<<<<<< Updated upstream
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api'
-=======
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
->>>>>>> Stashed changes
 
 // Create axios instance
 const api = axios.create({
