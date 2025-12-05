@@ -8,13 +8,20 @@ const ProductFormStep = ({
   categoryOptions,
   loadingCategories,
   uploading,
+  systemSettings = {},
   onInputChange,
   onCheckboxChange,
   onDescriptionChange,
   onImageUpload,
   onRemoveImage,
   onNextStep
-}) => (
+}) => {
+  // Tính bước giá tối thiểu theo % giá khởi điểm
+  const minPercent = Number(systemSettings.min_bid_increment_percent) || 5
+  const startingPrice = Number(formData.starting_price) || 0
+  const minStepPrice = startingPrice > 0 ? Math.ceil(startingPrice * minPercent / 100) : 0
+
+  return (
   <div className="space-y-6">
     <div className="relative">
       <label className="mb-1 block text-sm font-semibold text-slate-600">Tên sản phẩm *</label>
@@ -102,15 +109,34 @@ const ProductFormStep = ({
         fieldError={fieldErrors?.starting_price}
         onChange={onInputChange}
       />
-      <NumberInput
-        label="Bước giá *"
-        name="step_price"
-        value={formData.step_price}
-        min={1}
-        error={errors.step_price}
-        fieldError={fieldErrors?.step_price}
-        onChange={onInputChange}
-      />
+      <div className="relative">
+        <label className="mb-1 block text-sm font-semibold text-slate-600">
+          Bước giá * 
+          {minStepPrice > 0 && (
+            <span className="ml-1 text-xs font-normal text-blue-600">
+              (tối thiểu: {minStepPrice.toLocaleString('vi-VN')}đ)
+            </span>
+          )}
+        </label>
+        <input
+          type="number"
+          min={1}
+          name="step_price"
+          value={formData.step_price}
+          onChange={onInputChange}
+          className={`w-full rounded-lg border px-4 py-2 ${errors.step_price ? 'border-red-400 bg-red-50' : 'border-slate-200'}`}
+        />
+        {minStepPrice > 0 && !fieldErrors?.step_price && (
+          <p className="mt-1 text-xs text-slate-500">
+            {minPercent}% của giá khởi điểm
+          </p>
+        )}
+        {fieldErrors?.step_price && (
+          <div className="absolute left-0 right-0 top-full z-10 mt-1 animate-fade-in rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 shadow-md">
+            <span className="mr-1">⚠️</span>{fieldErrors.step_price}
+          </div>
+        )}
+      </div>
       <NumberInput
         label="Giá mua ngay"
         name="buy_now_price"
@@ -141,38 +167,13 @@ const ProductFormStep = ({
       />
     </div>
 
-    <fieldset className="rounded-lg border border-slate-200 p-4">
-      <legend className="px-2 text-sm font-semibold text-slate-600">Tùy chọn tự gia hạn</legend>
-      <label className="flex items-center gap-2 text-sm text-slate-600">
-        <input
-          type="checkbox"
-          name="auto_extend"
-          checked={formData.auto_extend}
-          onChange={onCheckboxChange}
-          className="h-4 w-4 rounded border-slate-300"
-        />
-        Tự động gia hạn khi gần kết thúc
-      </label>
-
-      {formData.auto_extend && (
-        <div className="mt-4 grid gap-4 md:grid-cols-2">
-          <NumberInput
-            label="Gia hạn thêm (phút)"
-            name="auto_extend_minutes"
-            value={formData.auto_extend_minutes}
-            min={1}
-            onChange={onInputChange}
-          />
-          <NumberInput
-            label="Ngưỡng kích hoạt (phút)"
-            name="auto_extend_threshold"
-            value={formData.auto_extend_threshold}
-            min={1}
-            onChange={onInputChange}
-          />
-        </div>
-      )}
-    </fieldset>
+    {/* Lưu ý: Tự động gia hạn được quản lý bởi Admin trong Cài đặt hệ thống */}
+    <div className="rounded-lg border border-blue-100 bg-blue-50 p-4">
+      <p className="text-sm text-blue-700">
+        <span className="font-semibold">ℹ️ Tự động gia hạn:</span> Tất cả sản phẩm sẽ tự động gia hạn khi có lượt đấu giá mới gần thời điểm kết thúc. 
+        Thời gian gia hạn do quản trị viên thiết lập trong cài đặt hệ thống.
+      </p>
+    </div>
 
     <div className="relative">
       <label className="mb-2 block text-sm font-semibold text-slate-600">Ảnh sản phẩm * (Tối thiểu 3 ảnh)</label>
@@ -213,7 +214,8 @@ const ProductFormStep = ({
       </button>
     </div>
   </div>
-)
+  )
+}
 
 const NumberInput = ({ label, name, value, min, onChange, error, fieldError }) => (
   <div className="relative">

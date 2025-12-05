@@ -13,7 +13,6 @@ function AdminDashboard() {
   const [user, setUser] = useState(null)
   const [activeView, setActiveView] = useState('home') // 'home' hoặc tên chức năng
   const [stats, setStats] = useState(null)
-  const [showSettings, setShowSettings] = useState(false)
   const [showProfileModal, setShowProfileModal] = useState(false)
 
   useEffect(() => {
@@ -154,6 +153,13 @@ function AdminDashboard() {
       title: 'Yêu cầu nâng cấp tài khoản',
       description: 'Duyệt yêu cầu lên Seller',
       color: 'purple'
+    },
+    {
+      id: 'settings',
+      icon: '⚙️',
+      title: 'Cài đặt hệ thống',
+      description: 'Cấu hình tự động gia hạn, đấu giá',
+      color: 'slate'
     }
   ]
 
@@ -164,6 +170,7 @@ function AdminDashboard() {
       green: 'border-green-400 hover:bg-green-50 hover:border-green-500',
       yellow: 'border-yellow-400 hover:bg-yellow-50 hover:border-yellow-500',
       purple: 'border-purple-400 hover:bg-purple-50 hover:border-purple-500',
+      slate: 'border-slate-400 hover:bg-slate-50 hover:border-slate-500',
     }
     return colors[color] || colors.blue
   }
@@ -181,6 +188,8 @@ function AdminDashboard() {
         return <UpgradeRequests />
       case 'spam':
         return <SpamManagement />
+      case 'settings':
+        return <SystemSettings />
       default:
         return null
     }
@@ -319,26 +328,6 @@ function AdminDashboard() {
           </div>
         )}
 
-        {/* Settings Modal */}
-        {showSettings && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-              <div className="p-4 border-b flex justify-between items-center bg-slate-50 rounded-t-xl">
-                <h2 className="text-xl font-bold text-slate-700">⚙️ Cài đặt hệ thống</h2>
-                <button
-                  onClick={() => setShowSettings(false)}
-                  className="text-slate-500 hover:text-slate-700 text-2xl"
-                >
-                  ×
-                </button>
-              </div>
-              <div className="p-6">
-                <SystemSettings />
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Active View or Home */}
         {activeView !== 'home' ? (
           <div className="bg-white rounded-xl border-2 border-blue-400 shadow-lg">
@@ -375,13 +364,6 @@ function AdminDashboard() {
                 <span>Trang chủ quản trị</span>
               </h1>
               <div className="flex items-center space-x-4">
-                <button
-                  onClick={() => setShowSettings(true)}
-                  className="text-slate-500 hover:text-slate-700 transition"
-                  title="Cài đặt hệ thống"
-                >
-                  <span className="text-2xl">⚙️</span>
-                </button>
                 <span className="text-slate-500 text-sm">🕐 {getCurrentDateTime()}</span>
               </div>
             </div>

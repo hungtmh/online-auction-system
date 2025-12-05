@@ -366,3 +366,28 @@ export const getSellerProfile = async (req, res) => {
     res.status(500).json({ success: false, message: 'Không thể lấy thông tin người bán' })
   }
 };
+
+/**
+ * GET /api/guest/settings
+ * Lấy cài đặt hệ thống công khai cho Seller validation
+ */
+export const getPublicSettings = async (req, res) => {
+  try {
+    const { data: rows, error } = await supabase
+      .from('system_settings')
+      .select('key, value')
+      .in('key', ['min_bid_increment_percent', 'default_auction_duration_days'])
+
+    if (error) throw error
+
+    const settings = {}
+    for (const row of rows || []) {
+      settings[row.key] = row.value
+    }
+
+    res.json({ success: true, data: { settings } })
+  } catch (error) {
+    console.error('❌ Error getting public settings:', error)
+    res.status(500).json({ success: false, message: 'Không thể lấy cài đặt hệ thống' })
+  }
+};
