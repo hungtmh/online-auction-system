@@ -32,9 +32,7 @@ export const createProduct = async (req, res) => {
       end_time,
       images = [],
       allow_unrated_bidders = true,
-      auto_extend = true,
-      auto_extend_minutes,
-      auto_extend_threshold,
+      // auto_extend đã được chuyển sang cài đặt hệ thống do Admin quản lý
       agreementAccepted
     } = req.body
 
@@ -97,11 +95,23 @@ export const createProduct = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Giá mua ngay phải lớn hơn giá khởi điểm.' })
     }
 
-    const settings = await getSystemSettingMap(['auto_extend_minutes', 'auto_extend_threshold'])
-    const parsedExtendMinutes = Number(auto_extend_minutes ?? settings.auto_extend_minutes ?? 10)
-    const parsedExtendThreshold = Number(auto_extend_threshold ?? settings.auto_extend_threshold ?? 5)
-    const resolvedExtendMinutes = Number.isNaN(parsedExtendMinutes) ? 10 : parsedExtendMinutes
-    const resolvedExtendThreshold = Number.isNaN(parsedExtendThreshold) ? 5 : parsedExtendThreshold
+    // Lấy cài đặt từ system_settings (do Admin quản lý)
+    const settings = await getSystemSettingMap(['auto_extend_enabled', 'auto_extend_minutes', 'auto_extend_threshold', 'min_bid_increment_percent'])
+    
+    // Validate bước giá theo % giá khởi điểm
+    const minBidIncrementPercent = Number(settings.min_bid_increment_percent) || 5
+    const minStepPrice = Math.ceil(startPriceNumber * minBidIncrementPercent / 100)
+    
+    if (stepPriceNumber < minStepPrice) {
+      return res.status(400).json({ 
+        success: false, 
+        message: `Bước giá phải tối thiểu ${minStepPrice.toLocaleString('vi-VN')} VND (${minBidIncrementPercent}% của giá khởi điểm).` 
+      })
+    }
+
+    const autoExtendEnabled = settings.auto_extend_enabled === 'true' || settings.auto_extend_enabled === true
+    const resolvedExtendMinutes = Number(settings.auto_extend_minutes) || 10
+    const resolvedExtendThreshold = Number(settings.auto_extend_threshold) || 5
 
     const { data: product, error: productError } = await supabase
       .from('products')
@@ -119,7 +129,7 @@ export const createProduct = async (req, res) => {
         start_time: startTimeValue.toISOString(),
         end_time: endTimeValue.toISOString(),
         allow_unrated_bidders,
-        auto_extend,
+        auto_extend: autoExtendEnabled,  // Sử dụng cài đặt từ Admin
         auto_extend_minutes: resolvedExtendMinutes,
         auto_extend_threshold: resolvedExtendThreshold,
         status: 'pending'

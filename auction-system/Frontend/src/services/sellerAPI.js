@@ -8,6 +8,14 @@
 import api from './api'
 
 const sellerAPI = {
+  /**
+   * Lấy cài đặt hệ thống công khai (bước giá tối thiểu %)
+   */
+  getPublicSettings: async () => {
+    const response = await api.get('/guest/settings')
+    return response.data
+  },
+
   getProfile: async () => {
     const response = await api.get('/seller/profile')
     return response.data

@@ -6,7 +6,8 @@ function SystemSettings() {
   const [settings, setSettings] = useState({
     default_auction_duration_days: 7,
     auto_extend_enabled: true,
-    auto_extend_minutes: 5,
+    auto_extend_minutes: 10,      // Gia hạn thêm 10 phút
+    auto_extend_threshold: 5,     // Khi còn 5 phút trước kết thúc
     min_bid_increment_percent: 5,
   });
   const [loading, setLoading] = useState(false);
@@ -101,41 +102,58 @@ function SystemSettings() {
             </div>
 
             {/* Auto Extend */}
-            <div>
+            <div className="md:col-span-2">
               <label className="flex items-center gap-2">
                 <input
                   type="checkbox"
-                  checked={settings.auto_extend_enabled}
+                  checked={settings.auto_extend_enabled === true || settings.auto_extend_enabled === 'true'}
                   onChange={(e) => setSettings({ ...settings, auto_extend_enabled: e.target.checked })}
                   className="w-5 h-5"
                   disabled={loading}
                 />
-                <span className="text-sm font-medium text-gray-700">Bật tự động gia hạn</span>
+                <span className="text-sm font-medium text-gray-700">Bật tự động gia hạn cho tất cả sản phẩm</span>
               </label>
-              <p className="text-xs text-gray-500 mt-1">Tự động kéo dài thời gian khi có bid ở phút cuối</p>
+              <p className="text-xs text-gray-500 mt-1">Khi có lượt đấu giá mới trước thời điểm kết thúc, sản phẩm sẽ tự động gia hạn thêm</p>
             </div>
 
-            {/* Auto Extend Minutes */}
+            {/* Auto Extend Threshold - Ngưỡng kích hoạt */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Thời gian gia hạn (phút)
+                ⏰ Ngưỡng kích hoạt (phút)
+              </label>
+              <input
+                type="number"
+                min="1"
+                max="30"
+                value={settings.auto_extend_threshold || 5}
+                onChange={(e) => setSettings({ ...settings, auto_extend_threshold: parseInt(e.target.value) })}
+                className="w-full border border-gray-300 rounded-lg px-4 py-2"
+                disabled={!(settings.auto_extend_enabled === true || settings.auto_extend_enabled === 'true') || loading}
+              />
+              <p className="text-xs text-gray-500 mt-1">Nếu có bid trong khoảng thời gian này trước khi kết thúc thì sẽ gia hạn</p>
+            </div>
+
+            {/* Auto Extend Minutes - Thời gian gia hạn */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                ⏱️ Thời gian gia hạn (phút)
               </label>
               <input
                 type="number"
                 min="1"
                 max="60"
-                value={settings.auto_extend_minutes}
+                value={settings.auto_extend_minutes || 10}
                 onChange={(e) => setSettings({ ...settings, auto_extend_minutes: parseInt(e.target.value) })}
                 className="w-full border border-gray-300 rounded-lg px-4 py-2"
-                disabled={!settings.auto_extend_enabled || loading}
+                disabled={!(settings.auto_extend_enabled === true || settings.auto_extend_enabled === 'true') || loading}
               />
-              <p className="text-xs text-gray-500 mt-1">Số phút tự động thêm khi có bid cuối</p>
+              <p className="text-xs text-gray-500 mt-1">Số phút được thêm vào thời gian kết thúc</p>
             </div>
 
             {/* Min Bid Increment */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Bước giá tối thiểu (%)
+                💰 Bước giá tối thiểu (%)
               </label>
               <input
                 type="number"
@@ -146,7 +164,7 @@ function SystemSettings() {
                 className="w-full border border-gray-300 rounded-lg px-4 py-2"
                 disabled={loading}
               />
-              <p className="text-xs text-gray-500 mt-1">Phần trăm tối thiểu tăng giá mỗi lần bid</p>
+              <p className="text-xs text-gray-500 mt-1">Seller phải đặt bước giá ≥ X% của giá khởi điểm. VD: 5% của 1,000,000đ = bước giá tối thiểu 50,000đ</p>
             </div>
           </div>
 
