@@ -30,3 +30,6 @@ build/
 temp/
 tmp/
 *.tmp
+
+# Scripts file
+scripts/delete.js
