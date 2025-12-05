@@ -291,7 +291,7 @@ function RegisterPage() {
           <div className="flex justify-center">
             <ReCAPTCHA
               ref={recaptchaRef}
-              sitekey="6LfxzCEsAAAAAJBbrjupZ2AcNjFIxHmmmXcTpkas" // Test key - thay bằng key thật khi deploy
+              sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY || "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI"} // Test key - thay bằng key thật khi deploy
               onChange={(token) => setRecaptchaToken(token)}
               onExpired={() => setRecaptchaToken(null)}
             />

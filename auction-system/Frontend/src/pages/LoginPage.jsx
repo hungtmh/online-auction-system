@@ -82,13 +82,17 @@ function LoginPage() {
     setNeedsVerification(false);
 
     try {
-      if (!recaptchaToken) {
+      let token = recaptchaToken;
+      if (!token && recaptchaRef.current) {
+        token = recaptchaRef.current.getValue();
+      }
+      if (!token) {
         setError("Vui lòng hoàn thành reCAPTCHA");
         setLoading(false);
         return;
       }
 
-      const data = await authAPI.login(email, password);
+      const data = await authAPI.login(email, password, token);
 
       if (data.success) {
         setAccessToken(data.accessToken);
@@ -241,7 +245,7 @@ function LoginPage() {
 
             {/* reCAPTCHA */}
             <div className="flex justify-center">
-              <ReCAPTCHA ref={recaptchaRef} sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY || "6LfxzCEsAAAAAJBbrjupZ2AcNjFIxHmmmXcTpkas"} onChange={(token) => setRecaptchaToken(token)} onExpired={() => setRecaptchaToken(null)} />
+              <ReCAPTCHA ref={recaptchaRef} sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY || "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI"} onChange={(token) => setRecaptchaToken(token)} onExpired={() => setRecaptchaToken(null)} />
             </div>
 
             <button type="submit" disabled={loading} className="w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white font-bold py-3 rounded-lg hover:from-blue-600 hover:to-blue-700 transition duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed">

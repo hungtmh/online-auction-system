@@ -16,7 +16,7 @@ function generateRefreshToken(userId) {
 }
 
 async function verifyRecaptchaToken(token) {
-  const secret = process.env.RECAPTCHA_SECRET_KEY;
+  const secret = process.env.RECAPTCHA_SECRET_KEY || "6LeIxAcTAAAAAGG-vFI1TnRWxPz_Cto5vD28LIwd";
   if (!secret) return true; // dev: bypass if no secret configured
   try {
     const resp = await fetch("https://www.google.com/recaptcha/api/siteverify", {
@@ -34,9 +34,9 @@ async function verifyRecaptchaToken(token) {
 
 export const register = async (req, res) => {
   try {
-    const { email, password, full_name, address } = req.body;
+    const { email, password, full_name, address, recaptchaToken } = req.body;
 
-    if (!email || !password || !full_name) {
+    if (!email || !password || !full_name || !recaptchaToken) {
       return res.status(400).json({ success: false, message: "Vui lòng điền đầy đủ thông tin" });
     }
 
@@ -127,14 +127,17 @@ export const register = async (req, res) => {
 export const login = async (req, res) => {
   try {
     const { email, password, recaptchaToken } = req.body;
-
-    if (!email || !password) {
+    // console.log("reCAPTCHA verified:", recaptchaToken);
+    // console.log("login:", email);
+    // console.log("password:", password);
+    if (!email || !password || !recaptchaToken) {
       return res.status(400).json({ success: false, message: "Vui lòng điền đầy đủ thông tin" });
     }
 
     // Verify reCAPTCHA
     if (process.env.RECAPTCHA_SECRET_KEY) {
       const ok = await verifyRecaptchaToken(recaptchaToken);
+
       if (!ok) {
         return res.status(400).json({ success: false, message: "reCAPTCHA verification failed" });
       }
