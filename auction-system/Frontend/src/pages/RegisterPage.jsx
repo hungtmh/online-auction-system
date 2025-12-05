@@ -373,14 +373,14 @@ function RegisterPage() {
 
           {/* reCAPTCHA - Tạm thời ẩn trong development */}
           {!isDevelopment && (
-            <div className="flex justify-center">
-              <ReCAPTCHA
-                ref={recaptchaRef}
+          <div className="flex justify-center">
+            <ReCAPTCHA
+              ref={recaptchaRef}
                 sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY || "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI"}
-                onChange={(token) => setRecaptchaToken(token)}
-                onExpired={() => setRecaptchaToken(null)}
-              />
-            </div>
+              onChange={(token) => setRecaptchaToken(token)}
+              onExpired={() => setRecaptchaToken(null)}
+            />
+          </div>
           )}
 
           <button

@@ -220,8 +220,8 @@ function AdminDashboard() {
                 <div className="hidden sm:block">
                   <p className="text-white font-medium text-sm">{user?.full_name || 'Admin'}</p>
                   <p className="text-red-100 text-xs">{user?.role?.toUpperCase() || 'ADMIN'}</p>
-                </div>
               </div>
+            </div>
             <button
               onClick={handleLogout}
                 className="bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white px-4 py-2 rounded-xl transition-all duration-200 flex items-center space-x-2"

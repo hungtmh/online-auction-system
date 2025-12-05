@@ -59,11 +59,11 @@ export const register = async (req, res) => {
     const { error: profileUpsertError } = await supabase
       .from('profiles')
       .upsert({
-        id: data.user.id,
-        email,
-        full_name,
-        address: address || null,
-        role: 'bidder'
+      id: data.user.id,
+      email,
+      full_name,
+      address: address || null,
+      role: 'bidder'
       }, {
         onConflict: 'id'
       })
@@ -90,10 +90,10 @@ export const register = async (req, res) => {
     
     // Lưu OTP vào database
     try {
-      const metadata = {
-        ip: req.ip || req.connection.remoteAddress,
-        userAgent: req.headers['user-agent']
-      }
+    const metadata = {
+      ip: req.ip || req.connection.remoteAddress,
+      userAgent: req.headers['user-agent']
+    }
       const saveOTPResult = await saveOTP(email, otpCode, 'email_verification', metadata)
       if (saveOTPResult && !saveOTPResult.success) {
         console.error('❌ Lỗi lưu OTP:', saveOTPResult.error)
@@ -112,14 +112,14 @@ export const register = async (req, res) => {
         console.log(`📧 OTP cho ${email}: ${otpCode}`)
         console.log('💡 Để gửi email thật, hãy thêm EMAIL_USER và EMAIL_PASSWORD vào .env')
       } else {
-        const emailResult = await sendOTPEmail(email, otpCode, 'email_verification')
-        
-        if (!emailResult.success) {
-          console.error('❌ Lỗi gửi OTP email:', emailResult.error)
+    const emailResult = await sendOTPEmail(email, otpCode, 'email_verification')
+    
+    if (!emailResult.success) {
+      console.error('❌ Lỗi gửi OTP email:', emailResult.error)
           console.log(`📧 OTP cho ${email} (fallback): ${otpCode}`)
-          // Không block đăng ký, có thể gửi lại sau
-        } else {
-          console.log(`✅ OTP sent to: ${email}`)
+      // Không block đăng ký, có thể gửi lại sau
+    } else {
+      console.log(`✅ OTP sent to: ${email}`)
         }
       }
     } catch (emailError) {
