@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import sellerAPI from '../../../services/sellerAPI'
 import { initialFormState, MAX_UPLOAD_IMAGES } from './constants'
 import { stripHtml } from './utils'
@@ -15,6 +15,22 @@ const ProductCreation = ({ categories, loadingCategories }) => {
   const [status, setStatus] = useState(null)
   const [submitting, setSubmitting] = useState(false)
   const [fieldErrors, setFieldErrors] = useState({})
+  const [systemSettings, setSystemSettings] = useState({ min_bid_increment_percent: 5 })
+
+  // Fetch system settings on mount
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const response = await sellerAPI.getPublicSettings()
+        if (response?.data?.settings) {
+          setSystemSettings(response.data.settings)
+        }
+      } catch (err) {
+        console.error('Không thể tải cài đặt hệ thống:', err)
+      }
+    }
+    fetchSettings()
+  }, [])
 
   const categoryOptions = useMemo(() => {
     if (!Array.isArray(categories)) return []
@@ -128,6 +144,15 @@ const ProductCreation = ({ categories, loadingCategories }) => {
 
     if (!formData.step_price || Number(formData.step_price) <= 0) {
       nextErrors.step_price = 'Bước giá phải lớn hơn 0.'
+    } else if (formData.starting_price && Number(formData.starting_price) > 0) {
+      // Validate bước giá theo % giá khởi điểm (từ system settings)
+      const minPercent = Number(systemSettings.min_bid_increment_percent) || 5
+      const startingPrice = Number(formData.starting_price)
+      const minStepPrice = Math.ceil(startingPrice * minPercent / 100)
+      
+      if (Number(formData.step_price) < minStepPrice) {
+        nextErrors.step_price = `Bước giá phải tối thiểu ${minStepPrice.toLocaleString('vi-VN')} VND (${minPercent}% của giá khởi điểm).`
+      }
     }
 
     if (formData.buy_now_price) {
@@ -216,9 +241,8 @@ const ProductCreation = ({ categories, loadingCategories }) => {
         images: formData.images.map((img) => img.url),
         starting_price: Number(formData.starting_price),
         step_price: Number(formData.step_price),
-        buy_now_price: formData.buy_now_price ? Number(formData.buy_now_price) : null,
-        auto_extend_minutes: Number(formData.auto_extend_minutes),
-        auto_extend_threshold: Number(formData.auto_extend_threshold)
+        buy_now_price: formData.buy_now_price ? Number(formData.buy_now_price) : null
+        // auto_extend được quản lý bởi Admin trong cài đặt hệ thống
       }
 
       await sellerAPI.createProduct(payload)
@@ -264,6 +288,7 @@ const ProductCreation = ({ categories, loadingCategories }) => {
           categoryOptions={categoryOptions}
           loadingCategories={loadingCategories}
           uploading={uploading}
+          systemSettings={systemSettings}
           onInputChange={handleInputChange}
           onCheckboxChange={handleCheckboxChange}
           onDescriptionChange={handleDescriptionChange}

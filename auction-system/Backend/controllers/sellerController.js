@@ -32,9 +32,7 @@ export const createProduct = async (req, res) => {
       end_time,
       images = [],
       allow_unrated_bidders = true,
-      auto_extend = true,
-      auto_extend_minutes,
-      auto_extend_threshold,
+      // auto_extend đã được chuyển sang cài đặt hệ thống do Admin quản lý
       agreementAccepted
     } = req.body
 
@@ -97,11 +95,23 @@ export const createProduct = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Giá mua ngay phải lớn hơn giá khởi điểm.' })
     }
 
-    const settings = await getSystemSettingMap(['auto_extend_minutes', 'auto_extend_threshold'])
-    const parsedExtendMinutes = Number(auto_extend_minutes ?? settings.auto_extend_minutes ?? 10)
-    const parsedExtendThreshold = Number(auto_extend_threshold ?? settings.auto_extend_threshold ?? 5)
-    const resolvedExtendMinutes = Number.isNaN(parsedExtendMinutes) ? 10 : parsedExtendMinutes
-    const resolvedExtendThreshold = Number.isNaN(parsedExtendThreshold) ? 5 : parsedExtendThreshold
+    // Lấy cài đặt từ system_settings (do Admin quản lý)
+    const settings = await getSystemSettingMap(['auto_extend_enabled', 'auto_extend_minutes', 'auto_extend_threshold', 'min_bid_increment_percent'])
+    
+    // Validate bước giá theo % giá khởi điểm
+    const minBidIncrementPercent = Number(settings.min_bid_increment_percent) || 5
+    const minStepPrice = Math.ceil(startPriceNumber * minBidIncrementPercent / 100)
+    
+    if (stepPriceNumber < minStepPrice) {
+      return res.status(400).json({ 
+        success: false, 
+        message: `Bước giá phải tối thiểu ${minStepPrice.toLocaleString('vi-VN')} VND (${minBidIncrementPercent}% của giá khởi điểm).` 
+      })
+    }
+
+    const autoExtendEnabled = settings.auto_extend_enabled === 'true' || settings.auto_extend_enabled === true
+    const resolvedExtendMinutes = Number(settings.auto_extend_minutes) || 10
+    const resolvedExtendThreshold = Number(settings.auto_extend_threshold) || 5
 
     const { data: product, error: productError } = await supabase
       .from('products')
@@ -119,7 +129,7 @@ export const createProduct = async (req, res) => {
         start_time: startTimeValue.toISOString(),
         end_time: endTimeValue.toISOString(),
         allow_unrated_bidders,
-        auto_extend,
+        auto_extend: autoExtendEnabled,  // Sử dụng cài đặt từ Admin
         auto_extend_minutes: resolvedExtendMinutes,
         auto_extend_threshold: resolvedExtendThreshold,
         status: 'pending'
@@ -523,8 +533,11 @@ export const getProductBids = async (req, res) => {
       .select(`
         *,
         profiles (
+          id,
           full_name,
-          email
+          email,
+          rating_positive,
+          rating_negative
         )
       `)
       .eq('product_id', id)
@@ -542,6 +555,374 @@ export const getProductBids = async (req, res) => {
       success: false,
       message: 'Không thể lấy danh sách giá đấu'
     })
+  }
+}
+
+/**
+ * @route   POST /api/seller/products/:productId/bids/:bidId/reject
+ * @desc    Từ chối một lượt đấu giá
+ * @access  Private (Seller)
+ */
+export const rejectBid = async (req, res) => {
+  try {
+    const { productId, bidId } = req.params
+    const sellerId = req.user.id
+
+    const { data: product, error: productError } = await supabase
+      .from('products')
+      .select('id, seller_id, status, starting_price')
+      .eq('id', productId)
+      .single()
+
+    if (productError || !product) {
+      return res.status(404).json({ success: false, message: 'Không tìm thấy sản phẩm.' })
+    }
+
+    if (product.seller_id !== sellerId) {
+      return res.status(403).json({ success: false, message: 'Bạn không có quyền từ chối lượt đấu giá này.' })
+    }
+
+    if (['completed', 'cancelled'].includes(product.status)) {
+      return res.status(400).json({ success: false, message: 'Không thể thao tác trên sản phẩm đã kết thúc.' })
+    }
+
+    const { data: bid, error: bidError } = await supabase
+      .from('bids')
+      .select('id, product_id, bidder_id, is_rejected')
+      .eq('id', bidId)
+      .eq('product_id', productId)
+      .single()
+
+    if (bidError || !bid) {
+      return res.status(404).json({ success: false, message: 'Không tìm thấy lượt đấu giá.' })
+    }
+
+    if (bid.is_rejected) {
+      return res.status(400).json({ success: false, message: 'Lượt đấu giá này đã bị từ chối trước đó.' })
+    }
+
+    const rejectionPayload = {
+      is_rejected: true,
+      rejected_at: new Date().toISOString()
+    }
+
+    const { data: updatedBid, error: updateError } = await supabase
+      .from('bids')
+      .update(rejectionPayload)
+      .eq('id', bidId)
+      .select(`
+        id,
+        bid_amount,
+        max_bid_amount,
+        created_at,
+        bidder_id,
+        product_id,
+        is_rejected,
+        rejected_at,
+        profiles:bidder_id (
+          id,
+          full_name,
+          rating_positive,
+          rating_negative
+        )
+      `)
+      .single()
+
+    if (updateError) throw updateError
+
+    const { data: activeBids, count: activeBidCount } = await supabase
+      .from('bids')
+      .select('bid_amount', { count: 'exact' })
+      .eq('product_id', productId)
+      .eq('is_rejected', false)
+      .order('bid_amount', { ascending: false })
+      .limit(1)
+
+    const nextHighest = activeBids?.[0]?.bid_amount ?? product.starting_price ?? 0
+
+    await supabase
+      .from('products')
+      .update({
+        current_price: nextHighest,
+        bid_count: activeBidCount ?? 0,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', productId)
+
+    res.json({
+      success: true,
+      message: 'Đã từ chối lượt đấu giá.',
+      data: updatedBid,
+      meta: {
+        active_bid_count: activeBidCount ?? 0,
+        current_price: nextHighest
+      }
+    })
+  } catch (error) {
+    console.error('❌ Error rejecting bid:', error)
+    res.status(500).json({ success: false, message: 'Không thể từ chối lượt đấu giá.' })
+  }
+}
+
+export const getWinnerSummary = async (req, res) => {
+  try {
+    const { id } = req.params
+    const sellerId = req.user.id
+
+    const { data: product, error: productError } = await supabase
+      .from('products')
+      .select('id, seller_id, name, status, final_price, current_price, starting_price, winner_id, end_time, buy_now_price')
+      .eq('id', id)
+      .single()
+
+    if (productError || !product) {
+      return res.status(404).json({ success: false, message: 'Không tìm thấy sản phẩm.' })
+    }
+
+    if (product.seller_id !== sellerId) {
+      return res.status(403).json({ success: false, message: 'Bạn không có quyền xem sản phẩm này.' })
+    }
+
+    if (!product.winner_id) {
+      return res.status(400).json({ success: false, message: 'Sản phẩm chưa có người thắng cuộc.' })
+    }
+
+    const { data: winner } = await supabase
+      .from('profiles')
+      .select('id, full_name, email, phone, rating_positive, rating_negative')
+      .eq('id', product.winner_id)
+      .single()
+
+    const { data: order } = await supabase
+      .from('orders')
+      .select('id, status, payment_proof_url, shipping_address, payment_confirmed_at, created_at, updated_at, cancelled_at, cancellation_reason')
+      .eq('product_id', id)
+      .maybeSingle()
+
+    const { data: ratingHistory } = await supabase
+      .from('ratings')
+      .select('id, rating, comment, created_at')
+      .eq('product_id', id)
+      .eq('from_user_id', sellerId)
+      .eq('to_user_id', product.winner_id)
+      .order('created_at', { ascending: false })
+
+    const latestRating = Array.isArray(ratingHistory) ? ratingHistory[0] || null : null
+
+    res.json({
+      success: true,
+      data: {
+        product,
+        winner,
+        order,
+        rating: latestRating,
+        rating_history: ratingHistory || []
+      }
+    })
+  } catch (error) {
+    console.error('❌ Error getting winner summary:', error)
+    res.status(500).json({ success: false, message: 'Không thể tải thông tin người thắng.' })
+  }
+}
+
+export const rateWinner = async (req, res) => {
+  try {
+    const { id } = req.params
+    const sellerId = req.user.id
+    const { rating, comment } = req.body
+
+    if (!['positive', 'negative'].includes(rating)) {
+      return res.status(400).json({ success: false, message: 'Loại đánh giá không hợp lệ.' })
+    }
+
+    const { data: product, error: productError } = await supabase
+      .from('products')
+      .select('id, seller_id, status, winner_id')
+      .eq('id', id)
+      .single()
+
+    if (productError || !product) {
+      return res.status(404).json({ success: false, message: 'Không tìm thấy sản phẩm.' })
+    }
+
+    if (product.seller_id !== sellerId) {
+      return res.status(403).json({ success: false, message: 'Bạn không có quyền đánh giá sản phẩm này.' })
+    }
+
+    if (!product.winner_id) {
+      return res.status(400).json({ success: false, message: 'Sản phẩm chưa có người thắng cuộc.' })
+    }
+
+    if (!['completed', 'cancelled'].includes(product.status)) {
+      return res.status(400).json({ success: false, message: 'Chỉ có thể đánh giá sau khi đấu giá kết thúc.' })
+    }
+
+    const trimmedComment = comment?.trim() || null
+
+    const { data: inserted, error: insertError } = await supabase
+      .from('ratings')
+      .insert({
+        from_user_id: sellerId,
+        to_user_id: product.winner_id,
+        product_id: id,
+        rating,
+        comment: trimmedComment
+      })
+      .select('id, rating, comment, created_at')
+      .single()
+
+    if (insertError) throw insertError
+
+    res.json({ success: true, message: 'Đã gửi đánh giá thành công.', data: inserted })
+  } catch (error) {
+    console.error('❌ Error rating winner:', error)
+    res.status(500).json({ success: false, message: 'Không thể gửi đánh giá.' })
+  }
+}
+
+export const cancelWinnerTransaction = async (req, res) => {
+  try {
+    const { id } = req.params
+    const sellerId = req.user.id
+    const reason = 'Người thắng không thanh toán'
+    const nowIso = new Date().toISOString()
+
+    const { data: product, error: productError } = await supabase
+      .from('products')
+      .select('id, seller_id, status, winner_id, starting_price')
+      .eq('id', id)
+      .single()
+
+    if (productError || !product) {
+      return res.status(404).json({ success: false, message: 'Không tìm thấy sản phẩm.' })
+    }
+
+    if (product.seller_id !== sellerId) {
+      return res.status(403).json({ success: false, message: 'Bạn không có quyền thao tác sản phẩm này.' })
+    }
+
+    if (!product.winner_id) {
+      return res.status(400).json({ success: false, message: 'Sản phẩm chưa có người thắng cuộc.' })
+    }
+
+    if (product.status !== 'completed') {
+      return res.status(400).json({ success: false, message: 'Chỉ có thể hủy giao dịch khi sản phẩm đã hoàn tất.' })
+    }
+
+    const { error: ratingError } = await supabase
+      .from('ratings')
+      .insert({
+        from_user_id: sellerId,
+        to_user_id: product.winner_id,
+        product_id: id,
+        rating: 'negative',
+        comment: reason
+      })
+
+    if (ratingError) throw ratingError
+
+    await supabase
+      .from('orders')
+      .update({
+        status: 'cancelled',
+        cancelled_by: sellerId,
+        cancelled_at: nowIso,
+        cancellation_reason: reason
+      })
+      .eq('product_id', id)
+
+    await supabase
+      .from('products')
+      .update({
+        status: 'cancelled',
+        updated_at: nowIso
+      })
+      .eq('id', id)
+
+    res.json({ success: true, message: 'Đã hủy giao dịch và ghi nhận đánh giá tiêu cực.' })
+  } catch (error) {
+    console.error('❌ Error cancelling winner transaction:', error)
+    res.status(500).json({ success: false, message: 'Không thể hủy giao dịch.' })
+  }
+}
+
+export const reopenAuction = async (req, res) => {
+  try {
+    const { id } = req.params
+    const sellerId = req.user.id
+    const { new_end_time } = req.body || {}
+
+    if (!new_end_time) {
+      return res.status(400).json({ success: false, message: 'Vui lòng chọn thời điểm kết thúc mới.' })
+    }
+
+    const parsedEnd = new Date(new_end_time)
+    if (Number.isNaN(parsedEnd.getTime()) || parsedEnd <= new Date()) {
+      return res.status(400).json({ success: false, message: 'Thời điểm kết thúc mới không hợp lệ.' })
+    }
+
+    const { data: product, error: productError } = await supabase
+      .from('products')
+      .select('id, seller_id, status, starting_price')
+      .eq('id', id)
+      .single()
+
+    if (productError || !product) {
+      return res.status(404).json({ success: false, message: 'Không tìm thấy sản phẩm.' })
+    }
+
+    if (product.seller_id !== sellerId) {
+      return res.status(403).json({ success: false, message: 'Bạn không có quyền thao tác sản phẩm này.' })
+    }
+
+    if (!['completed', 'cancelled'].includes(product.status)) {
+      return res.status(400).json({ success: false, message: 'Chỉ có thể mở lại đấu giá sau khi hoàn tất hoặc hủy.' })
+    }
+
+    const { data: ratingHistory, error: ratingHistoryError } = await supabase
+      .from('ratings')
+      .select('rating, comment')
+      .eq('product_id', id)
+      .eq('from_user_id', sellerId)
+
+    if (ratingHistoryError) throw ratingHistoryError
+
+    const allowReopenByRating =
+      Array.isArray(ratingHistory) &&
+      ratingHistory.length === 1 &&
+      ratingHistory[0].rating === 'negative' &&
+      (ratingHistory[0].comment || '').trim().toLowerCase() === 'người thắng không thanh toán'
+
+    if (!allowReopenByRating) {
+      return res.status(400).json({
+        success: false,
+        message: 'Chỉ cho phép mở lại nếu sản phẩm chỉ có duy nhất một đánh giá tiêu cực với nội dung "Người thắng không thanh toán".'
+      })
+    }
+
+    await supabase.from('bids').delete().eq('product_id', id)
+    await supabase.from('orders').delete().eq('product_id', id)
+
+    const nowIso = new Date().toISOString()
+
+    await supabase
+      .from('products')
+      .update({
+        status: 'active',
+        current_price: product.starting_price,
+        bid_count: 0,
+        winner_id: null,
+        final_price: null,
+        start_time: nowIso,
+        end_time: parsedEnd.toISOString(),
+        updated_at: nowIso
+      })
+      .eq('id', id)
+
+    res.json({ success: true, message: 'Đã mở lại phiên đấu giá.', data: { end_time: parsedEnd.toISOString() } })
+  } catch (error) {
+    console.error('❌ Error reopening auction:', error)
+    res.status(500).json({ success: false, message: 'Không thể mở lại đấu giá.' })
   }
 }
 

@@ -7,11 +7,16 @@ async function enrichProducts(products) {
   const productIds = products.map((p) => p.id);
 
   // Lấy bids data
-  const { data: bidsData } = await supabase.from("bids").select("product_id, bid_amount, bidder_id").in("product_id", productIds).order("bid_amount", { ascending: false });
+  const { data: bidsData } = await supabase
+    .from("bids")
+    .select("product_id, bid_amount, bidder_id, is_rejected")
+    .in("product_id", productIds)
+    .order("bid_amount", { ascending: false });
 
   const bidsByProduct = new Map();
   if (bidsData) {
     for (const b of bidsData) {
+      if (b.is_rejected) continue;
       if (!bidsByProduct.has(b.product_id)) bidsByProduct.set(b.product_id, []);
       bidsByProduct.get(b.product_id).push(b);
     }
@@ -151,7 +156,7 @@ export const getProductById = async (req, res) => {
     // Query bids với bidder profiles - QUAN TRỌNG: lấy cả max_bid_amount để xác định người giữ giá
     const { data: bids } = await supabase
       .from("bids")
-      .select("id, bid_amount, max_bid_amount, created_at, bidder_id, profiles:bidder_id ( id, full_name, rating_positive, rating_negative )")
+      .select("id, bid_amount, max_bid_amount, created_at, bidder_id, is_rejected, rejected_at, profiles:bidder_id ( id, full_name, rating_positive, rating_negative )")
       .eq("product_id", id)
       .order("created_at", { ascending: false });
 
@@ -163,13 +168,14 @@ export const getProductById = async (req, res) => {
       .order("created_at", { ascending: false });
 
     const sortedBids = bids || [];
+    const activeBids = sortedBids.filter((b) => !b.is_rejected);
     
     // Tìm người giữ giá cao nhất dựa trên max_bid_amount (không phải bid_amount)
     // Nếu cùng max thì người đặt trước thắng
     let highest = null;
     const bidderMaxMap = new Map();
     
-    for (const bid of sortedBids) {
+    for (const bid of activeBids) {
       const bidderId = bid.bidder_id;
       const maxBid = Number(bid.max_bid_amount) || Number(bid.bid_amount) || 0;
       const existing = bidderMaxMap.get(bidderId);
@@ -192,16 +198,17 @@ export const getProductById = async (req, res) => {
     }
     
     const highestBid = highest?.bid || null;
-    const current_price = sortedBids.length > 0 
-      ? Math.max(...sortedBids.map(b => Number(b.bid_amount) || 0))
+    const current_price = activeBids.length > 0 
+      ? Math.max(...activeBids.map(b => Number(b.bid_amount) || 0))
       : (product.current_price || product.starting_price || 0);
 
     // Format response với đầy đủ thông tin
     const response = {
       ...product,
-      bids: sortedBids,
+      bids: activeBids,
+      seller_bids: sortedBids,
       current_price,
-      bid_count: sortedBids.length,
+      bid_count: activeBids.length,
       seller_name: seller?.full_name,
       seller_rating_positive: seller?.rating_positive || 0,
       seller_rating_negative: seller?.rating_negative || 0,
@@ -357,5 +364,30 @@ export const getSellerProfile = async (req, res) => {
   } catch (error) {
     console.error('❌ Error getting seller profile:', error)
     res.status(500).json({ success: false, message: 'Không thể lấy thông tin người bán' })
+  }
+};
+
+/**
+ * GET /api/guest/settings
+ * Lấy cài đặt hệ thống công khai cho Seller validation
+ */
+export const getPublicSettings = async (req, res) => {
+  try {
+    const { data: rows, error } = await supabase
+      .from('system_settings')
+      .select('key, value')
+      .in('key', ['min_bid_increment_percent', 'default_auction_duration_days'])
+
+    if (error) throw error
+
+    const settings = {}
+    for (const row of rows || []) {
+      settings[row.key] = row.value
+    }
+
+    res.json({ success: true, data: { settings } })
+  } catch (error) {
+    console.error('❌ Error getting public settings:', error)
+    res.status(500).json({ success: false, message: 'Không thể lấy cài đặt hệ thống' })
   }
 };

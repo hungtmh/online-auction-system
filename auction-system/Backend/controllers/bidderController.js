@@ -211,6 +211,9 @@ export const placeBid = async (req, res) => {
     let newCurrentPrice
     let winnerBidderId
     let isWinning
+    const buyNowPrice = product.buy_now_price ? Number(product.buy_now_price) : null
+    const hasBuyNow = buyNowPrice && !Number.isNaN(buyNowPrice)
+    let finalizeAuction = false
 
     if (!currentWinner) {
       // Chưa ai bid trước tôi → tôi là người đầu tiên
@@ -240,6 +243,13 @@ export const placeBid = async (req, res) => {
       }
     }
 
+    if (hasBuyNow && parsedMaxBid >= buyNowPrice) {
+      newCurrentPrice = buyNowPrice
+      winnerBidderId = bidder_id
+      isWinning = true
+      finalizeAuction = true
+    }
+
     // 5. Tạo bid record mới cho tôi
     const { error: bidError } = await supabase
       .from('bids')
@@ -254,16 +264,25 @@ export const placeBid = async (req, res) => {
     if (bidError) throw bidError
 
     // 6. Cập nhật current_price và bid_count của sản phẩm
+    const productUpdatePayload = {
+      current_price: newCurrentPrice,
+      bid_count: product.bid_count + 1
+    }
+
+    if (finalizeAuction) {
+      productUpdatePayload.status = 'completed'
+      productUpdatePayload.winner_id = bidder_id
+      productUpdatePayload.final_price = newCurrentPrice
+      productUpdatePayload.end_time = new Date().toISOString()
+    }
+
     await supabase
       .from('products')
-      .update({ 
-        current_price: newCurrentPrice,
-        bid_count: product.bid_count + 1
-      })
+      .update(productUpdatePayload)
       .eq('id', product_id)
 
     // 7. Xử lý auto extend nếu cần
-    if (product.auto_extend) {
+    if (!finalizeAuction && product.auto_extend) {
       const now = Date.now()
       const endTimeMs = new Date(product.end_time).getTime()
       const timeRemaining = endTimeMs - now
@@ -294,13 +313,16 @@ export const placeBid = async (req, res) => {
     // 8. Trả về kết quả
     res.json({
       success: true,
-      message: isWinning 
-        ? 'Đặt giá thành công! Bạn đang giữ giá sản phẩm.' 
-        : 'Đặt giá thành công! Tuy nhiên có người khác đã đặt giá cao hơn.',
+      message: finalizeAuction
+        ? 'Bạn đã mua ngay sản phẩm. Phiên đấu giá đã kết thúc!'
+        : isWinning 
+            ? 'Đặt giá thành công! Bạn đang giữ giá sản phẩm.' 
+            : 'Đặt giá thành công! Tuy nhiên có người khác đã đặt giá cao hơn.',
       data: {
         current_price: newCurrentPrice,
         your_max_bid: parsedMaxBid,
-        is_winning: isWinning
+        is_winning: isWinning,
+        status: finalizeAuction ? 'completed' : product.status
       }
     })
   } catch (error) {
@@ -338,8 +360,9 @@ export const getMyAutoBidStatus = async (req, res) => {
     }
 
     if (!myBid) {
-      return res.status(404).json({
-        success: false,
+      return res.json({
+        success: true,
+        data: null,
         message: 'Bạn chưa đặt giá cho sản phẩm này'
       })
     }

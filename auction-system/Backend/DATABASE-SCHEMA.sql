@@ -94,8 +94,9 @@ CREATE TABLE ratings (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   
-  -- Mỗi user chỉ đánh giá 1 lần cho 1 product
-  UNIQUE(from_user_id, to_user_id, product_id)
+  -- Cho phép lưu nhiều đánh giá theo từng lần giao dịch/reopen
+  -- (nếu cần giới hạn, tạo constraint riêng ở mức ứng dụng)
+  -- UNIQUE(from_user_id, to_user_id, product_id)
 );
 
 COMMENT ON TABLE ratings IS 'Đánh giá +1/-1 giữa bidder và seller';

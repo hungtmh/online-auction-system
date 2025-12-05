@@ -10,6 +10,8 @@ import QuestionsSection from '../components/ProductDetail/QuestionsSection'
 import AskSellerForm from '../components/ProductDetail/AskSellerForm'
 import UnifiedNavbar from '../components/common/UnifiedNavbar'
 import ProductDescriptionCard from '../components/ProductDetailPage/sections/ProductDescriptionCard'
+import SellerBidManagement from '../components/ProductDetailPage/sections/SellerBidManagement'
+import WinnerSummaryCard from '../components/ProductDetailPage/sections/WinnerSummaryCard'
 import RelatedProducts from '../components/ProductDetail/RelatedProducts'
 import QuillEditor from '../components/Seller/ProductCreation/QuillEditor'
 import { quillModules } from '../components/Seller/ProductCreation/constants'
@@ -42,6 +44,16 @@ export default function ProductDetailPage({ user }) {
   const [appendSubmitting, setAppendSubmitting] = useState(false)
   const [appendError, setAppendError] = useState(null)
   const [appendSuccess, setAppendSuccess] = useState(null)
+  const [rejectingBidId, setRejectingBidId] = useState(null)
+  const [bidModerationError, setBidModerationError] = useState(null)
+  const [bidModerationSuccess, setBidModerationSuccess] = useState(null)
+  const [winnerSummary, setWinnerSummary] = useState(null)
+  const [winnerSummaryLoading, setWinnerSummaryLoading] = useState(false)
+  const [winnerSummaryError, setWinnerSummaryError] = useState(null)
+  const [winnerActionMessage, setWinnerActionMessage] = useState(null)
+  const [ratingSubmitting, setRatingSubmitting] = useState(false)
+  const [cancelSubmitting, setCancelSubmitting] = useState(false)
+  const [reopenSubmitting, setReopenSubmitting] = useState(false)
 
   // Reset bid status khi user thay đổi (đổi tài khoản)
   useEffect(() => {
@@ -75,8 +87,12 @@ export default function ProductDetailPage({ user }) {
         }
       }
 
-      // Load my max bid status if user is bidder or seller
-      if (user?.role === 'bidder' || user?.role === 'seller') {
+      // Load my max bid status if user is bidder or seller bidding on another seller's product
+      const shouldCheckAutoBid =
+        (user?.role === 'bidder' && !!user?.id) ||
+        (user?.role === 'seller' && user?.id && user.id !== detail?.seller_id)
+
+      if (shouldCheckAutoBid) {
         try {
           const statusRes = await bidderAPI.getMyAutoBidStatus(id)
           if (statusRes?.data) {
@@ -120,6 +136,12 @@ export default function ProductDetailPage({ user }) {
 
   const isSellerOwner = useMemo(() => user?.role === 'seller' && user?.id === product?.seller_id, [user, product])
 
+  const sellerBids = useMemo(() => {
+    if (!product) return []
+    const list = product.seller_bids || product.bids || []
+    return Array.isArray(list) ? [...list].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)) : []
+  }, [product])
+
   const mode = useMemo(() => {
     if (!product) return MODES.ACTIVE
     const isWinner = !!(user?.id && product.winner_id && user.id === product.winner_id)
@@ -129,20 +151,134 @@ export default function ProductDetailPage({ user }) {
     return MODES.ACTIVE
   }, [product, user])
 
+  const fetchWinnerSummary = useCallback(
+    async (targetProductId) => {
+      const productId = targetProductId ?? product?.id
+      if (!productId) return
+      setWinnerSummaryLoading(true)
+      setWinnerSummaryError(null)
+      try {
+        const res = await sellerAPI.getWinnerSummary(productId)
+        setWinnerSummary(res?.data || null)
+      } catch (err) {
+        const message = err?.response?.data?.message || 'Không thể tải thông tin người thắng.'
+        setWinnerSummaryError(message)
+        setWinnerSummary(null)
+      } finally {
+        setWinnerSummaryLoading(false)
+      }
+    },
+    [product?.id]
+  )
+
+  const handleRateWinner = useCallback(
+    async (ratingType, comment) => {
+      if (!product?.id || !ratingType) return
+      setRatingSubmitting(true)
+      setWinnerSummaryError(null)
+      try {
+        await sellerAPI.rateWinner(product.id, { rating: ratingType, comment })
+        setWinnerActionMessage('Đã gửi đánh giá người thắng cuộc.')
+        await fetchWinnerSummary(product.id)
+      } catch (err) {
+        const message = err?.response?.data?.message || 'Không thể gửi đánh giá.'
+        setWinnerSummaryError(message)
+      } finally {
+        setRatingSubmitting(false)
+      }
+    },
+    [product?.id, fetchWinnerSummary]
+  )
+
+  const handleCancelTransaction = useCallback(async () => {
+    if (!product?.id) return
+    const confirmed = window.confirm('Bạn có chắc chắn muốn hủy giao dịch này?')
+    if (!confirmed) return
+    setCancelSubmitting(true)
+    setWinnerSummaryError(null)
+    try {
+      await sellerAPI.cancelWinnerTransaction(product.id)
+      setWinnerActionMessage('Đã hủy giao dịch và ghi nhận đánh giá tiêu cực.')
+      await loadProduct()
+      await fetchWinnerSummary(product.id)
+    } catch (err) {
+      const message = err?.response?.data?.message || 'Không thể hủy giao dịch.'
+      setWinnerSummaryError(message)
+    } finally {
+      setCancelSubmitting(false)
+    }
+  }, [product?.id, fetchWinnerSummary, loadProduct])
+
+  const handleReopenAuction = useCallback(
+    async (newEndTime) => {
+      if (!product?.id) return
+      if (!newEndTime) {
+        setWinnerSummaryError('Vui lòng chọn thời điểm kết thúc mới.')
+        return
+      }
+      const parsed = new Date(newEndTime)
+      if (Number.isNaN(parsed.getTime())) {
+        setWinnerSummaryError('Thời điểm kết thúc mới không hợp lệ.')
+        return
+      }
+      const confirmed = window.confirm('Mở lại phiên đấu giá sẽ xóa toàn bộ lượt đấu và đơn hàng hiện tại. Tiếp tục?')
+      if (!confirmed) return
+      setReopenSubmitting(true)
+      setWinnerSummaryError(null)
+      try {
+        await sellerAPI.reopenAuction(product.id, { new_end_time: parsed.toISOString() })
+        setWinnerActionMessage('Đã mở lại phiên đấu giá. Sản phẩm đã trở lại trạng thái hoạt động.')
+        setWinnerSummary(null)
+        await loadProduct()
+      } catch (err) {
+        const message = err?.response?.data?.message || 'Không thể mở lại đấu giá.'
+        setWinnerSummaryError(message)
+      } finally {
+        setReopenSubmitting(false)
+      }
+    },
+    [product?.id, loadProduct]
+  )
+
   useEffect(() => {
     if (!isSellerOwner) {
       setShowAppendPanel(false)
       setAppendContent('')
       setAppendError(null)
       setAppendSuccess(null)
+      setWinnerSummary(null)
+      setWinnerSummaryError(null)
+      setWinnerActionMessage(null)
     }
   }, [isSellerOwner])
+
+  useEffect(() => {
+    setBidModerationError(null)
+    setBidModerationSuccess(null)
+    setWinnerSummaryError(null)
+    setWinnerActionMessage(null)
+  }, [product?.id])
 
   useEffect(() => {
     if (mode === MODES.WINNER_PAYMENT && id) {
       navigate(`/products/${id}/checkout`, { replace: true })
     }
   }, [mode, id, navigate])
+
+  useEffect(() => {
+    if (!winnerActionMessage) return
+    const timer = setTimeout(() => setWinnerActionMessage(null), 4000)
+    return () => clearTimeout(timer)
+  }, [winnerActionMessage])
+
+  useEffect(() => {
+    if (!isSellerOwner || !product?.winner_id) {
+      if (!isSellerOwner) return
+      setWinnerSummary(null)
+      return
+    }
+    fetchWinnerSummary(product.id)
+  }, [isSellerOwner, product?.winner_id, product?.id, fetchWinnerSummary])
 
   const handleLoginRedirect = () => {
     navigate(`/login?redirect=${encodeURIComponent(location.pathname)}`)
@@ -259,6 +395,30 @@ export default function ProductDetailPage({ user }) {
       setQuestionSubmitting(false)
     }
   }
+
+  const handleRejectBid = useCallback(
+    async (bidId) => {
+      if (!product || !isSellerOwner || !bidId) return
+      const confirmed = window.confirm('Bạn có chắc chắn muốn từ chối lượt đấu giá này?')
+      if (!confirmed) return
+
+      setRejectingBidId(bidId)
+      setBidModerationError(null)
+
+      try {
+        await sellerAPI.rejectBid(product.id, bidId)
+        setBidModerationSuccess('Đã từ chối lượt đấu giá không phù hợp.')
+        await loadProduct()
+      } catch (err) {
+        const message = err?.response?.data?.message || 'Không thể từ chối lượt đấu giá'
+        setBidModerationError(message)
+      } finally {
+        setRejectingBidId(null)
+        setTimeout(() => setBidModerationSuccess(null), 4000)
+      }
+    },
+    [product, isSellerOwner, loadProduct]
+  )
 
   const handleAnswerQuestion = async (questionId, answerContent) => {
     if (!isSellerOwner) {
@@ -436,6 +596,17 @@ export default function ProductDetailPage({ user }) {
               <BidHistory bids={product.bids || []} />
             </section>
 
+            {isSellerOwner && (
+              <SellerBidManagement
+                bids={sellerBids}
+                onRejectBid={handleRejectBid}
+                rejectingBidId={rejectingBidId}
+                errorMessage={bidModerationError}
+                successMessage={bidModerationSuccess}
+                canModerate={mode === MODES.ACTIVE}
+              />
+            )}
+
             <section id="questions">
               <QuestionsSection
                 questions={questions}
@@ -447,6 +618,20 @@ export default function ProductDetailPage({ user }) {
           </div>
 
           <div className="space-y-6">
+            {isSellerOwner && product?.winner_id && (
+              <WinnerSummaryCard
+                summary={winnerSummary}
+                loading={winnerSummaryLoading}
+                error={winnerSummaryError}
+                actionMessage={winnerActionMessage}
+                onRate={handleRateWinner}
+                ratingSubmitting={ratingSubmitting}
+                onCancel={handleCancelTransaction}
+                cancelSubmitting={cancelSubmitting}
+                onReopen={handleReopenAuction}
+                reopenSubmitting={reopenSubmitting}
+              />
+            )}
             <BidActionPanel
               product={product}
               mode={mode}

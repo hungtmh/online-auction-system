@@ -22,14 +22,7 @@ const ProductReviewStep = ({
         <InfoRow label="Cho phép bidder chưa rating" value={formData.allow_unrated_bidders ? 'Có' : 'Không'} />
         <InfoRow label="Bắt đầu" value={formData.start_time || 'Ngay khi duyệt'} />
         <InfoRow label="Kết thúc" value={formData.end_time} />
-        <InfoRow
-          label="Tự gia hạn"
-          value={
-            formData.auto_extend
-              ? `+${formData.auto_extend_minutes} phút nếu còn ${formData.auto_extend_threshold} phút`
-              : 'Không bật'
-          }
-        />
+        <InfoRow label="Tự gia hạn" value="Áp dụng theo cài đặt hệ thống" />
       </dl>
 
       <div className="mt-6">

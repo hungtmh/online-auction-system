@@ -7,7 +7,7 @@
 
 import express from "express";
 import { query, param, validationResult } from "express-validator";
-import { getProducts, getProductById, searchProducts, getCategories, getFeaturedProducts, getSellerProfile } from "../controllers/guestController.js";
+import { getProducts, getProductById, searchProducts, getCategories, getFeaturedProducts, getSellerProfile, getPublicSettings } from "../controllers/guestController.js";
 
 const router = express.Router();
 
@@ -72,5 +72,12 @@ router.get("/featured", [query("type").optional().isIn(["ending_soon", "most_bid
  * @access  Public
  */
 router.get("/sellers/:id", [param("id").notEmpty().withMessage("id is required"), validate], getSellerProfile);
+
+/**
+ * @route   GET /api/guest/settings
+ * @desc    Lấy cài đặt hệ thống công khai (bước giá tối thiểu %)
+ * @access  Public
+ */
+router.get("/settings", getPublicSettings);
 
 export default router;
