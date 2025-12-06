@@ -72,7 +72,7 @@ function AuctionListPageContent({ user }) {
       if (category) params.category = category;
       if (sort) params.sort = sort;
       if (q) params.q = q;
-      if (!q && !category && !sort) params.status = "active";
+      if (!q && !category && !sort) params.status = "approved";
 
       console.log("🔍 Loading auctions with params:", params);
 

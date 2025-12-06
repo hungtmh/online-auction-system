@@ -157,7 +157,7 @@ const InfoRow = ({ label, value }) => (
 const enforceCompletedStatus = (items) => {
   const now = Date.now()
   return items.map((product) => {
-    if (!product || product.status !== 'active' || !product.end_time) {
+    if (!product || product.status !== 'approved' || !product.end_time) {
       return product
     }
     const endTime = new Date(product.end_time).getTime()

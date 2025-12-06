@@ -179,7 +179,24 @@ export const banUser = async (req, res) => {
       });
     }
 
-    // Cấm user: đánh dấu is_banned = true (dùng logic của deleteUser)
+    // Kiểm tra role của user trước khi cấm
+    const { data: targetUser, error: userError } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', id)
+      .single();
+
+    if (userError) throw userError;
+
+    // Không cho phép cấm Admin
+    if (targetUser?.role === 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Không thể cấm tài khoản Admin',
+      });
+    }
+
+    // Cấm user: đánh dấu is_banned = true (chỉ cấm Bidder và Seller)
     const { data, error } = await supabase
       .from('profiles')
       .update({
@@ -339,7 +356,7 @@ export const getAllProducts = async (req, res) => {
 
 /**
  * @route   POST /api/admin/products/:id/approve
- * @desc    Duyệt sản phẩm (set status = active)
+ * @desc    Duyệt sản phẩm (set status = approved)
  * @access  Private (Admin)
  */
 export const approveProduct = async (req, res) => {
@@ -349,7 +366,7 @@ export const approveProduct = async (req, res) => {
     const { data, error } = await supabase
       .from('products')
       .update({ 
-        status: 'active',
+        status: 'approved',
         updated_at: new Date().toISOString()
       })
       .eq('id', id)
@@ -410,30 +427,105 @@ export const rejectProduct = async (req, res) => {
 }
 
 /**
- * @route   DELETE /api/admin/products/:id
- * @desc    Xóa sản phẩm vi phạm
+ * @route   POST /api/admin/products/:id/cancel
+ * @desc    Hủy sản phẩm (set status = cancelled, không xóa khỏi database)
  * @access  Private (Admin)
  */
-export const deleteProduct = async (req, res) => {
+export const cancelProduct = async (req, res) => {
+  try {
+    const { id } = req.params
+    const { reason } = req.body || {}
+
+    const { data, error } = await supabase
+      .from('products')
+      .update({ 
+        status: 'cancelled',
+        rejected_reason: reason || 'Sản phẩm đã bị hủy bởi admin',
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (error) throw error
+
+    if (!data) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy sản phẩm'
+      })
+    }
+
+    res.json({
+      success: true,
+      message: 'Đã hủy sản phẩm',
+      data: data
+    })
+  } catch (error) {
+    console.error('❌ Error cancelling product:', error)
+    res.status(500).json({
+      success: false,
+      message: 'Không thể hủy sản phẩm'
+    })
+  }
+}
+
+/**
+ * @route   POST /api/admin/products/:id/uncancel
+ * @desc    Gỡ hủy sản phẩm (set status = pending để admin duyệt lại)
+ * @access  Private (Admin)
+ */
+export const uncancelProduct = async (req, res) => {
   try {
     const { id } = req.params
 
-    const { error } = await supabase
+    // Kiểm tra sản phẩm có tồn tại và đang ở trạng thái cancelled không
+    const { data: product, error: checkError } = await supabase
       .from('products')
-      .delete()
+      .select('id, status')
       .eq('id', id)
+      .single()
+
+    if (checkError) throw checkError
+
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy sản phẩm'
+      })
+    }
+
+    if (product.status !== 'cancelled') {
+      return res.status(400).json({
+        success: false,
+        message: 'Sản phẩm không ở trạng thái đã hủy'
+      })
+    }
+
+    // Gỡ hủy: set status về pending để admin có thể duyệt lại
+    const { data, error } = await supabase
+      .from('products')
+      .update({ 
+        status: 'pending',
+        rejected_reason: null,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+      .single()
 
     if (error) throw error
 
     res.json({
       success: true,
-      message: 'Xóa sản phẩm thành công'
+      message: 'Đã gỡ hủy sản phẩm. Sản phẩm đã chuyển về trạng thái chờ duyệt.',
+      data: data
     })
   } catch (error) {
-    console.error('❌ Error deleting product:', error)
+    console.error('❌ Error uncancelling product:', error)
     res.status(500).json({
       success: false,
-      message: 'Không thể xóa sản phẩm'
+      message: 'Không thể gỡ hủy sản phẩm'
     })
   }
 }
@@ -447,7 +539,7 @@ export const getUpgradeRequests = async (req, res) => {
   try {
     const { status = 'pending' } = req.query
 
-    const { data, error } = await supabase
+    let query = supabase
       .from('upgrade_requests')
       .select(`
         *,
@@ -457,8 +549,14 @@ export const getUpgradeRequests = async (req, res) => {
           role
         )
       `)
-      .eq('status', status)
       .order('created_at', { ascending: false })
+
+    // Nếu status !== 'all', mới filter theo status
+    if (status && status !== 'all') {
+      query = query.eq('status', status)
+    }
+
+    const { data, error } = await query
 
     if (error) {
       console.error('❌ Supabase error:', error)
@@ -599,7 +697,7 @@ export const getSystemStats = async (req, res) => {
     const { count: activeProducts } = await supabase
       .from('products')
       .select('id', { count: 'exact' })
-      .eq('status', 'active')
+      .eq('status', 'approved')
 
     // Tổng số bids
     const { count: totalBids } = await supabase
@@ -642,6 +740,81 @@ export const getSystemStats = async (req, res) => {
   }
 }
 
+/**
+ * @route   GET /api/admin/chart-data
+ * @desc    Lấy dữ liệu biểu đồ 7 ngày gần nhất
+ * @access  Private (Admin)
+ */
+export const getChartData = async (req, res) => {
+  try {
+    // Tính toán 7 ngày gần nhất (từ hôm nay về trước)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    
+    const days = []
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date(today)
+      date.setDate(date.getDate() - i)
+      days.push(date)
+    }
+
+    // Khởi tạo mảng kết quả với 7 phần tử = 0
+    const newUsers = new Array(7).fill(0)
+    const newBids = new Array(7).fill(0)
+    const spamReports = new Array(7).fill(0)
+
+    // Lấy dữ liệu người dùng mới theo từng ngày
+    for (let i = 0; i < days.length; i++) {
+      const startDate = new Date(days[i])
+      startDate.setHours(0, 0, 0, 0)
+      const endDate = new Date(days[i])
+      endDate.setHours(23, 59, 59, 999)
+
+      // Đếm người dùng mới trong ngày
+      const { count: userCount } = await supabase
+        .from('profiles')
+        .select('id', { count: 'exact', head: true })
+        .gte('created_at', startDate.toISOString())
+        .lte('created_at', endDate.toISOString())
+
+      newUsers[i] = userCount || 0
+
+      // Đếm số bid mới trong ngày
+      const { count: bidCount } = await supabase
+        .from('bids')
+        .select('id', { count: 'exact', head: true })
+        .gte('created_at', startDate.toISOString())
+        .lte('created_at', endDate.toISOString())
+
+      newBids[i] = bidCount || 0
+
+      // Đếm số báo cáo spam trong ngày
+      const { count: spamCount } = await supabase
+        .from('spam_reports')
+        .select('id', { count: 'exact', head: true })
+        .gte('created_at', startDate.toISOString())
+        .lte('created_at', endDate.toISOString())
+
+      spamReports[i] = spamCount || 0
+    }
+
+    res.json({
+      success: true,
+      data: {
+        newUsers,
+        newBids,
+        spamReports
+      }
+    })
+  } catch (error) {
+    console.error('❌ Error getting chart data:', error)
+    res.status(500).json({
+      success: false,
+      message: 'Không thể lấy dữ liệu biểu đồ'
+    })
+  }
+}
+
 // ============================================
 // CATEGORY MANAGEMENT - BỔ SUNG MỚI
 // ============================================
@@ -653,20 +826,11 @@ export const getSystemStats = async (req, res) => {
  */
 export const getAllCategories = async (req, res) => {
   try {
-    const { include_deleted = 'false' } = req.query
-
-    let query = supabase
+    // Admin cần xem TẤT CẢ categories để quản lý, không filter theo is_active
+    const { data: categories, error } = await supabase
       .from('categories')
       .select('id, name, slug, description, is_active')
       .order('name', { ascending: true });
-
-    // Mặc định chỉ lấy categories đang active (chưa bị soft delete)
-    // Nếu include_deleted = 'true' thì lấy tất cả
-    if (include_deleted !== 'true') {
-      query = query.eq('is_active', true)
-    }
-
-    const { data, error } = await query
 
     if (error) {
       console.error('❌ Error fetching categories:', error);
@@ -677,16 +841,44 @@ export const getAllCategories = async (req, res) => {
       });
     }
 
-    if (!data || data.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Danh sách categories trống',
+    if (!categories || categories.length === 0) {
+      return res.json({
+        success: true,
+        data: [],
       });
     }
 
+    // Lấy tất cả category IDs
+    const categoryIds = categories.map(cat => cat.id);
+
+    // Đếm số sản phẩm cho tất cả categories trong một query
+    const { data: productCounts, error: countError } = await supabase
+      .from('products')
+      .select('category_id')
+      .in('category_id', categoryIds);
+
+    if (countError) {
+      console.error('❌ Error counting products:', countError);
+    }
+
+    // Tạo map để đếm số sản phẩm theo category_id
+    const countMap = {};
+    if (productCounts) {
+      productCounts.forEach(product => {
+        const catId = product.category_id;
+        countMap[catId] = (countMap[catId] || 0) + 1;
+      });
+    }
+
+    // Gắn product_count vào mỗi category
+    const categoriesWithCount = categories.map(cat => ({
+      ...cat,
+      product_count: countMap[cat.id] || 0
+    }));
+
     res.json({
       success: true,
-      data: data,
+      data: categoriesWithCount,
     });
   } catch (error) {
     console.error('❌ Unexpected error:', error);
@@ -756,29 +948,45 @@ export const createCategory = async (req, res) => {
     if (!name || !slug) {
       return res.status(400).json({
         success: false,
-        message: 'Thiếu thông tin bắt buộc'
+        message: 'Thiếu thông tin bắt buộc: Tên danh mục và Slug là bắt buộc'
+      })
+    }
+
+    // Validate slug format
+    if (!/^[a-z0-9-]+$/.test(slug)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Slug không hợp lệ. Chỉ cho phép chữ thường, số và dấu gạch ngang'
       })
     }
 
     const { data, error } = await supabase
       .from('categories')
       .insert([{
-        name,
-        slug,
-        description,
+        name: name.trim(),
+        slug: slug.trim().toLowerCase(),
+        description: description?.trim() || null,
         is_active: is_active !== undefined ? is_active : true
       }])
       .select()
       .single()
 
     if (error) {
-      if (error.code === '23505') { // Duplicate slug
+      console.error('❌ Supabase error creating category:', error)
+      
+      // Handle duplicate slug
+      if (error.code === '23505' || error.message?.includes('duplicate') || error.message?.includes('unique')) {
         return res.status(400).json({
           success: false,
-          message: 'Slug đã tồn tại'
+          message: `Slug "${slug}" đã tồn tại. Vui lòng chọn slug khác.`
         })
       }
-      throw error
+      
+      // Handle other database errors
+      return res.status(500).json({
+        success: false,
+        message: error.message || 'Không thể tạo category. Vui lòng thử lại.'
+      })
     }
 
     res.status(201).json({
@@ -790,7 +998,7 @@ export const createCategory = async (req, res) => {
     console.error('❌ Error creating category:', error)
     res.status(500).json({
       success: false,
-      message: 'Không thể tạo category'
+      message: error.message || 'Không thể tạo category'
     })
   }
 }
@@ -852,6 +1060,25 @@ export const deleteCategory = async (req, res) => {
   try {
     const { id } = req.params
 
+    // Kiểm tra xem category có sản phẩm không
+    const { count: productCount, error: countError } = await supabase
+      .from('products')
+      .select('id', { count: 'exact', head: true })
+      .eq('category_id', id)
+
+    if (countError) {
+      console.error('❌ Error counting products:', countError)
+      throw countError
+    }
+
+    // Không được xóa danh mục đã có sản phẩm
+    if (productCount && productCount > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `Không thể xóa danh mục này vì đang có ${productCount} sản phẩm. Vui lòng xóa hoặc chuyển các sản phẩm sang danh mục khác trước.`
+      })
+    }
+
     // Soft delete: đánh dấu category là không hoạt động thay vì xóa thật
     const { data, error } = await supabase
       .from('categories')
@@ -874,7 +1101,7 @@ export const deleteCategory = async (req, res) => {
     console.error('❌ Error deleting category:', error)
     res.status(500).json({
       success: false,
-      message: 'Không thể xóa category'
+      message: error.message || 'Không thể xóa category'
     })
   }
 }
@@ -1158,16 +1385,19 @@ export const getSpamReports = async (req, res) => {
     const { status = 'pending', type, page = 1, limit = 20 } = req.query
     const offset = (page - 1) * limit
 
+    console.log('📋 getSpamReports params:', { status, type, page, limit, offset })
+
+    // Thử query đơn giản trước để kiểm tra bảng có tồn tại không
     let query = supabase
       .from('spam_reports')
       .select(`
         *,
-        reporter:profiles!spam_reports_reporter_id_fkey (
+        reporter:profiles!reporter_id (
           id,
           full_name,
           email
         ),
-        reported_user:profiles!spam_reports_reported_user_id_fkey (
+        reported_user:profiles!reported_user_id (
           id,
           full_name,
           email,
@@ -1188,9 +1418,12 @@ export const getSpamReports = async (req, res) => {
     const { data, error } = await query
 
     if (error) {
-      console.error('❌ Supabase error:', error)
+      console.error('❌ Supabase error getting spam reports:', error)
+      console.error('❌ Error details:', JSON.stringify(error, null, 2))
       throw error
     }
+
+    console.log(`✅ Found ${data?.length || 0} spam reports`)
 
     // Đếm tổng số báo cáo theo status
     const { count: pendingCount } = await supabase
@@ -1240,13 +1473,13 @@ export const getSpamReportById = async (req, res) => {
       .from('spam_reports')
       .select(`
         *,
-        reporter:profiles!spam_reports_reporter_id_fkey (
+        reporter:profiles!reporter_id (
           id,
           full_name,
           email,
           avatar_url
         ),
-        reported_user:profiles!spam_reports_reported_user_id_fkey (
+        reported_user:profiles!reported_user_id (
           id,
           full_name,
           email,
@@ -1254,7 +1487,7 @@ export const getSpamReportById = async (req, res) => {
           is_banned,
           role
         ),
-        reviewed_by_user:profiles!spam_reports_reviewed_by_fkey (
+        reviewed_by_user:profiles!reviewed_by (
           id,
           full_name,
           email
@@ -1481,7 +1714,7 @@ export const getSpamStats = async (req, res) => {
       .from('spam_reports')
       .select(`
         reported_user_id,
-        reported_user:profiles!spam_reports_reported_user_id_fkey (
+        reported_user:profiles!reported_user_id (
           id,
           full_name,
           email

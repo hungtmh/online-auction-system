@@ -94,16 +94,24 @@ export default function ProductCard({ product, user, isInWatchlist: initialWatch
             e.target.src = `https://placehold.co/400x300/e5e7eb/6b7280?text=No+Image`;
           }}
         />
-        {/* Badge NEW nếu sản phẩm mới đăng */}
-        {isNew && (
+        {/* Badge CANCELLED nếu sản phẩm đã bị hủy */}
+        {product.status === 'cancelled' && (
+          <div className="absolute top-3 left-3 z-10">
+            <span className="bg-gradient-to-r from-red-500 to-red-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">
+              🚫 ĐÃ HỦY
+            </span>
+          </div>
+        )}
+        {/* Badge NEW nếu sản phẩm mới đăng (chỉ hiển thị nếu không bị hủy) */}
+        {isNew && product.status !== 'cancelled' && (
           <div className="absolute top-3 left-3">
             <span className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg animate-pulse">
               MỚI
             </span>
           </div>
         )}
-        {/* Watchlist Button */}
-        {user?.role === 'bidder' && (
+        {/* Watchlist Button - Disable nếu sản phẩm đã bị hủy */}
+        {user?.role === 'bidder' && product.status !== 'cancelled' && (
           <button
             onClick={handleToggleWatchlist}
             disabled={watchlistLoading}
@@ -188,12 +196,17 @@ export default function ProductCard({ product, user, isInWatchlist: initialWatch
           </div>
         </div>
 
-        {/* Action Button */}
+        {/* Action Button - Disable nếu sản phẩm đã bị hủy */}
         <button
           onClick={() => navigate(productUrl)}
-          className="w-full bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 transition"
+          disabled={product.status === 'cancelled'}
+          className={`w-full py-2.5 rounded-lg font-medium transition ${
+            product.status === 'cancelled'
+              ? 'bg-gray-400 text-white cursor-not-allowed'
+              : 'bg-blue-600 text-white hover:bg-blue-700'
+          }`}
         >
-          Xem chi tiết
+          {product.status === 'cancelled' ? 'Sản phẩm đã bị hủy' : 'Xem chi tiết'}
         </button>
       </div>
     </div>

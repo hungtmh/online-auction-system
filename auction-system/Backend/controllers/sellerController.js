@@ -264,7 +264,7 @@ export const updateProduct = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Không thể sửa sản phẩm đã hoàn tất hoặc bị hủy.' })
     }
 
-    if (product.status === 'active' && product.bid_count > 0 && !isAppendOnly) {
+    if (product.status === 'approved' && product.bid_count > 0 && !isAppendOnly) {
       return res.status(400).json({ success: false, message: 'Không thể sửa sản phẩm đã có người đấu giá.' })
     }
 
@@ -908,7 +908,7 @@ export const reopenAuction = async (req, res) => {
     await supabase
       .from('products')
       .update({
-        status: 'active',
+        status: 'approved',
         current_price: product.starting_price,
         bid_count: 0,
         winner_id: null,
@@ -946,7 +946,7 @@ export const getSalesStats = async (req, res) => {
       .from('products')
       .select('id', { count: 'exact' })
       .eq('seller_id', seller_id)
-      .eq('status', 'active')
+      .eq('status', 'approved')
 
     // Sản phẩm đã bán (sold)
     const { count: soldProducts } = await supabase

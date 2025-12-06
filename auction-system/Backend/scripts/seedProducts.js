@@ -14,7 +14,7 @@ const seedProducts = async () => {
       description: 'Laptop mạnh mẽ dành cho lập trình viên.',
       image_url: 'https://via.placeholder.com/300x200?text=MacBook+Pro+2024',
       starting_price: 50000000,
-      status: 'active',
+      status: 'approved',
     },
     {
       title: 'Samsung Galaxy S23 Ultra',

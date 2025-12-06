@@ -5,7 +5,7 @@ import { useDialog } from '../../context/DialogContext.jsx';
 function UpgradeRequests() {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState('pending'); // pending, approved, rejected
+  const [filter, setFilter] = useState('pending'); // pending, approved, rejected, all
   const [error, setError] = useState(null);
   const [selectedRequests, setSelectedRequests] = useState([]);
   const { confirm, alert } = useDialog();
@@ -18,7 +18,9 @@ function UpgradeRequests() {
   const fetchRequests = async () => {
     try {
       setLoading(true);
-      const response = await adminAPI.getUpgradeRequests(filter);
+      // Nếu filter là 'all', gọi API với status = 'all' hoặc không có filter
+      const status = filter === 'all' ? 'all' : filter;
+      const response = await adminAPI.getUpgradeRequests(status);
       // Normalize data từ backend (join với profiles)
       const normalizedData = (response.data || []).map(request => ({
         ...request,
@@ -250,7 +252,7 @@ function UpgradeRequests() {
 
       {/* Filter */}
       <div className="flex gap-2">
-        {['pending', 'approved', 'rejected'].map((status) => (
+        {['pending', 'approved', 'rejected', 'all'].map((status) => (
           <button
             key={status}
             onClick={() => setFilter(status)}
@@ -263,6 +265,7 @@ function UpgradeRequests() {
             {status === 'pending' && '⏳ Chờ duyệt'}
             {status === 'approved' && '✅ Đã duyệt'}
             {status === 'rejected' && '❌ Đã từ chối'}
+            {status === 'all' && '📋 Tất cả'}
           </button>
         ))}
       </div>

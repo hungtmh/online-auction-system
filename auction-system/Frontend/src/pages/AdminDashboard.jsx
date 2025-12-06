@@ -13,11 +13,13 @@ function AdminDashboard() {
   const [user, setUser] = useState(null)
   const [activeView, setActiveView] = useState('home') // 'home' hoặc tên chức năng
   const [stats, setStats] = useState(null)
+  const [chartData, setChartData] = useState(null)
   const [showProfileModal, setShowProfileModal] = useState(false)
 
   useEffect(() => {
     fetchUserProfile()
     fetchStats()
+    fetchChartData()
   }, [])
 
   const fetchUserProfile = async () => {
@@ -35,6 +37,21 @@ function AdminDashboard() {
       setStats(response.data)
     } catch (error) {
       console.error('Error fetching stats:', error)
+    }
+  }
+
+  const fetchChartData = async () => {
+    try {
+      const response = await adminAPI.getChartData()
+      setChartData(response.data)
+    } catch (error) {
+      console.error('Error fetching chart data:', error)
+      // Fallback to empty data if API fails
+      setChartData({
+        newUsers: [0, 0, 0, 0, 0, 0, 0],
+        newBids: [0, 0, 0, 0, 0, 0, 0],
+        spamReports: [0, 0, 0, 0, 0, 0, 0]
+      })
     }
   }
 
@@ -430,7 +447,7 @@ function AdminDashboard() {
                     </div>
                   </div>
                   <div className="h-20 relative mb-2">
-                    {renderLineChart([40, 65, 45, 80, 55, 90, 70], '#60a5fa', true)}
+                    {chartData ? renderLineChart(chartData.newUsers, '#60a5fa', true) : <div className="text-xs text-slate-400">Đang tải...</div>}
                   </div>
                   <div className="flex justify-between items-center">
                     <div className="flex justify-between text-xs text-slate-400 flex-1">
@@ -440,10 +457,10 @@ function AdminDashboard() {
                   <div className="mt-2 flex items-center gap-2 text-xs">
                     <div className="flex items-center gap-1">
                       <div className="w-2 h-2 rounded-full bg-blue-400"></div>
-                      <span className="text-slate-600">Tổng: {[40, 65, 45, 80, 55, 90, 70].reduce((a, b) => a + b, 0)}</span>
+                      <span className="text-slate-600">Tổng: {chartData ? chartData.newUsers.reduce((a, b) => a + b, 0) : 0}</span>
                     </div>
                     <span className="text-slate-400">|</span>
-                    <span className="text-slate-600">Cao nhất: {Math.max(...[40, 65, 45, 80, 55, 90, 70])}</span>
+                    <span className="text-slate-600">Cao nhất: {chartData ? Math.max(...chartData.newUsers) : 0}</span>
                   </div>
                 </div>
 
@@ -462,7 +479,7 @@ function AdminDashboard() {
                     </div>
                   </div>
                   <div className="h-20 relative mb-2">
-                    {renderLineChart([30, 50, 70, 45, 85, 60, 75], '#34d399', true)}
+                    {chartData ? renderLineChart(chartData.newBids, '#34d399', true) : <div className="text-xs text-slate-400">Đang tải...</div>}
                   </div>
                   <div className="flex justify-between items-center">
                     <div className="flex justify-between text-xs text-slate-400 flex-1">
@@ -472,10 +489,10 @@ function AdminDashboard() {
                   <div className="mt-2 flex items-center gap-2 text-xs">
                     <div className="flex items-center gap-1">
                       <div className="w-2 h-2 rounded-full bg-green-400"></div>
-                      <span className="text-slate-600">Tổng: {[30, 50, 70, 45, 85, 60, 75].reduce((a, b) => a + b, 0)}</span>
+                      <span className="text-slate-600">Tổng: {chartData ? chartData.newBids.reduce((a, b) => a + b, 0) : 0}</span>
                     </div>
                     <span className="text-slate-400">|</span>
-                    <span className="text-slate-600">Cao nhất: {Math.max(...[30, 50, 70, 45, 85, 60, 75])}</span>
+                    <span className="text-slate-600">Cao nhất: {chartData ? Math.max(...chartData.newBids) : 0}</span>
                   </div>
                 </div>
 
@@ -494,7 +511,7 @@ function AdminDashboard() {
                     </div>
                   </div>
                   <div className="h-20 relative mb-2">
-                    {renderLineChart([55, 40, 80, 65, 50, 95, 85], '#a78bfa', true)}
+                    {chartData ? renderLineChart(chartData.spamReports, '#a78bfa', true) : <div className="text-xs text-slate-400">Đang tải...</div>}
                   </div>
                   <div className="flex justify-between items-center">
                     <div className="flex justify-between text-xs text-slate-400 flex-1">
@@ -504,10 +521,10 @@ function AdminDashboard() {
                   <div className="mt-2 flex items-center gap-2 text-xs">
                     <div className="flex items-center gap-1">
                       <div className="w-2 h-2 rounded-full bg-purple-400"></div>
-                      <span className="text-slate-600">Tổng: {[55, 40, 80, 65, 50, 95, 85].reduce((a, b) => a + b, 0)}</span>
+                      <span className="text-slate-600">Tổng: {chartData ? chartData.spamReports.reduce((a, b) => a + b, 0) : 0}</span>
                     </div>
                     <span className="text-slate-400">|</span>
-                    <span className="text-slate-600">Cao nhất: {Math.max(...[55, 40, 80, 65, 50, 95, 85])}</span>
+                    <span className="text-slate-600">Cao nhất: {chartData ? Math.max(...chartData.spamReports) : 0}</span>
                   </div>
                 </div>
               </div>

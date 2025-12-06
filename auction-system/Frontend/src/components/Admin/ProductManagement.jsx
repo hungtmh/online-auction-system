@@ -5,10 +5,20 @@ import { useDialog } from '../../context/DialogContext.jsx';
 // Placeholder image khi không có ảnh (SVG inline)
 const DEFAULT_PRODUCT_IMAGE = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='200' viewBox='0 0 300 200'%3E%3Crect fill='%23e5e7eb' width='300' height='200'/%3E%3Ctext fill='%239ca3af' font-family='Arial' font-size='14' x='50%25' y='50%25' text-anchor='middle' dy='.3em'%3EKhông có ảnh%3C/text%3E%3C/svg%3E";
 
+// Function để loại bỏ HTML tags và chỉ lấy text thuần túy
+const stripHtml = (html) => {
+  if (!html) return '';
+  // Tạo một div tạm để parse HTML
+  const tmp = document.createElement('div');
+  tmp.innerHTML = html;
+  // Lấy text content và loại bỏ khoảng trắng thừa
+  return (tmp.textContent || tmp.innerText || '').trim();
+};
+
 function ProductManagement() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState('all'); // all, pending, active, completed, rejected
+  const [filter, setFilter] = useState('all'); // all, pending, completed, rejected, cancelled
   const [error, setError] = useState(null);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [rejectReason, setRejectReason] = useState('');
@@ -97,28 +107,55 @@ function ProductManagement() {
     }
   };
 
-  const handleDelete = async (productId, productTitle) => {
+  const handleCancel = async (productId, productTitle) => {
     const confirmed = await confirm({
-      icon: '🗑️',
-      title: 'Xóa sản phẩm',
-      message: `⚠️ Hành động này không thể hoàn tác.\n\nBạn có chắc muốn xóa vĩnh viễn "${productTitle}"?`,
-      confirmText: 'Xóa vĩnh viễn',
+      icon: '🚫',
+      title: 'Hủy sản phẩm',
+      message: `Bạn có chắc muốn HỦY sản phẩm "${productTitle}"?\n\nSản phẩm sẽ không hiển thị cho người dùng nhưng vẫn được lưu trong hệ thống.`,
+      confirmText: 'Hủy sản phẩm',
       cancelText: 'Giữ lại',
     });
     if (!confirmed) return;
     
     try {
-      await adminAPI.deleteProduct(productId);
+      await adminAPI.cancelProduct(productId);
       await alert({
-        icon: '🗑️',
-        title: 'Đã xóa sản phẩm',
-        message: 'Sản phẩm đã được xóa khỏi hệ thống.',
+        icon: '🚫',
+        title: 'Đã hủy sản phẩm',
+        message: 'Sản phẩm đã được hủy và không hiển thị cho người dùng.',
       });
       fetchProducts();
     } catch (err) {
       await alert({
         icon: '⚠️',
-        title: 'Không thể xóa',
+        title: 'Không thể hủy',
+        message: err.response?.data?.message || 'Vui lòng thử lại.',
+      });
+    }
+  };
+
+  const handleUncancel = async (productId, productTitle) => {
+    const confirmed = await confirm({
+      icon: '✅',
+      title: 'Gỡ hủy sản phẩm',
+      message: `Bạn có chắc muốn GỠ HỦY sản phẩm "${productTitle}"?\n\nSản phẩm sẽ chuyển về trạng thái chờ duyệt và bạn có thể duyệt lại.`,
+      confirmText: 'Gỡ hủy',
+      cancelText: 'Hủy',
+    });
+    if (!confirmed) return;
+    
+    try {
+      await adminAPI.uncancelProduct(productId);
+      await alert({
+        icon: '✅',
+        title: 'Đã gỡ hủy sản phẩm',
+        message: 'Sản phẩm đã được gỡ hủy và chuyển về trạng thái chờ duyệt.',
+      });
+      fetchProducts();
+    } catch (err) {
+      await alert({
+        icon: '⚠️',
+        title: 'Không thể gỡ hủy',
         message: err.response?.data?.message || 'Vui lòng thử lại.',
       });
     }
@@ -127,19 +164,23 @@ function ProductManagement() {
   const getStatusBadge = (status) => {
     const badges = {
       pending: 'bg-yellow-100 text-yellow-800',
-      active: 'bg-green-100 text-green-800',
+      approved: 'bg-green-100 text-green-800',
+      active: 'bg-green-100 text-green-800', // Giữ để tương thích với dữ liệu cũ
       completed: 'bg-blue-100 text-blue-800',
       rejected: 'bg-red-100 text-red-800',
+      cancelled: 'bg-gray-100 text-gray-800',
     };
     const labels = {
       pending: '⏳ Chờ duyệt',
-      active: '✅ Đang hoạt động',
+      approved: '✅ Đã duyệt',
+      active: '✅ Đã duyệt', // Giữ để tương thích với dữ liệu cũ
       completed: '💰 Đã hoàn thành',
       rejected: '❌ Đã từ chối',
+      cancelled: '🚫 Đã hủy',
     };
     return (
-      <span className={`px-2 py-1 rounded-full text-xs font-medium ${badges[status]}`}>
-        {labels[status]}
+      <span className={`px-2 py-1 rounded-full text-xs font-medium ${badges[status] || 'bg-gray-100 text-gray-800'}`}>
+        {labels[status] || status}
       </span>
     );
   };
@@ -174,7 +215,7 @@ function ProductManagement() {
 
       {/* Filter */}
       <div className="flex gap-2 flex-wrap">
-        {['all', 'pending', 'active', 'completed', 'rejected'].map((status) => (
+        {['all', 'pending', 'completed', 'rejected', 'cancelled'].map((status) => (
           <button
             key={status}
             onClick={() => setFilter(status)}
@@ -186,9 +227,9 @@ function ProductManagement() {
           >
             {status === 'all' && '📋 Tất cả'}
             {status === 'pending' && '⏳ Chờ duyệt'}
-            {status === 'active' && '✅ Đang hoạt động'}
             {status === 'completed' && '💰 Đã hoàn thành'}
             {status === 'rejected' && '❌ Đã từ chối'}
+            {status === 'cancelled' && '🚫 Đã hủy'}
           </button>
         ))}
       </div>
@@ -216,7 +257,7 @@ function ProductManagement() {
                   {product.name || product.title}
                 </h3>
                 <p className="text-sm text-gray-600 line-clamp-2">
-                  {product.description}</p>
+                  {stripHtml(product.description) || 'Không có mô tả'}</p>
                 <div className="flex justify-between items-center">
                   <span className="text-lg font-bold text-blue-600">
                     {product.current_price?.toLocaleString('vi-VN')} đ
@@ -247,12 +288,21 @@ function ProductManagement() {
                       </button>
                     </>
                   )}
-                  <button
-                    onClick={() => handleDelete(product.id, product.name || product.title)}
-                    className="w-full px-3 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
-                  >
-                    🗑️ Xóa
-                  </button>
+                  {product.status === 'cancelled' ? (
+                    <button
+                      onClick={() => handleUncancel(product.id, product.name || product.title)}
+                      className="w-full px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+                    >
+                      ✅ Gỡ hủy
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => handleCancel(product.id, product.name || product.title)}
+                      className="w-full px-3 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
+                    >
+                      🚫 Hủy
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

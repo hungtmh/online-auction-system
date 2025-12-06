@@ -142,6 +142,28 @@ export default function BidActionPanel({
   }
 
   if (mode !== 'ACTIVE') {
+    // Hiển thị thông báo đặc biệt cho sản phẩm đã bị hủy
+    if (product?.status === 'cancelled') {
+      return (
+        <div className="bg-white rounded-2xl shadow-sm p-6 space-y-2 border-l-4 border-red-500">
+          <div className="flex items-start">
+            <span className="text-2xl mr-3">🚫</span>
+            <div>
+              <h3 className="text-lg font-semibold text-red-800">Sản phẩm đã bị hủy</h3>
+              <p className="text-sm text-red-700 mt-1">
+                Sản phẩm này đã bị hủy bởi quản trị viên và không còn có thể tham gia đấu giá.
+              </p>
+              {product.rejected_reason && (
+                <p className="text-sm text-red-600 mt-2 font-medium">
+                  Lý do: {product.rejected_reason}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )
+    }
+    
     const copy = STATUS_COPY[mode]
     if (!copy) return null
     return (

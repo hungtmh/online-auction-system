@@ -25,14 +25,14 @@ const validate = (req, res, next) => {
 /**
  * @route   GET /api/guest/products
  * @desc    Lấy danh sách sản phẩm (public)
- * @query   ?page=1&limit=12&category=UUID&status=active
+ * @query   ?page=1&limit=12&category=UUID&status=approved
  * @access  Public
  */
 router.get("/products", [
   query("page").optional().isInt({ min: 1 }).toInt(), 
   query("limit").optional().isInt({ min: 1, max: 100 }).toInt(), 
   query("category").optional().isUUID().withMessage("category must be a valid UUID"), 
-  query("status").optional().isIn(["active", "inactive", "draft"]), 
+  query("status").optional().isIn(["approved", "inactive", "draft"]), 
   validate
 ], getProducts);
 

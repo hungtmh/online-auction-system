@@ -143,6 +143,10 @@ export default function ProductDetailPage({ user }) {
   }, [product])
 
   const mode = useMemo(() => {
+    // Nếu sản phẩm đã bị hủy, không cho phép đấu giá
+    if (product?.status === 'cancelled') {
+      return MODES.ENDED_OTHER
+    }
     if (!product) return MODES.ACTIVE
     const isWinner = !!(user?.id && product.winner_id && user.id === product.winner_id)
     if (isWinner) return MODES.WINNER_PAYMENT
@@ -497,6 +501,26 @@ export default function ProductDetailPage({ user }) {
           <span aria-hidden="true">←</span>
           Quay lại
         </button>
+
+        {/* Thông báo sản phẩm đã bị hủy */}
+        {product?.status === 'cancelled' && (
+          <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-lg">
+            <div className="flex items-start">
+              <div className="flex-shrink-0">
+                <span className="text-2xl">🚫</span>
+              </div>
+              <div className="ml-3">
+                <h3 className="text-lg font-semibold text-red-800">Sản phẩm đã bị hủy</h3>
+                <p className="mt-1 text-sm text-red-700">
+                  Sản phẩm này đã bị hủy bởi quản trị viên và không còn có thể tham gia đấu giá.
+                  {product.rejected_reason && (
+                    <span className="block mt-2 font-medium">Lý do: {product.rejected_reason}</span>
+                  )}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div id="overview">
           <ProductHero product={product} />
