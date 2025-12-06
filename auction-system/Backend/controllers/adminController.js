@@ -683,32 +683,37 @@ export const rejectUpgrade = async (req, res) => {
  */
 export const getSystemStats = async (req, res) => {
   try {
-    // Tổng số users
+    // Tổng số users (không bao gồm banned users)
     const { count: totalUsers } = await supabase
       .from('profiles')
-      .select('id', { count: 'exact' })
+      .select('id', { count: 'exact', head: true })
+      .eq('is_banned', false)
 
-    // Tổng số sản phẩm
+    // Users đang online (đã login trong 15 phút gần đây - nếu có last_login field)
+    // Hoặc đơn giản là 0 nếu không có tracking
+    // TODO: Implement proper online tracking nếu có last_login hoặc session tracking
+    const onlineUsers = 0
+
+    // Tổng số sản phẩm (tất cả status)
     const { count: totalProducts } = await supabase
       .from('products')
-      .select('id', { count: 'exact' })
+      .select('id', { count: 'exact', head: true })
 
-    // Sản phẩm đang active
+    // Sản phẩm đang approved (đã duyệt và đang hoạt động)
     const { count: activeProducts } = await supabase
       .from('products')
-      .select('id', { count: 'exact' })
+      .select('id', { count: 'exact', head: true })
       .eq('status', 'approved')
 
     // Tổng số bids
     const { count: totalBids } = await supabase
       .from('bids')
-      .select('id', { count: 'exact' })
+      .select('id', { count: 'exact', head: true })
 
-    // Tổng số danh mục sản phẩm (chỉ đếm categories đang active)
+    // Tổng số danh mục sản phẩm (tất cả categories, không filter is_active)
     const { count: totalCategories, error: categoriesError } = await supabase
       .from('categories')
       .select('id', { count: 'exact', head: true })
-      .eq('is_active', true)
     
     if (categoriesError) {
       console.error('❌ Error counting categories:', categoriesError)
@@ -717,13 +722,24 @@ export const getSystemStats = async (req, res) => {
     // Yêu cầu nâng cấp pending
     const { count: pendingUpgrades } = await supabase
       .from('upgrade_requests')
-      .select('id', { count: 'exact' })
+      .select('id', { count: 'exact', head: true })
       .eq('status', 'pending')
+
+    console.log('📊 System Stats:', {
+      totalUsers: totalUsers || 0,
+      onlineUsers,
+      totalProducts: totalProducts || 0,
+      activeProducts: activeProducts || 0,
+      totalBids: totalBids || 0,
+      totalCategories: totalCategories || 0,
+      pendingUpgrades: pendingUpgrades || 0
+    })
 
     res.json({
       success: true,
       data: {
         totalUsers: totalUsers || 0,
+        onlineUsers: onlineUsers || 0,
         totalProducts: totalProducts || 0,
         activeProducts: activeProducts || 0,
         totalBids: totalBids || 0,
@@ -735,7 +751,8 @@ export const getSystemStats = async (req, res) => {
     console.error('❌ Error getting system stats:', error)
     res.status(500).json({
       success: false,
-      message: 'Không thể lấy thống kê'
+      message: 'Không thể lấy thống kê',
+      error: error.message
     })
   }
 }
