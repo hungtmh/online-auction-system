@@ -44,7 +44,7 @@ function GuestHomePageContent({ user }) {
     setError(null);
     try {
       const [prodRes, catRes, featuredRes] = await Promise.all([
-        guestAPI.getProducts({ page: 1, limit: 8, status: "active" }),
+        guestAPI.getProducts({ page: 1, limit: 8, status: "approved" }),
         guestAPI.getCategories(),
         guestAPI.getFeaturedProducts(), // Gọi 1 lần duy nhất
       ]);

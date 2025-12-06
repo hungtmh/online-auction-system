@@ -75,7 +75,7 @@ async function enrichProducts(products) {
  */
 export const getProducts = async (req, res) => {
   try {
-    const { page = 1, limit = 12, category, status = "active", sort } = req.query;
+    const { page = 1, limit = 12, category, status = "approved", sort } = req.query;
     const pageNum = parseInt(page);
     const limitNum = parseInt(limit);
     const offset = (pageNum - 1) * limitNum;
@@ -87,8 +87,21 @@ export const getProducts = async (req, res) => {
     let query = supabase
       .from("products")
       .select(selectStr, { count: "exact" })
-      .eq("status", status)
       .range(offset, offset + limitNum - 1);
+
+    // Cho phép hiển thị cả approved và cancelled
+    // Nếu status = "approved" thì chỉ lấy approved, nếu status = "cancelled" thì chỉ lấy cancelled
+    // Nếu status = "all" hoặc không có thì lấy cả approved và cancelled
+    if (status === "approved") {
+      query = query.eq("status", "approved");
+    } else if (status === "cancelled") {
+      query = query.eq("status", "cancelled");
+    } else if (status === "all") {
+      query = query.in("status", ["approved", "cancelled"]);
+    } else {
+      // Mặc định: hiển thị cả approved và cancelled
+      query = query.in("status", ["approved", "cancelled"]);
+    }
 
     if (sort === "ending_soon") query = query.order("end_time", { ascending: true });
     else if (sort === "price_asc") query = query.order("starting_price", { ascending: true });
@@ -245,7 +258,7 @@ export const searchProducts = async (req, res) => {
       .from("products")
       .select(`*, categories ( id, name )`, { count: "exact" })
       .textSearch("search_vector", q)
-      .eq("status", "active")
+      .eq("status", "approved")
       .order("created_at", { ascending: false })
       .range(offset, offset + limitNum - 1);
 
@@ -290,7 +303,7 @@ export const getFeaturedProducts = async (req, res) => {
     const allProductsQuery = supabase
       .from("products")
       .select("*, categories(id, name, parent_id)")
-      .eq("status", "active")
+      .eq("status", "approved")
       .gt("end_time", now); // Chỉ lấy sản phẩm có end_time > hiện tại
 
     // Lấy tất cả sản phẩm còn đang đấu giá

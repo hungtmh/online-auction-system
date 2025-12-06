@@ -34,7 +34,7 @@ BEGIN
     p.end_time,
     p.created_at
   FROM products p
-  WHERE p.status = 'active'
+  WHERE p.status = 'approved'
   ORDER BY p.bid_count DESC NULLS LAST
   LIMIT limit_count;
 END;

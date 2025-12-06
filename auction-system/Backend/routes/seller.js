@@ -55,7 +55,7 @@ router.post('/products', createProduct)
 /**
  * @route   GET /api/seller/products
  * @desc    Lấy danh sách sản phẩm của tôi
- * @query   ?status=pending|active|sold&page=1&limit=12
+ * @query   ?status=pending|approved|sold&page=1&limit=12
  * @access  Private (Seller)
  */
 router.get('/products', getMyProducts)

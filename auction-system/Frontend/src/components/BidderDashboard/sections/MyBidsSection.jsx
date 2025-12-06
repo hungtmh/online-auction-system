@@ -99,7 +99,7 @@ function BidHistoryCard({ bid, onView }) {
     if (isCompleted || isEnded) {
       return <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-700 rounded-full">Đã kết thúc</span>
     }
-    if (product.status === 'active') {
+    if (product.status === 'approved') {
       return <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-700 rounded-full">Đang đấu giá</span>
     }
     return <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-700 rounded-full">{product.status || 'Không rõ'}</span>

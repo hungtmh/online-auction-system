@@ -97,11 +97,21 @@ const adminAPI = {
   },
 
   /**
-   * Xóa sản phẩm
+   * Hủy sản phẩm (set status = cancelled, không xóa khỏi database)
+   * @param {string} productId
+   * @param {string} reason - Lý do hủy (optional)
+   */
+  cancelProduct: async (productId, reason) => {
+    const response = await api.post(`/admin/products/${productId}/cancel`, { reason })
+    return response.data
+  },
+
+  /**
+   * Gỡ hủy sản phẩm (set status = pending để admin duyệt lại)
    * @param {string} productId
    */
-  deleteProduct: async (productId) => {
-    const response = await api.delete(`/admin/products/${productId}`)
+  uncancelProduct: async (productId) => {
+    const response = await api.post(`/admin/products/${productId}/uncancel`)
     return response.data
   },
 
@@ -141,6 +151,14 @@ const adminAPI = {
    */
   getSystemStats: async () => {
     const response = await api.get('/admin/stats')
+    return response.data
+  },
+
+  /**
+   * Lấy dữ liệu biểu đồ 7 ngày gần nhất
+   */
+  getChartData: async () => {
+    const response = await api.get('/admin/chart-data')
     return response.data
   },
 
@@ -194,11 +212,50 @@ const adminAPI = {
     return response.data
   },
 
+  // ============= CATEGORY MANAGEMENT =============
+
   /**
    * Lấy danh sách categories
    */
   getAllCategories: async () => {
     const response = await api.get('/admin/categories');
+    return response.data;
+  },
+
+  /**
+   * Lấy chi tiết category
+   * @param {string} categoryId
+   */
+  getCategoryById: async (categoryId) => {
+    const response = await api.get(`/admin/categories/${categoryId}`);
+    return response.data;
+  },
+
+  /**
+   * Tạo category mới
+   * @param {Object} categoryData - { name, slug, description, is_active }
+   */
+  createCategory: async (categoryData) => {
+    const response = await api.post('/admin/categories', categoryData);
+    return response.data;
+  },
+
+  /**
+   * Cập nhật category
+   * @param {string} categoryId
+   * @param {Object} categoryData - { name, slug, description, is_active }
+   */
+  updateCategory: async (categoryId, categoryData) => {
+    const response = await api.put(`/admin/categories/${categoryId}`, categoryData);
+    return response.data;
+  },
+
+  /**
+   * Xóa category (soft delete - set is_active = false)
+   * @param {string} categoryId
+   */
+  deleteCategory: async (categoryId) => {
+    const response = await api.delete(`/admin/categories/${categoryId}`);
     return response.data;
   },
 

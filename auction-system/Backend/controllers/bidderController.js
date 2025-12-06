@@ -38,7 +38,7 @@ export const getAuctionProducts = async (req, res) => {
       `,
         { count: 'exact' }
       )
-      .eq('status', 'active')
+      .eq('status', 'approved')
       .range(offset, offset + limitNumber - 1)
 
     // Lọc theo danh mục
@@ -125,7 +125,7 @@ export const placeBid = async (req, res) => {
     }
 
     // Kiểm tra trạng thái sản phẩm
-    if (product.status !== 'active') {
+    if (product.status !== 'approved') {
       return res.status(400).json({
         success: false,
         message: 'Sản phẩm không trong trạng thái đấu giá'

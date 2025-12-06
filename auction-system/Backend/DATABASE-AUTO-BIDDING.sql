@@ -51,7 +51,7 @@ BEGIN
     );
   END IF;
 
-  IF v_product.status != 'active' THEN
+  IF v_product.status != 'approved' THEN
     RETURN jsonb_build_object(
       'success', false,
       'message', 'Sản phẩm không trong trạng thái đấu giá'

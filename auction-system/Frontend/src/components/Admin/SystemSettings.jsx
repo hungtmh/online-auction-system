@@ -64,13 +64,13 @@ function SystemSettings() {
     <div className="p-6">
       <h2 className="text-2xl font-bold text-gray-800 mb-6">⚙️ Cài đặt Hệ thống</h2>
 
-      {/* Tabs */}
-      <div className="flex border-b border-gray-200 mb-6">
+      {/* Tabs - Removed border */}
+      <div className="flex mb-6">
         <button
           onClick={() => setActiveTab('general')}
           className={`px-6 py-3 font-medium ${
             activeTab === 'general'
-              ? 'border-b-2 border-blue-600 text-blue-600'
+              ? 'text-blue-600'
               : 'text-gray-600 hover:text-gray-800'
           }`}
         >
@@ -84,23 +84,6 @@ function SystemSettings() {
           <h3 className="text-lg font-semibold text-gray-800 mb-4">Cài đặt Đấu giá</h3>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Default Auction Duration */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Thời gian đấu giá mặc định (ngày)
-              </label>
-              <input
-                type="number"
-                min="1"
-                max="30"
-                value={settings.default_auction_duration_days}
-                onChange={(e) => setSettings({ ...settings, default_auction_duration_days: parseInt(e.target.value) })}
-                className="w-full border border-gray-300 rounded-lg px-4 py-2"
-                disabled={loading}
-              />
-              <p className="text-xs text-gray-500 mt-1">Số ngày mặc định cho một phiên đấu giá</p>
-            </div>
-
             {/* Auto Extend */}
             <div className="md:col-span-2">
               <label className="flex items-center gap-2">

@@ -17,7 +17,7 @@ CREATE EXTENSION IF NOT EXISTS "pg_trgm"; -- For full-text search
 -- 2. ENUM TYPES
 -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 CREATE TYPE user_role AS ENUM ('guest', 'bidder', 'seller', 'admin');
-CREATE TYPE product_status AS ENUM ('pending', 'approved', 'rejected', 'active', 'completed', 'cancelled');
+CREATE TYPE product_status AS ENUM ('pending', 'approved', 'rejected', 'completed', 'cancelled');
 CREATE TYPE upgrade_request_status AS ENUM ('pending', 'approved', 'rejected');
 CREATE TYPE order_status AS ENUM ('pending_payment', 'payment_confirmed', 'shipped', 'delivered', 'completed', 'cancelled');
 CREATE TYPE rating_type AS ENUM ('positive', 'negative');
@@ -592,7 +592,7 @@ BEGIN
     p.end_time,
     p.thumbnail_url
   FROM products p
-  WHERE p.status = 'active' 
+  WHERE p.status = 'approved' 
     AND p.end_time > NOW()
   ORDER BY p.end_time ASC
   LIMIT limit_count;
@@ -630,7 +630,7 @@ BEGIN
     p.end_time,
     p.created_at
   FROM products p
-  WHERE p.status = 'active'
+  WHERE p.status = 'approved'
   ORDER BY p.bid_count DESC
   LIMIT limit_count;
 END;
@@ -655,7 +655,7 @@ BEGIN
     p.current_price,
     p.thumbnail_url
   FROM products p
-  WHERE p.status = 'active'
+  WHERE p.status = 'approved'
   ORDER BY p.current_price DESC
   LIMIT limit_count;
 END;

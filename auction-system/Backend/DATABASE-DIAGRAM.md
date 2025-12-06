@@ -194,7 +194,7 @@
 
 ```sql
 user_role: 'guest', 'bidder', 'seller', 'admin'
-product_status: 'pending', 'approved', 'rejected', 'active', 'completed', 'cancelled'
+product_status: 'pending', 'approved', 'rejected', 'completed', 'cancelled'
 upgrade_request_status: 'pending', 'approved', 'rejected'
 order_status: 'pending_payment', 'payment_confirmed', 'shipped', 'delivered', 'completed', 'cancelled'
 rating_type: 'positive', 'negative'

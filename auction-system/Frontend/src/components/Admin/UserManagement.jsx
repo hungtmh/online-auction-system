@@ -245,13 +245,20 @@ function UserManagement() {
                         ✅ Gỡ cấm
                       </button>
                     ) : (
-                    <button
-                      onClick={() => handleBanUser(user.id, user.email)}
-                        className="px-3 py-1.5 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-medium"
-                      title="Cấm user"
-                    >
-                      🚫 Cấm
-                    </button>
+                      // Không cho phép cấm Admin
+                      user.role === 'admin' ? (
+                        <span className="px-3 py-1.5 bg-gray-300 text-gray-600 rounded-lg cursor-not-allowed font-medium" title="Không thể cấm tài khoản Admin">
+                          🔒 Không thể cấm
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => handleBanUser(user.id, user.email)}
+                          className="px-3 py-1.5 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-medium"
+                          title="Cấm user"
+                        >
+                          🚫 Cấm
+                        </button>
+                      )
                     )}
                   </td>
                 </tr>
