@@ -13,11 +13,13 @@ function AdminDashboard() {
   const [user, setUser] = useState(null)
   const [activeView, setActiveView] = useState('home') // 'home' hoặc tên chức năng
   const [stats, setStats] = useState(null)
+  const [chartData, setChartData] = useState(null)
   const [showProfileModal, setShowProfileModal] = useState(false)
 
   useEffect(() => {
     fetchUserProfile()
     fetchStats()
+    fetchChartData()
   }, [])
 
   const fetchUserProfile = async () => {
@@ -35,6 +37,22 @@ function AdminDashboard() {
       setStats(response.data)
     } catch (error) {
       console.error('Error fetching stats:', error)
+    }
+  }
+
+  const fetchChartData = async () => {
+    try {
+      const response = await adminAPI.getChartData()
+      setChartData(response.data)
+    } catch (error) {
+      console.error('Error fetching chart data:', error)
+      // Fallback to empty data if API fails
+      setChartData({
+        newUsers: [0, 0, 0, 0, 0, 0, 0],
+        newBids: [0, 0, 0, 0, 0, 0, 0],
+        spamReports: [0, 0, 0, 0, 0, 0, 0],
+        labels: ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN']
+      })
     }
   }
 
@@ -219,7 +237,7 @@ function AdminDashboard() {
 
             {/* User Info */}
             <div className="flex items-center space-x-4">
-              <div 
+              <div
                 onClick={() => setShowProfileModal(true)}
                 className="flex items-center space-x-3 bg-white/10 backdrop-blur-sm rounded-xl px-4 py-2 cursor-pointer hover:bg-white/20 transition-colors"
               >
@@ -231,15 +249,15 @@ function AdminDashboard() {
                   <p className="text-red-100 text-xs">{user?.role?.toUpperCase() || 'ADMIN'}</p>
                 </div>
               </div>
-            <button
-              onClick={handleLogout}
+              <button
+                onClick={handleLogout}
                 className="bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white px-4 py-2 rounded-xl transition-all duration-200 flex items-center space-x-2"
-            >
+              >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                 </svg>
                 <span className="hidden sm:inline text-sm">Đăng xuất</span>
-            </button>
+              </button>
             </div>
           </div>
         </div>
@@ -347,10 +365,10 @@ function AdminDashboard() {
                 </h2>
               </div>
               <span className="text-slate-500 text-sm">🕐 {getCurrentDateTime()}</span>
-          </div>
+            </div>
 
             {/* Content */}
-          <div className="p-6">
+            <div className="p-6">
               {renderActiveComponent()}
             </div>
           </div>
@@ -430,20 +448,22 @@ function AdminDashboard() {
                     </div>
                   </div>
                   <div className="h-20 relative mb-2">
-                    {renderLineChart([40, 65, 45, 80, 55, 90, 70], '#60a5fa', true)}
+                    {chartData ? renderLineChart(chartData.newUsers, '#60a5fa', true) : <div className="text-xs text-slate-400">Đang tải...</div>}
                   </div>
                   <div className="flex justify-between items-center">
                     <div className="flex justify-between text-xs text-slate-400 flex-1">
-                      <span>T2</span><span>T3</span><span>T4</span><span>T5</span><span>T6</span><span>T7</span><span>CN</span>
+                      {(chartData?.labels || ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN']).map((label, i) => (
+                        <span key={i}>{label}</span>
+                      ))}
                     </div>
                   </div>
                   <div className="mt-2 flex items-center gap-2 text-xs">
                     <div className="flex items-center gap-1">
                       <div className="w-2 h-2 rounded-full bg-blue-400"></div>
-                      <span className="text-slate-600">Tổng: {[40, 65, 45, 80, 55, 90, 70].reduce((a, b) => a + b, 0)}</span>
+                      <span className="text-slate-600">Tổng: {chartData ? chartData.newUsers.reduce((a, b) => a + b, 0) : 0}</span>
                     </div>
                     <span className="text-slate-400">|</span>
-                    <span className="text-slate-600">Cao nhất: {Math.max(...[40, 65, 45, 80, 55, 90, 70])}</span>
+                    <span className="text-slate-600">Cao nhất: {chartData ? Math.max(...chartData.newUsers) : 0}</span>
                   </div>
                 </div>
 
@@ -462,20 +482,22 @@ function AdminDashboard() {
                     </div>
                   </div>
                   <div className="h-20 relative mb-2">
-                    {renderLineChart([30, 50, 70, 45, 85, 60, 75], '#34d399', true)}
+                    {chartData ? renderLineChart(chartData.newBids, '#34d399', true) : <div className="text-xs text-slate-400">Đang tải...</div>}
                   </div>
                   <div className="flex justify-between items-center">
                     <div className="flex justify-between text-xs text-slate-400 flex-1">
-                      <span>T2</span><span>T3</span><span>T4</span><span>T5</span><span>T6</span><span>T7</span><span>CN</span>
+                      {(chartData?.labels || ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN']).map((label, i) => (
+                        <span key={i}>{label}</span>
+                      ))}
                     </div>
                   </div>
                   <div className="mt-2 flex items-center gap-2 text-xs">
                     <div className="flex items-center gap-1">
                       <div className="w-2 h-2 rounded-full bg-green-400"></div>
-                      <span className="text-slate-600">Tổng: {[30, 50, 70, 45, 85, 60, 75].reduce((a, b) => a + b, 0)}</span>
+                      <span className="text-slate-600">Tổng: {chartData ? chartData.newBids.reduce((a, b) => a + b, 0) : 0}</span>
                     </div>
                     <span className="text-slate-400">|</span>
-                    <span className="text-slate-600">Cao nhất: {Math.max(...[30, 50, 70, 45, 85, 60, 75])}</span>
+                    <span className="text-slate-600">Cao nhất: {chartData ? Math.max(...chartData.newBids) : 0}</span>
                   </div>
                 </div>
 
@@ -494,20 +516,22 @@ function AdminDashboard() {
                     </div>
                   </div>
                   <div className="h-20 relative mb-2">
-                    {renderLineChart([55, 40, 80, 65, 50, 95, 85], '#a78bfa', true)}
+                    {chartData ? renderLineChart(chartData.spamReports, '#a78bfa', true) : <div className="text-xs text-slate-400">Đang tải...</div>}
                   </div>
                   <div className="flex justify-between items-center">
                     <div className="flex justify-between text-xs text-slate-400 flex-1">
-                      <span>T2</span><span>T3</span><span>T4</span><span>T5</span><span>T6</span><span>T7</span><span>CN</span>
+                      {(chartData?.labels || ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN']).map((label, i) => (
+                        <span key={i}>{label}</span>
+                      ))}
                     </div>
                   </div>
                   <div className="mt-2 flex items-center gap-2 text-xs">
                     <div className="flex items-center gap-1">
                       <div className="w-2 h-2 rounded-full bg-purple-400"></div>
-                      <span className="text-slate-600">Tổng: {[55, 40, 80, 65, 50, 95, 85].reduce((a, b) => a + b, 0)}</span>
+                      <span className="text-slate-600">Tổng: {chartData ? chartData.spamReports.reduce((a, b) => a + b, 0) : 0}</span>
                     </div>
                     <span className="text-slate-400">|</span>
-                    <span className="text-slate-600">Cao nhất: {Math.max(...[55, 40, 80, 65, 50, 95, 85])}</span>
+                    <span className="text-slate-600">Cao nhất: {chartData ? Math.max(...chartData.spamReports) : 0}</span>
                   </div>
                 </div>
               </div>
@@ -519,7 +543,7 @@ function AdminDashboard() {
                 <span className="text-blue-600">&gt;&gt;</span>
                 <span>Thao tác nhanh</span>
               </h3>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {adminFeatures.map((feature) => (
                   <button
