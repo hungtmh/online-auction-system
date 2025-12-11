@@ -431,7 +431,8 @@ function AdminDashboard() {
 
             {/* Line Charts Section */}
             <div className="p-6 border-b border-slate-200 bg-slate-50">
-              <h3 className="text-lg font-semibold text-slate-700 mb-4">📈 Biểu đồ đường</h3>
+              <h3 className="text-lg font-semibold text-slate-700 mb-1">📈 Biểu đồ đường</h3>
+              <p className="text-xs text-slate-500 mb-4">Chỉ hiển thị dữ liệu trong 7 ngày gần nhất</p>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {/* Chart 1 - Users */}
                 <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">

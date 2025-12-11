@@ -762,10 +762,32 @@ export const getChartData = async (req, res) => {
       labels.push(dayNames[date.getDay()])
     }
 
+    // Debug: Log range đang query
+    console.log('📊 Chart query range:', {
+      from: days[0].toISOString(),
+      to: new Date(days[6].getTime() + 24 * 60 * 60 * 1000 - 1).toISOString()
+    })
+
     // Khởi tạo mảng kết quả với 7 phần tử = 0
     const newUsers = new Array(7).fill(0)
     const newBids = new Array(7).fill(0)
     const spamReports = new Array(7).fill(0)
+
+    // Debug: Kiểm tra tổng số spam reports trong database
+    try {
+      const { count: totalSpam, data: spamData } = await supabase
+        .from('spam_reports')
+        .select('id, created_at', { count: 'exact' })
+        .order('created_at', { ascending: false })
+        .limit(10)
+
+      console.log('📊 Total spam_reports in DB:', totalSpam)
+      if (spamData && spamData.length > 0) {
+        console.log('📊 Recent spam_reports created_at:', spamData.map(s => s.created_at))
+      }
+    } catch (e) {
+      console.log('⚠️ Could not check total spam_reports:', e.message)
+    }
 
     // Lấy dữ liệu người dùng mới theo từng ngày
     for (let i = 0; i < days.length; i++) {
@@ -802,11 +824,15 @@ export const getChartData = async (req, res) => {
 
         if (!spamError) {
           spamReports[i] = spamCount || 0
+        } else {
+          console.log(`⚠️ Spam query error for day ${i}:`, spamError.message)
         }
       } catch (e) {
-        // Bảng spam_reports có thể chưa tồn tại, giữ giá trị 0
+        console.log(`⚠️ Spam query exception for day ${i}:`, e.message)
       }
     }
+
+    console.log('📊 Chart Results:', { newUsers, newBids, spamReports, labels })
 
     res.json({
       success: true,
