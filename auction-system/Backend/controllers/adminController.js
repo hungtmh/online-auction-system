@@ -365,7 +365,7 @@ export const approveProduct = async (req, res) => {
 
     const { data, error } = await supabase
       .from('products')
-      .update({ 
+      .update({
         status: 'approved',
         updated_at: new Date().toISOString()
       })
@@ -401,7 +401,7 @@ export const rejectProduct = async (req, res) => {
 
     const { data, error } = await supabase
       .from('products')
-      .update({ 
+      .update({
         status: 'rejected',
         rejected_reason: reason || null,
         updated_at: new Date().toISOString()
@@ -438,7 +438,7 @@ export const cancelProduct = async (req, res) => {
 
     const { data, error } = await supabase
       .from('products')
-      .update({ 
+      .update({
         status: 'cancelled',
         rejected_reason: reason || 'Sản phẩm đã bị hủy bởi admin',
         updated_at: new Date().toISOString()
@@ -505,7 +505,7 @@ export const uncancelProduct = async (req, res) => {
     // Gỡ hủy: set status về pending để admin có thể duyệt lại
     const { data, error } = await supabase
       .from('products')
-      .update({ 
+      .update({
         status: 'pending',
         rejected_reason: null,
         updated_at: new Date().toISOString()
@@ -602,7 +602,7 @@ export const approveUpgrade = async (req, res) => {
     // Cập nhật role của user thành 'seller'
     const { error: roleError } = await supabase
       .from('profiles')
-      .update({ 
+      .update({
         role: 'seller',
         updated_at: new Date().toISOString()
       })
@@ -613,7 +613,7 @@ export const approveUpgrade = async (req, res) => {
     // Cập nhật status của request
     const { data, error } = await supabase
       .from('upgrade_requests')
-      .update({ 
+      .update({
         status: 'approved',
         reviewed_at: new Date().toISOString(),
         reviewed_by: req.user.id,
@@ -650,7 +650,7 @@ export const rejectUpgrade = async (req, res) => {
 
     const { data, error } = await supabase
       .from('upgrade_requests')
-      .update({ 
+      .update({
         status: 'rejected',
         reviewed_at: new Date().toISOString(),
         reviewed_by: req.user.id,
@@ -709,7 +709,7 @@ export const getSystemStats = async (req, res) => {
       .from('categories')
       .select('id', { count: 'exact', head: true })
       .eq('is_active', true)
-    
+
     if (categoriesError) {
       console.error('❌ Error counting categories:', categoriesError)
     }
@@ -750,12 +750,16 @@ export const getChartData = async (req, res) => {
     // Tính toán 7 ngày gần nhất (từ hôm nay về trước)
     const today = new Date()
     today.setHours(0, 0, 0, 0)
-    
+
     const days = []
+    const labels = [] // Tên ngày trong tuần
+    const dayNames = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7']
+
     for (let i = 6; i >= 0; i--) {
       const date = new Date(today)
       date.setDate(date.getDate() - i)
       days.push(date)
+      labels.push(dayNames[date.getDay()])
     }
 
     // Khởi tạo mảng kết quả với 7 phần tử = 0
@@ -789,13 +793,19 @@ export const getChartData = async (req, res) => {
       newBids[i] = bidCount || 0
 
       // Đếm số báo cáo spam trong ngày
-      const { count: spamCount } = await supabase
-        .from('spam_reports')
-        .select('id', { count: 'exact', head: true })
-        .gte('created_at', startDate.toISOString())
-        .lte('created_at', endDate.toISOString())
+      try {
+        const { count: spamCount, error: spamError } = await supabase
+          .from('spam_reports')
+          .select('id', { count: 'exact', head: true })
+          .gte('created_at', startDate.toISOString())
+          .lte('created_at', endDate.toISOString())
 
-      spamReports[i] = spamCount || 0
+        if (!spamError) {
+          spamReports[i] = spamCount || 0
+        }
+      } catch (e) {
+        // Bảng spam_reports có thể chưa tồn tại, giữ giá trị 0
+      }
     }
 
     res.json({
@@ -803,7 +813,8 @@ export const getChartData = async (req, res) => {
       data: {
         newUsers,
         newBids,
-        spamReports
+        spamReports,
+        labels
       }
     })
   } catch (error) {
@@ -973,7 +984,7 @@ export const createCategory = async (req, res) => {
 
     if (error) {
       console.error('❌ Supabase error creating category:', error)
-      
+
       // Handle duplicate slug
       if (error.code === '23505' || error.message?.includes('duplicate') || error.message?.includes('unique')) {
         return res.status(400).json({
@@ -981,7 +992,7 @@ export const createCategory = async (req, res) => {
           message: `Slug "${slug}" đã tồn tại. Vui lòng chọn slug khác.`
         })
       }
-      
+
       // Handle other database errors
       return res.status(500).json({
         success: false,
@@ -1218,7 +1229,7 @@ export const cancelBid = async (req, res) => {
     // Soft delete: đánh dấu bid là bị từ chối thay vì xóa thật
     const { data, error } = await supabase
       .from('bids')
-      .update({ 
+      .update({
         is_rejected: true,
         rejected_at: new Date().toISOString()
         // Lưu ý: Nếu muốn lưu reason, cần thêm cột rejected_reason vào bảng bids
@@ -1256,7 +1267,7 @@ export const resolveDispute = async (req, res) => {
     const { resolution } = req.body
 
     // TODO: Implement dispute resolution logic
-    
+
     res.json({
       success: true,
       message: 'Đã giải quyết tranh chấp'
