@@ -85,10 +85,11 @@ function CategoryManagement() {
       fetchCategories()
     } catch (error) {
       console.error('Error saving category:', error)
+      const errorMessage = error.response?.data?.message || error.message || 'Có lỗi xảy ra khi lưu danh mục'
       await alert({
         icon: '⚠️',
         title: 'Không thể lưu',
-        message: error.response?.data?.message || 'Có lỗi xảy ra',
+        message: errorMessage,
       })
     }
   }

@@ -209,16 +209,16 @@ function UserManagement() {
                         </span>
                       </div>
                     ) : (
-                      <select
-                        value={user.role}
-                        onChange={(e) => handleChangeRole(user.id, e.target.value)}
-                        className="text-sm border border-gray-300 rounded px-2 py-1"
+                    <select
+                      value={user.role}
+                      onChange={(e) => handleChangeRole(user.id, e.target.value)}
+                      className="text-sm border border-gray-300 rounded px-2 py-1"
                         disabled={user.role === 'admin'}
-                      >
-                        <option value="bidder">Bidder</option>
-                        <option value="seller">Seller</option>
-                        <option value="admin">Admin</option>
-                      </select>
+                    >
+                      <option value="bidder">Bidder</option>
+                      <option value="seller">Seller</option>
+                      <option value="admin">Admin</option>
+                    </select>
                     )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -245,13 +245,20 @@ function UserManagement() {
                         ✅ Gỡ cấm
                       </button>
                     ) : (
-                      <button
-                        onClick={() => handleBanUser(user.id, user.email)}
-                        className="px-3 py-1.5 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-medium"
-                        title="Cấm user"
-                      >
-                        🚫 Cấm
-                      </button>
+                      // Không cho phép cấm Admin
+                      user.role === 'admin' ? (
+                        <span className="px-3 py-1.5 bg-gray-300 text-gray-600 rounded-lg cursor-not-allowed font-medium" title="Không thể cấm tài khoản Admin">
+                          🔒 Không thể cấm
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => handleBanUser(user.id, user.email)}
+                          className="px-3 py-1.5 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-medium"
+                          title="Cấm user"
+                        >
+                          🚫 Cấm
+                        </button>
+                      )
                     )}
                   </td>
                 </tr>

@@ -17,11 +17,13 @@ import {
   getAllProducts,
   approveProduct,
   rejectProduct,
-  deleteProduct,
+  cancelProduct,
+  uncancelProduct,
   getUpgradeRequests,
   approveUpgrade,
   rejectUpgrade,
   getSystemStats,
+  getChartData,
   getAllCategories,
   getCategoryById,
   createCategory,
@@ -97,7 +99,7 @@ router.delete('/users/:id', deleteUser)
 /**
  * @route   GET /api/admin/products
  * @desc    Lấy tất cả sản phẩm
- * @query   ?status=pending|active|sold&page=1&limit=20
+ * @query   ?status=pending|approved|sold&page=1&limit=20
  * @access  Private (Admin)
  */
 router.get('/products', getAllProducts)
@@ -118,11 +120,19 @@ router.post('/products/:id/approve', approveProduct)
 router.post('/products/:id/reject', rejectProduct)
 
 /**
- * @route   DELETE /api/admin/products/:id
- * @desc    Xóa sản phẩm vi phạm
+ * @route   POST /api/admin/products/:id/cancel
+ * @desc    Hủy sản phẩm (set status = cancelled, không xóa khỏi database)
+ * @body    { reason: 'lý do hủy (optional)' }
  * @access  Private (Admin)
  */
-router.delete('/products/:id', deleteProduct)
+router.post('/products/:id/cancel', cancelProduct)
+
+/**
+ * @route   POST /api/admin/products/:id/uncancel
+ * @desc    Gỡ hủy sản phẩm (set status = pending để admin duyệt lại)
+ * @access  Private (Admin)
+ */
+router.post('/products/:id/uncancel', uncancelProduct)
 
 // ============= UPGRADE REQUESTS =============
 
@@ -218,6 +228,13 @@ router.post('/bids/:id/resolve-dispute', resolveDispute)
  * @access  Private (Admin)
  */
 router.get('/stats', getSystemStats)
+
+/**
+ * @route   GET /api/admin/chart-data
+ * @desc    Lấy dữ liệu biểu đồ 7 ngày gần nhất
+ * @access  Private (Admin)
+ */
+router.get('/chart-data', getChartData)
 
 // ============= SYSTEM SETTINGS =============
 

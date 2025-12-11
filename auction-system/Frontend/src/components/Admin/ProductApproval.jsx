@@ -201,7 +201,7 @@ function ProductApproval({ product, onClose, onSuccess }) {
                 <p>
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                     product.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                    product.status === 'active' ? 'bg-green-100 text-green-800' :
+                    product.status === 'approved' ? 'bg-green-100 text-green-800' :
                     product.status === 'sold' ? 'bg-blue-100 text-blue-800' :
                     'bg-red-100 text-red-800'
                   }`}>
