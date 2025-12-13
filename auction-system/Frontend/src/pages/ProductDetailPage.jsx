@@ -75,14 +75,32 @@ export default function ProductDetailPage({ user }) {
       setProduct(detail)
       setQuestions(detail?.questions || [])
       
-      // Load related products from same category
-      if (detail?.category_id) {
-        try {
-          const relatedRes = await guestAPI.getProducts({ category: detail.category_id, limit: 6 })
-          const relatedData = relatedRes?.data || relatedRes || []
+      // Load related products; fallback to generic list if category filter fails
+      try {
+        const relatedParams = detail?.category_id
+          ? { category: detail.category_id, limit: 6 }
+          : { limit: 6 }
+
+        const relatedRes = await guestAPI.getProducts(relatedParams)
+        const relatedData = relatedRes?.data || relatedRes || []
+
+        // Fallback: retry without category if the first attempt returned nothing
+        if (!Array.isArray(relatedData) || relatedData.length === 0) {
+          const fallbackRes = await guestAPI.getProducts({ limit: 6 })
+          const fallbackData = fallbackRes?.data || fallbackRes || []
+          setRelatedProducts(Array.isArray(fallbackData) ? fallbackData : [])
+        } else {
           setRelatedProducts(Array.isArray(relatedData) ? relatedData : [])
-        } catch (err) {
-          console.error('Load related products error', err)
+        }
+      } catch (err) {
+        console.error('Load related products error', err)
+        // Fallback: try again without category in case of validation errors (e.g., non-UUID category)
+        try {
+          const fallbackRes = await guestAPI.getProducts({ limit: 6 })
+          const fallbackData = fallbackRes?.data || fallbackRes || []
+          setRelatedProducts(Array.isArray(fallbackData) ? fallbackData : [])
+        } catch (fallbackErr) {
+          console.error('Fallback load related products error', fallbackErr)
           setRelatedProducts([])
         }
       }
@@ -614,6 +632,39 @@ export default function ProductDetailPage({ user }) {
                 canAnswer={isSellerOwner}
                 onAnswerQuestion={handleAnswerQuestion}
               />
+
+              {/* Ask seller moved below questions */}
+              {(user?.role === 'bidder') ? (
+                <div className="mt-4">
+                  <AskSellerForm onSubmit={handleAskSeller} disabled={mode !== MODES.ACTIVE} loading={questionSubmitting} />
+                </div>
+              ) : user?.role === 'seller' && user?.id !== product?.seller_id ? (
+                <div className="mt-4">
+                  <AskSellerForm onSubmit={handleAskSeller} disabled={mode !== MODES.ACTIVE} loading={questionSubmitting} />
+                </div>
+              ) : user?.role === 'seller' && user?.id === product?.seller_id ? (
+                <div className="mt-4 bg-white rounded-2xl shadow-sm p-6 text-sm text-gray-600">
+                  <p className="font-semibold text-gray-900 mb-2">Quản lý câu hỏi</p>
+                  <p>Bạn có thể trả lời các câu hỏi của bidder ở phần "Hỏi người bán" bên dưới.</p>
+                </div>
+              ) : (
+                <div className="mt-4 bg-white rounded-2xl shadow-sm p-6 text-sm text-gray-600">
+                  <p className="font-semibold text-gray-900 mb-2">Hỏi người bán về sản phẩm</p>
+                  <p>
+                    {user
+                      ? 'Chỉ tài khoản bidder hoặc seller mới có thể đặt câu hỏi.'
+                      : 'Đăng nhập để gửi câu hỏi cho người bán và nhận phản hồi nhanh chóng.'}
+                  </p>
+                  {!user && (
+                    <button
+                      className="mt-4 w-full bg-slate-900 text-white rounded-2xl py-2 font-semibold"
+                      onClick={handleLoginRedirect}
+                    >
+                      Đăng nhập
+                    </button>
+                  )}
+                </div>
+              )}
             </section>
           </div>
 
@@ -666,39 +717,6 @@ export default function ProductDetailPage({ user }) {
                       : 'Thêm vào yêu thích'}
               </button>
             )}
-
-            <section id="ask-seller">
-              {/* Bidder can always ask questions */}
-              {user?.role === 'bidder' ? (
-                <AskSellerForm onSubmit={handleAskSeller} disabled={mode !== MODES.ACTIVE} loading={questionSubmitting} />
-              ) : user?.role === 'seller' && user?.id !== product?.seller_id ? (
-                /* Seller can ask questions on OTHER sellers' products */
-                <AskSellerForm onSubmit={handleAskSeller} disabled={mode !== MODES.ACTIVE} loading={questionSubmitting} />
-              ) : user?.role === 'seller' && user?.id === product?.seller_id ? (
-                /* Seller viewing own product - will answer questions in QuestionsSection */
-                <div className="bg-white rounded-2xl shadow-sm p-6 text-sm text-gray-600">
-                  <p className="font-semibold text-gray-900 mb-2">Quản lý câu hỏi</p>
-                  <p>Bạn có thể trả lời các câu hỏi của bidder ở phần "Hỏi người bán" bên dưới.</p>
-                </div>
-              ) : (
-                <div className="bg-white rounded-2xl shadow-sm p-6 text-sm text-gray-600">
-                  <p className="font-semibold text-gray-900 mb-2">Hỏi người bán về sản phẩm</p>
-                  <p>
-                    {user
-                      ? 'Chỉ tài khoản bidder hoặc seller mới có thể đặt câu hỏi.'
-                      : 'Đăng nhập để gửi câu hỏi cho người bán và nhận phản hồi nhanh chóng.'}
-                  </p>
-                  {!user && (
-                    <button
-                      className="mt-4 w-full bg-slate-900 text-white rounded-2xl py-2 font-semibold"
-                      onClick={handleLoginRedirect}
-                    >
-                      Đăng nhập
-                    </button>
-                  )}
-                </div>
-              )}
-            </section>
           </div>
         </div>
 
@@ -708,4 +726,5 @@ export default function ProductDetailPage({ user }) {
     </div>
   )
 }
+
 

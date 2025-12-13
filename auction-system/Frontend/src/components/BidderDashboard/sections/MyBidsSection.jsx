@@ -7,6 +7,7 @@ function MyBidsSection() {
   const [bids, setBids] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [filter, setFilter] = useState('all')
 
   useEffect(() => {
     loadMyBids()
@@ -64,21 +65,54 @@ function MyBidsSection() {
     <div className="space-y-4">
       <div className="flex items-center justify-between mb-4">
         <p className="text-gray-600">Tổng cộng: {bids.length} lần đấu giá</p>
-        <button onClick={loadMyBids} className="text-sm text-blue-600 hover:text-blue-700">
-          Tải lại
-        </button>
+        <div className="flex items-center gap-3">
+          <select
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            className="text-sm border border-gray-300 rounded-lg px-3 py-1 text-gray-700"
+          >
+            <option value="all">Tất cả</option>
+            <option value="ongoing">Chưa kết thúc</option>
+            <option value="won">Đã thắng</option>
+            <option value="lost">Không chiến thắng</option>
+            <option value="rejected">Bị từ chối</option>
+          </select>
+          <button onClick={loadMyBids} className="text-sm text-blue-600 hover:text-blue-700">
+            Tải lại
+          </button>
+        </div>
       </div>
       <ul className="space-y-4">
-        {bids.map((bid) => (
-          <BidHistoryCard
-            key={bid.id}
-            bid={bid}
-            onView={() => navigate(`/products/${bid.product_id || bid.products?.id}`)}
-          />
-        ))}
+        {bids
+          .filter((bid) => {
+            const statusKey = getBidStatusKey(bid)
+            if (filter === 'all') return true
+            return statusKey === filter
+          })
+          .map((bid) => (
+            <BidHistoryCard
+              key={bid.id}
+              bid={bid}
+              onView={() => navigate(`/products/${bid.product_id || bid.products?.id}`)}
+            />
+          ))}
       </ul>
     </div>
   )
+}
+
+function getBidStatusKey(bid) {
+  const product = bid.products || {}
+  const endTime = product.end_time ? new Date(product.end_time) : null
+  const isEnded = endTime && endTime < new Date()
+  const isCompleted = product.status === 'completed' || product.status === 'cancelled'
+
+  if (bid.is_rejected) return 'rejected'
+  if (isCompleted || isEnded) {
+    if (product.winner_id && product.winner_id === bid.bidder_id) return 'won'
+    return 'lost'
+  }
+  return 'ongoing'
 }
 
 function BidHistoryCard({ bid, onView }) {
@@ -90,20 +124,24 @@ function BidHistoryCard({ bid, onView }) {
   const isEnded = endTime && endTime < new Date()
   const isCompleted = product.status === 'completed' || product.status === 'cancelled'
 
-  const getStatusBadge = () => {
-    // Check if bid was rejected by seller
-    if (bid.is_rejected) {
-      return <span className="px-2 py-1 text-xs font-medium bg-red-100 text-red-700 rounded-full">Bị từ chối</span>
+  const statusKey = getBidStatusKey(bid)
+
+    const getStatusBadge = () => {
+      const base = 'inline-flex items-center h-9 px-3 text-xs font-medium rounded-full'
+      if (statusKey === 'rejected') {
+        return <span className={`${base} bg-red-100 text-red-700`}>Bị từ chối</span>
+      }
+      if (statusKey === 'won') {
+        return <span className={`${base} bg-green-100 text-green-700`}>Đã thắng</span>
+      }
+      if (statusKey === 'lost') {
+        return <span className={`${base} bg-gray-200 text-gray-700`}>Không chiến thắng</span>
+      }
+      if (statusKey === 'ongoing') {
+        return <span className={`${base} bg-blue-100 text-blue-700`}>Chưa kết thúc</span>
+      }
+      return <span className={`${base} bg-gray-100 text-gray-700`}>{product.status || 'Không rõ'}</span>
     }
-    // Check if ended by time or status
-    if (isCompleted || isEnded) {
-      return <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-700 rounded-full">Đã kết thúc</span>
-    }
-    if (product.status === 'active') {
-      return <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-700 rounded-full">Đang đấu giá</span>
-    }
-    return <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-700 rounded-full">{product.status || 'Không rõ'}</span>
-  }
 
   return (
     <div className="border border-gray-200 rounded-xl p-4 hover:border-blue-300 transition">
@@ -128,7 +166,7 @@ function BidHistoryCard({ bid, onView }) {
           {getStatusBadge()}
           <button
             onClick={onView}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+            className="h-10 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition inline-flex items-center"
           >
             Xem chi tiết
           </button>

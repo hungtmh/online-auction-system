@@ -13,10 +13,17 @@ export default function RelatedProducts({ products = [], currentProductId }) {
   
   // Filter out current product and limit to 5
   const filteredProducts = products
-    .filter((p) => p.id !== currentProductId)
+    .filter((p) => String(p.id) !== String(currentProductId))
     .slice(0, 5)
 
-  if (filteredProducts.length === 0) return null
+  if (filteredProducts.length === 0) {
+    return (
+      <section className="mt-8">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Sản phẩm cùng chuyên mục</h3>
+        <div className="text-sm text-gray-500 bg-white rounded-xl shadow-sm p-4">Chưa có sản phẩm liên quan để hiển thị.</div>
+      </section>
+    )
+  }
 
   return (
     <section className="mt-8">
