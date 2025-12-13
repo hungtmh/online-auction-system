@@ -4,13 +4,10 @@ import 'quill/dist/quill.snow.css'
 function formatDateTime(dateString) {
   if (!dateString) return ''
   const date = new Date(dateString)
-  return date.toLocaleString('vi-VN', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  })
+  const day = String(date.getDate()).padStart(2, '0')
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const year = date.getFullYear()
+  return `${day}/${month}/${year}`
 }
 
 export default function ProductDescriptionCard({
@@ -18,68 +15,36 @@ export default function ProductDescriptionCard({
   descriptionHistory = [],
   productCreatedAt
 }) {
-  // Build full history: original description + appended descriptions
-  const fullHistory = React.useMemo(() => {
-    const history = []
-
-    if (descriptionHtml) {
-      history.push({
-        id: 'original',
-        description: descriptionHtml,
-        added_at: productCreatedAt,
-        isOriginal: true
-      })
-    }
-
-    const appended = Array.isArray(descriptionHistory) ? [...descriptionHistory] : []
-    appended.sort((a, b) => new Date(a.added_at) - new Date(b.added_at))
-
-    appended.forEach((item) => {
-      history.push({
-        ...item,
-        isOriginal: false
-      })
-    })
-
-    return history
-  }, [descriptionHtml, descriptionHistory, productCreatedAt])
-
-  let appendCounter = 0
-
   return (
     <div className="bg-white rounded-xl shadow-md p-6">
       <h2 className="text-2xl font-bold text-gray-900 mb-4">Mô tả chi tiết sản phẩm</h2>
       
-      {/* Full description history */}
-      <div className="space-y-4">
-        {fullHistory.length === 0 && (
-          <div className="text-sm text-gray-500">Không có mô tả cho sản phẩm này.</div>
-        )}
+      {/* Original description without label */}
+      {descriptionHtml && (
+        <div className="prose max-w-none mb-4">
+          <div dangerouslySetInnerHTML={{ __html: descriptionHtml }} />
+        </div>
+      )}
 
-        {fullHistory.map((item, index) => {
-          const label = item.isOriginal ? 'Mô tả gốc' : `Cập nhật lần ${++appendCounter}`
-          return (
-          <div 
-            key={item.id || index} 
-            className={`border-l-4 pl-4 py-2 rounded-r-lg ${
-              item.isOriginal 
-                ? 'border-green-500 bg-green-50' 
-                : 'border-blue-500 bg-blue-50'
-            }`}
-          >
-            <div className="text-xs text-gray-500 mb-2">
-              <span className="font-medium">
-                {label}
-              </span>
-              <span className="mx-2">•</span>
-              <span>{formatDateTime(item.added_at)}</span>
+      {/* Appended descriptions with timestamp and bullet format */}
+      {descriptionHistory.length > 0 && (
+        <div className="space-y-3 mt-6">
+          {descriptionHistory.map((item, index) => (
+            <div key={item.id || index}>
+              <p className="text-sm font-semibold text-gray-700 mb-1">
+                ✏️ {formatDateTime(item.added_at)}
+              </p>
+              <ul className="list-disc text-sm text-gray-600 ml-6">
+                <li dangerouslySetInnerHTML={{ __html: item.description }} />
+              </ul>
             </div>
-            <div className="ql-editor ql-snow text-sm" style={{ padding: 0, border: 'none' }}>
-              <div dangerouslySetInnerHTML={{ __html: item.description }} />
-            </div>
-          </div>
-        )})}
-      </div>
+          ))}
+        </div>
+      )}
+
+      {!descriptionHtml && descriptionHistory.length === 0 && (
+        <div className="text-sm text-gray-500">Không có mô tả cho sản phẩm này.</div>
+      )}
     </div>
   )
 }
