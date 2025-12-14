@@ -11,6 +11,8 @@ import guestRoutes from "./routes/guest.js";
 import bidderRoutes from "./routes/bidder.js";
 import sellerRoutes from "./routes/seller.js";
 import adminRoutes from "./routes/admin.js";
+import orderRoutes from "./routes/order.js";
+import { startAuctionScheduler } from "./services/auctionScheduler.js";
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -39,6 +41,7 @@ app.use("/api/guest", guestRoutes); // Guest routes (KHẢI)
 app.use("/api/bidder", bidderRoutes); // Bidder routes (KHOA)
 app.use("/api/seller", sellerRoutes); // Seller routes (CƯỜNG)
 app.use("/api/admin", adminRoutes); // Admin routes (THẮNG)
+app.use("/api/orders", orderRoutes); // Order completion routes
 
 // Health check
 app.get("/api/health", (req, res) => {
@@ -72,8 +75,12 @@ app.listen(PORT, () => {
 ║   🌍 Environment: ${process.env.NODE_ENV}          ║
 ║   🔗 Frontend: ${process.env.FRONTEND_URL}         ║
 ║   🔐 Auth: JWT + Refresh Token (HTTP-only cookie) ║
+║   📧 Mail: ${process.env.MAIL_USER || 'Not configured'}  ║
 ╚═══════════════════════════════════════════════════╝
   `);
+
+  // Start auction scheduler for automatic auction end processing
+  startAuctionScheduler();
 });
 
 export default app;

@@ -8,6 +8,7 @@ import AdminDashboard from './pages/AdminDashboard'
 import AuctionListPage from './pages/AuctionListPage'
 import ProductDetailPage from './pages/ProductDetailPage'
 import WinnerCheckoutPage from './pages/WinnerCheckoutPage'
+import OrderCompletionPage from './pages/OrderCompletionPage'
 import AuthCallback from './pages/AuthCallback'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
@@ -139,6 +140,9 @@ function App() {
           <Route path="/auctions" element={<AuctionListPage user={user} />} />
           <Route path="/products/:id" element={<ProductDetailPage user={user} />} />
           <Route path="/products/:id/checkout" element={<WinnerCheckoutPage user={user} />} />
+          
+          {/* Route hoàn tất đơn hàng - cho seller và buyer */}
+          <Route path="/orders/:id" element={<OrderCompletionPage user={user} />} />
 
           {/* 404 Route */}
           <Route path="*" element={

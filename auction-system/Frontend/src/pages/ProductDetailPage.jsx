@@ -135,6 +135,20 @@ export default function ProductDetailPage({ user }) {
     loadProduct()
   }, [loadProduct])
 
+  // Redirect seller hoặc winner đến trang OrderCompletion khi sản phẩm kết thúc
+  useEffect(() => {
+    if (!product || !user || loading) return
+    
+    const isEnded = new Date(product.end_time) < new Date() || ['completed', 'cancelled'].includes(product.status)
+    const isSellerOwner = user.id === product.seller_id
+    const isWinner = user.id === product.winner_id
+    
+    // Nếu sản phẩm đã kết thúc và có winner, redirect seller/winner đến trang order
+    if (isEnded && product.winner_id && (isSellerOwner || isWinner)) {
+      navigate(`/orders/${id}`, { replace: true })
+    }
+  }, [product, user, loading, id, navigate])
+
   // Check if product is in watchlist
   useEffect(() => {
     const checkWatchlist = async () => {
@@ -277,11 +291,8 @@ export default function ProductDetailPage({ user }) {
     setWinnerActionMessage(null)
   }, [product?.id])
 
-  useEffect(() => {
-    if (mode === MODES.WINNER_PAYMENT && id) {
-      navigate(`/products/${id}/checkout`, { replace: true })
-    }
-  }, [mode, id, navigate])
+  // NOTE: Redirect logic for winner/seller moved to useEffect at line ~140
+  // to redirect to /orders/:id (OrderCompletionPage)
 
   useEffect(() => {
     if (!winnerActionMessage) return
