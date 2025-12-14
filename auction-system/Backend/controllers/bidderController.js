@@ -12,6 +12,7 @@
 import { supabase } from '../config/supabase.js'
 import { getSystemSettingMap } from '../utils/systemSettings.js'
 import { uploadBufferToPaymentProofBucket, uploadBufferToAvatarBucket } from '../utils/upload.js'
+import mailService from '../services/mailService.js'
 
 /**
  * @route   GET /api/bidder/products
@@ -204,6 +205,17 @@ export const placeBid = async (req, res) => {
       .limit(1)
       .single()
 
+    // DEBUG LOG
+    console.log(`\n🔔 [PLACE BID DEBUG] Product: ${product_id}`)
+    console.log(`   👤 Bidder: ${bidder_id.substring(0, 8)}...`)
+    console.log(`   💵 My max bid: ${parsedMaxBid}`)
+    console.log(`   📊 Current price: ${currentPrice}`)
+    if (currentWinner) {
+      console.log(`   👑 Current winner: ${currentWinner.bidder_id.substring(0, 8)}..., max_bid: ${currentWinner.max_bid_amount}`)
+    } else {
+      console.log(`   👑 Current winner: NONE (first bidder)`)
+    }
+
     // 4. Tính giá theo công thức
     // A = người đang giữ giá cao nhất TRƯỚC KHI B (tôi) vào
     // B = tôi (người mới đặt)
@@ -220,6 +232,7 @@ export const placeBid = async (req, res) => {
       newCurrentPrice = startingPrice
       winnerBidderId = bidder_id
       isWinning = true
+      console.log(`   ➡️ RESULT: First bidder, isWinning=true`)
     } else {
       const maxA = Number(currentWinner.max_bid_amount) // max của người đang giữ giá
       const maxB = parsedMaxBid // max của tôi (người mới vào)
@@ -230,6 +243,7 @@ export const placeBid = async (req, res) => {
         newCurrentPrice = Math.max(maxB, currentPrice)
         winnerBidderId = currentWinner.bidder_id
         isWinning = false
+        console.log(`   ➡️ RESULT: maxA(${maxA}) >= maxB(${maxB}), A vẫn giữ giá, isWinning=false`)
       } else {
         // TH2: max_A < max_B → B (tôi) giữ giá
         // Giá = max_A + step
@@ -240,8 +254,12 @@ export const placeBid = async (req, res) => {
         }
         winnerBidderId = bidder_id
         isWinning = true
+        console.log(`   ➡️ RESULT: maxA(${maxA}) < maxB(${maxB}), B thắng, isWinning=true`)
       }
     }
+
+    console.log(`   💰 New current price: ${newCurrentPrice}`)
+    console.log(`   🏆 Winner bidder: ${winnerBidderId.substring(0, 8)}...`)
 
     if (hasBuyNow && parsedMaxBid >= buyNowPrice) {
       newCurrentPrice = buyNowPrice
@@ -310,7 +328,63 @@ export const placeBid = async (req, res) => {
       }
     }
 
-    // 8. Trả về kết quả
+    // 8. Gửi email thông báo (async - không block response)
+    (async () => {
+      try {
+        // Lấy thông tin bidder
+        const { data: bidder } = await supabase
+          .from('profiles')
+          .select('id, email, full_name')
+          .eq('id', bidder_id)
+          .single()
+
+        // CHỈ gửi email outbid cho người giữ giá trước KHI người mới THẮNG (isWinning = true)
+        // Nếu người mới KHÔNG thắng (isWinning = false), người cũ vẫn giữ giá → không gửi outbid
+        let previousHighestBidder = null
+        if (currentWinner && isWinning) {
+          // Người mới đặt đã THẮNG → người cũ bị vượt → gửi email cho người cũ
+          const { data: prevBidder } = await supabase
+            .from('profiles')
+            .select('id, email, full_name')
+            .eq('id', currentWinner.bidder_id)
+            .single()
+          if (prevBidder) {
+            previousHighestBidder = {
+              ...prevBidder,
+              bid_amount: currentWinner.max_bid_amount
+            }
+          }
+        }
+
+        // Gửi email
+        await mailService.notifyNewBid({
+          product,
+          bidder,
+          bidAmount: newCurrentPrice,
+          previousHighestBidder,
+          isWinning // Truyền để biết bidder có đang thắng không
+        })
+
+        // Nếu đấu giá kết thúc (mua ngay), gửi thêm email kết thúc
+        if (finalizeAuction) {
+          const { data: seller } = await supabase
+            .from('profiles')
+            .select('id, email, full_name')
+            .eq('id', product.seller_id)
+            .single()
+          
+          await mailService.notifyAuctionEnded({
+            product: { ...product, final_price: newCurrentPrice },
+            seller,
+            winner: bidder
+          })
+        }
+      } catch (emailError) {
+        console.error('❌ Error sending bid notification emails:', emailError)
+      }
+    })()
+
+    // 9. Trả về kết quả
     res.json({
       success: true,
       message: finalizeAuction
@@ -717,6 +791,40 @@ export const askSellerQuestion = async (req, res) => {
       .single()
 
     if (insertError) throw insertError
+
+    // Gửi email thông báo cho seller (async)
+    (async () => {
+      try {
+        const { data: seller } = await supabase
+          .from('profiles')
+          .select('id, email, full_name')
+          .eq('id', product.seller_id)
+          .single()
+
+        const { data: asker } = await supabase
+          .from('profiles')
+          .select('id, email, full_name')
+          .eq('id', askerId)
+          .single()
+
+        const { data: fullProduct } = await supabase
+          .from('products')
+          .select('id, name, thumbnail_url')
+          .eq('id', id)
+          .single()
+
+        if (seller && asker && fullProduct) {
+          await mailService.notifyNewQuestion({
+            product: fullProduct,
+            seller,
+            asker,
+            question: inserted
+          })
+        }
+      } catch (emailError) {
+        console.error('❌ Error sending new question email:', emailError)
+      }
+    })()
 
     res.json({
       success: true,

@@ -12,6 +12,7 @@
 import { supabase } from '../config/supabase.js'
 import { getSystemSettingMap } from '../utils/systemSettings.js'
 import { uploadBufferToProductBucket, uploadBufferToAvatarBucket } from '../utils/upload.js'
+import mailService from '../services/mailService.js'
 
 /**
  * @route   POST /api/seller/products
@@ -491,6 +492,33 @@ export const answerBidderQuestion = async (req, res) => {
 
     if (updateError) throw updateError
 
+    // Gửi email thông báo (async - không block response)
+    (async () => {
+      try {
+        // Lấy thông tin đầy đủ product và seller
+        const { data: fullProduct } = await supabase
+          .from('products')
+          .select('id, name, thumbnail_url')
+          .eq('id', question.product_id)
+          .single()
+
+        const { data: seller } = await supabase
+          .from('profiles')
+          .select('id, email, full_name')
+          .eq('id', sellerId)
+          .single()
+
+        await mailService.notifyQuestionAnswered({
+          product: fullProduct,
+          seller,
+          question: { ...updated, question: updated.question },
+          answer: trimmedAnswer
+        })
+      } catch (emailError) {
+        console.error('❌ Error sending question answered email:', emailError)
+      }
+    })()
+
     res.json({
       success: true,
       message: 'Đã gửi trả lời cho bidder.',
@@ -658,6 +686,33 @@ export const rejectBid = async (req, res) => {
         current_price: nextHighest
       }
     })
+
+    // Gửi email thông báo cho bidder bị từ chối (async)
+    (async () => {
+      try {
+        const { data: bidder } = await supabase
+          .from('profiles')
+          .select('id, email, full_name')
+          .eq('id', bid.bidder_id)
+          .single()
+
+        const { data: fullProduct } = await supabase
+          .from('products')
+          .select('id, name, thumbnail_url')
+          .eq('id', productId)
+          .single()
+
+        if (bidder && fullProduct) {
+          await mailService.notifyBidRejected({
+            product: fullProduct,
+            bidder,
+            reason: req.body.reason || 'Người bán đã từ chối tham gia đấu giá của bạn'
+          })
+        }
+      } catch (emailError) {
+        console.error('❌ Error sending bid rejected email:', emailError)
+      }
+    })()
   } catch (error) {
     console.error('❌ Error rejecting bid:', error)
     res.status(500).json({ success: false, message: 'Không thể từ chối lượt đấu giá.' })
