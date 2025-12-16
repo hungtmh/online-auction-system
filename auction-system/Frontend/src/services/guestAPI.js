@@ -32,13 +32,11 @@ const guestAPI = {
 
   /**
    * Tìm kiếm sản phẩm
-   * @param {string} keyword
-   * @param {Object} params - { page, limit }
+   * @param {Object} params - { q, page, limit, category, sort, price_min, price_max, time_remaining }
    */
-
-  searchProducts: async (keyword, params = {}) => {
+  searchProducts: async (params = {}) => {
     const response = await axios.get(`${API_BASE}/guest/search`, {
-      params: { q: keyword, ...params },
+      params: params,
     });
     return response.data;
   },
@@ -64,7 +62,7 @@ const guestAPI = {
   getSellerProfile: async (sellerId) => {
     const response = await axios.get(`${API_BASE}/guest/sellers/${sellerId}`);
     return response.data;
-  }
+  },
 };
 
 export default guestAPI;
