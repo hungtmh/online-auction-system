@@ -1,13 +1,13 @@
-import { useState } from 'react';
-import adminAPI from '../../services/adminAPI';
-import { useDialog } from '../../context/DialogContext.jsx';
+import { useState } from "react";
+import adminAPI from "../../services/adminAPI";
+import { useDialog } from "../../context/DialogContext.jsx";
 
 // Placeholder image khi không có ảnh (SVG inline)
 const DEFAULT_IMAGE = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'%3E%3Crect fill='%23e5e7eb' width='400' height='300'/%3E%3Ctext fill='%239ca3af' font-family='Arial' font-size='16' x='50%25' y='50%25' text-anchor='middle' dy='.3em'%3EKhông có ảnh%3C/text%3E%3C/svg%3E";
 
 function ProductApproval({ product, onClose, onSuccess }) {
   const [action, setAction] = useState(null); // 'approve' | 'reject'
-  const [rejectReason, setRejectReason] = useState('');
+  const [rejectReason, setRejectReason] = useState("");
   const [loading, setLoading] = useState(false);
   const { confirm, alert } = useDialog();
 
@@ -15,10 +15,10 @@ function ProductApproval({ product, onClose, onSuccess }) {
 
   const handleApprove = async () => {
     const confirmed = await confirm({
-      icon: '✅',
-      title: 'Duyệt sản phẩm',
+      icon: "✅",
+      title: "Duyệt sản phẩm",
       message: `Bạn có chắc muốn DUYỆT sản phẩm "${product.title}"?`,
-      confirmText: 'Duyệt ngay',
+      confirmText: "Duyệt ngay",
     });
     if (!confirmed) return;
 
@@ -26,17 +26,17 @@ function ProductApproval({ product, onClose, onSuccess }) {
     try {
       await adminAPI.approveProduct(product.id);
       await alert({
-        icon: '✅',
-        title: 'Đã duyệt sản phẩm',
-        message: 'Sản phẩm đã được duyệt thành công.',
+        icon: "✅",
+        title: "Đã duyệt sản phẩm",
+        message: "Sản phẩm đã được duyệt thành công.",
       });
       onSuccess?.();
       onClose();
     } catch (err) {
       await alert({
-        icon: '⚠️',
-        title: 'Không thể duyệt sản phẩm',
-        message: err.response?.data?.message || 'Vui lòng thử lại.',
+        icon: "⚠️",
+        title: "Không thể duyệt sản phẩm",
+        message: err.response?.data?.message || "Vui lòng thử lại.",
       });
     } finally {
       setLoading(false);
@@ -46,18 +46,18 @@ function ProductApproval({ product, onClose, onSuccess }) {
   const handleReject = async () => {
     if (!rejectReason.trim()) {
       await alert({
-        icon: '✍️',
-        title: 'Thiếu lý do',
-        message: 'Vui lòng nhập lý do từ chối trước khi tiếp tục.',
+        icon: "✍️",
+        title: "Thiếu lý do",
+        message: "Vui lòng nhập lý do từ chối trước khi tiếp tục.",
       });
       return;
     }
 
     const confirmed = await confirm({
-      icon: '❌',
-      title: 'Từ chối sản phẩm',
+      icon: "❌",
+      title: "Từ chối sản phẩm",
       message: `Bạn có chắc muốn TỪ CHỐI sản phẩm "${product.title}"?`,
-      confirmText: 'Từ chối',
+      confirmText: "Từ chối",
     });
     if (!confirmed) return;
 
@@ -65,17 +65,17 @@ function ProductApproval({ product, onClose, onSuccess }) {
     try {
       await adminAPI.rejectProduct(product.id, rejectReason);
       await alert({
-        icon: '❌',
-        title: 'Đã từ chối',
-        message: 'Sản phẩm đã bị từ chối.',
+        icon: "❌",
+        title: "Đã từ chối",
+        message: "Sản phẩm đã bị từ chối.",
       });
       onSuccess?.();
       onClose();
     } catch (err) {
       await alert({
-        icon: '⚠️',
-        title: 'Không thể từ chối',
-        message: err.response?.data?.message || 'Vui lòng thử lại.',
+        icon: "⚠️",
+        title: "Không thể từ chối",
+        message: err.response?.data?.message || "Vui lòng thử lại.",
       });
     } finally {
       setLoading(false);
@@ -84,10 +84,10 @@ function ProductApproval({ product, onClose, onSuccess }) {
 
   const handleDelete = async () => {
     const confirmed = await confirm({
-      icon: '🗑️',
-      title: 'Xóa sản phẩm',
+      icon: "🗑️",
+      title: "Xóa sản phẩm",
       message: `⚠️ Hành động này không thể hoàn tác.\n\nBạn có chắc muốn xóa "${product.title}"?`,
-      confirmText: 'Xóa vĩnh viễn',
+      confirmText: "Xóa vĩnh viễn",
     });
     if (!confirmed) return;
 
@@ -95,17 +95,17 @@ function ProductApproval({ product, onClose, onSuccess }) {
     try {
       await adminAPI.deleteProduct(product.id);
       await alert({
-        icon: '🗑️',
-        title: 'Đã xóa sản phẩm',
-        message: 'Sản phẩm đã được xóa khỏi hệ thống.',
+        icon: "🗑️",
+        title: "Đã xóa sản phẩm",
+        message: "Sản phẩm đã được xóa khỏi hệ thống.",
       });
       onSuccess?.();
       onClose();
     } catch (err) {
       await alert({
-        icon: '⚠️',
-        title: 'Không thể xóa sản phẩm',
-        message: err.response?.data?.message || 'Vui lòng thử lại.',
+        icon: "⚠️",
+        title: "Không thể xóa sản phẩm",
+        message: err.response?.data?.message || "Vui lòng thử lại.",
       });
     } finally {
       setLoading(false);
@@ -118,11 +118,7 @@ function ProductApproval({ product, onClose, onSuccess }) {
         {/* Header */}
         <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
           <h3 className="text-xl font-bold text-gray-800">Duyệt Sản phẩm</h3>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 text-2xl"
-            disabled={loading}
-          >
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl" disabled={loading}>
             ×
           </button>
         </div>
@@ -137,7 +133,9 @@ function ProductApproval({ product, onClose, onSuccess }) {
                 src={product.image_url || DEFAULT_IMAGE}
                 alt={product.title}
                 className="w-full h-64 object-cover rounded-lg border border-gray-200"
-                onError={(e) => { e.target.src = DEFAULT_IMAGE; }}
+                onError={(e) => {
+                  e.target.src = DEFAULT_IMAGE;
+                }}
               />
             </div>
 
@@ -156,79 +154,52 @@ function ProductApproval({ product, onClose, onSuccess }) {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm text-gray-600">Giá khởi điểm</label>
-                  <p className="text-lg font-semibold text-blue-600">
-                    {product.starting_price?.toLocaleString('vi-VN')} đ
-                  </p>
+                  <p className="text-lg font-semibold text-blue-600">{product.starting_price?.toLocaleString("vi-VN")} đ</p>
                 </div>
                 <div>
                   <label className="text-sm text-gray-600">Giá hiện tại</label>
-                  <p className="text-lg font-semibold text-green-600">
-                    {product.current_price?.toLocaleString('vi-VN')} đ
-                  </p>
+                  <p className="text-lg font-semibold text-green-600">{product.current_price?.toLocaleString("vi-VN")} đ</p>
                 </div>
                 {product.buy_now_price && (
                   <div>
                     <label className="text-sm text-gray-600">Giá mua ngay</label>
-                    <p className="text-lg font-semibold text-purple-600">
-                      {product.buy_now_price?.toLocaleString('vi-VN')} đ
-                    </p>
+                    <p className="text-lg font-semibold text-purple-600">{product.buy_now_price?.toLocaleString("vi-VN")} đ</p>
                   </div>
                 )}
                 <div>
                   <label className="text-sm text-gray-600">Bước giá</label>
-                  <p className="text-gray-800">
-                    {product.price_step?.toLocaleString('vi-VN')} đ
-                  </p>
+                  <p className="text-gray-800">{product.price_step?.toLocaleString("vi-VN")} đ</p>
                 </div>
               </div>
 
               <div>
                 <label className="text-sm text-gray-600">Người bán</label>
-                <p className="font-medium text-gray-800">
-                  {product.seller_email || `ID: ${product.seller_id}`}
-                </p>
+                <p className="font-medium text-gray-800">{product.seller_email || `ID: ${product.seller_id}`}</p>
               </div>
 
               <div>
                 <label className="text-sm text-gray-600">Thời gian kết thúc</label>
-                <p className="font-medium text-gray-800">
-                  {new Date(product.end_time).toLocaleString('vi-VN')}
-                </p>
+                <p className="font-medium text-gray-800">{new Date(product.end_time).toLocaleString("vi-VN")}</p>
               </div>
 
               <div>
                 <label className="text-sm text-gray-600">Trạng thái</label>
                 <p>
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    product.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                    product.status === 'approved' ? 'bg-green-100 text-green-800' :
-                    product.status === 'sold' ? 'bg-blue-100 text-blue-800' :
-                    'bg-red-100 text-red-800'
-                  }`}>
-                    {product.status}
-                  </span>
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${product.status === "pending" ? "bg-yellow-100 text-yellow-800" : product.status === "approved" || product.status === "active" ? "bg-green-100 text-green-800" : product.status === "sold" ? "bg-blue-100 text-blue-800" : "bg-red-100 text-red-800"}`}>{product.status}</span>
                 </p>
               </div>
             </div>
           </div>
 
           {/* Action Selection */}
-          {product.status === 'pending' && !action && (
+          {product.status === "pending" && !action && (
             <div className="border-t pt-6">
               <h4 className="font-semibold text-gray-800 mb-4">Chọn hành động:</h4>
               <div className="flex gap-4">
-                <button
-                  onClick={() => setAction('approve')}
-                  className="flex-1 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium"
-                  disabled={loading}
-                >
+                <button onClick={() => setAction("approve")} className="flex-1 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium" disabled={loading}>
                   ✅ Duyệt sản phẩm
                 </button>
-                <button
-                  onClick={() => setAction('reject')}
-                  className="flex-1 px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium"
-                  disabled={loading}
-                >
+                <button onClick={() => setAction("reject")} className="flex-1 px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium" disabled={loading}>
                   ❌ Từ chối sản phẩm
                 </button>
               </div>
@@ -236,25 +207,15 @@ function ProductApproval({ product, onClose, onSuccess }) {
           )}
 
           {/* Approve Confirmation */}
-          {action === 'approve' && (
+          {action === "approve" && (
             <div className="bg-green-50 border border-green-200 rounded-lg p-6">
               <h4 className="font-semibold text-green-800 mb-3">Xác nhận duyệt sản phẩm</h4>
-              <p className="text-green-700 mb-4">
-                Sản phẩm sẽ được hiển thị công khai và người dùng có thể đấu giá.
-              </p>
+              <p className="text-green-700 mb-4">Sản phẩm sẽ được hiển thị công khai và người dùng có thể đấu giá.</p>
               <div className="flex gap-3">
-                <button
-                  onClick={handleApprove}
-                  disabled={loading}
-                  className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
-                >
-                  {loading ? 'Đang xử lý...' : 'Xác nhận duyệt'}
+                <button onClick={handleApprove} disabled={loading} className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50">
+                  {loading ? "Đang xử lý..." : "Xác nhận duyệt"}
                 </button>
-                <button
-                  onClick={() => setAction(null)}
-                  disabled={loading}
-                  className="px-6 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400"
-                >
+                <button onClick={() => setAction(null)} disabled={loading} className="px-6 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400">
                   Hủy
                 </button>
               </div>
@@ -262,36 +223,22 @@ function ProductApproval({ product, onClose, onSuccess }) {
           )}
 
           {/* Reject Form */}
-          {action === 'reject' && (
+          {action === "reject" && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-6">
               <h4 className="font-semibold text-red-800 mb-3">Từ chối sản phẩm</h4>
-              <p className="text-red-700 mb-4">
-                Vui lòng cung cấp lý do từ chối để người bán hiểu và cải thiện.
-              </p>
-              <textarea
-                value={rejectReason}
-                onChange={(e) => setRejectReason(e.target.value)}
-                placeholder="Nhập lý do từ chối (bắt buộc)..."
-                className="w-full border border-gray-300 rounded-lg px-4 py-2 mb-4"
-                rows="4"
-                disabled={loading}
-              />
+              <p className="text-red-700 mb-4">Vui lòng cung cấp lý do từ chối để người bán hiểu và cải thiện.</p>
+              <textarea value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} placeholder="Nhập lý do từ chối (bắt buộc)..." className="w-full border border-gray-300 rounded-lg px-4 py-2 mb-4" rows="4" disabled={loading} />
               <div className="flex gap-3">
-                <button
-                  onClick={handleReject}
-                  disabled={loading || !rejectReason.trim()}
-                  className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
-                >
-                  {loading ? 'Đang xử lý...' : 'Xác nhận từ chối'}
+                <button onClick={handleReject} disabled={loading || !rejectReason.trim()} className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50">
+                  {loading ? "Đang xử lý..." : "Xác nhận từ chối"}
                 </button>
                 <button
                   onClick={() => {
                     setAction(null);
-                    setRejectReason('');
+                    setRejectReason("");
                   }}
                   disabled={loading}
-                  className="px-6 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400"
-                >
+                  className="px-6 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400">
                   Hủy
                 </button>
               </div>
@@ -300,11 +247,7 @@ function ProductApproval({ product, onClose, onSuccess }) {
 
           {/* Delete Option */}
           <div className="border-t pt-6">
-            <button
-              onClick={handleDelete}
-              disabled={loading}
-              className="px-6 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-900 disabled:opacity-50"
-            >
+            <button onClick={handleDelete} disabled={loading} className="px-6 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-900 disabled:opacity-50">
               🗑️ Xóa sản phẩm vi phạm
             </button>
           </div>
@@ -312,11 +255,7 @@ function ProductApproval({ product, onClose, onSuccess }) {
 
         {/* Footer */}
         <div className="sticky bottom-0 bg-gray-50 border-t border-gray-200 px-6 py-4 flex justify-end">
-          <button
-            onClick={onClose}
-            disabled={loading}
-            className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50"
-          >
+          <button onClick={onClose} disabled={loading} className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50">
             Đóng
           </button>
         </div>
