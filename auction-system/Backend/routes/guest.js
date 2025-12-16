@@ -28,13 +28,7 @@ const validate = (req, res, next) => {
  * @query   ?page=1&limit=12&category=UUID&status=active
  * @access  Public
  */
-router.get("/products", [
-  query("page").optional().isInt({ min: 1 }).toInt(), 
-  query("limit").optional().isInt({ min: 1, max: 100 }).toInt(), 
-  query("category").optional().isUUID().withMessage("category must be a valid UUID"), 
-  query("status").optional().isIn(["active", "inactive", "draft"]), 
-  validate
-], getProducts);
+router.get("/products", [query("page").optional().isInt({ min: 1 }).toInt(), query("limit").optional().isInt({ min: 1, max: 100 }).toInt(), query("category").optional().isUUID().withMessage("category must be a valid UUID"), query("status").optional().isIn(["active", "inactive", "draft"]), validate], getProducts);
 
 /**
  * @route   GET /api/guest/products/:id
@@ -49,7 +43,7 @@ router.get("/products/:id", [param("id").notEmpty().withMessage("id is required"
  * @query   ?q=keyword&page=1&limit=12
  * @access  Public
  */
-router.get("/search", [query("q").notEmpty().withMessage("q is required"), query("page").optional().isInt({ min: 1 }).toInt(), query("limit").optional().isInt({ min: 1 }).toInt(), validate], searchProducts);
+router.get("/search", [query("q").optional(), query("page").optional().isInt({ min: 1 }).toInt(), query("limit").optional().isInt({ min: 1 }).toInt(), validate], searchProducts);
 
 /**
  * @route   GET /api/guest/categories

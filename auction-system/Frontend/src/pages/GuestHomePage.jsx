@@ -1,10 +1,11 @@
 ﻿import GuestHomePageContent from "../components/GuestHomePage/GuestHomePageContent";
+import PublicLayout from "../components/Layout/PublicLayout";
 
 function GuestHomePage({ user }) {
   return (
-    <div>
+    <PublicLayout user={user}>
       <GuestHomePageContent user={user} />
-    </div>
+    </PublicLayout>
   );
 }
 

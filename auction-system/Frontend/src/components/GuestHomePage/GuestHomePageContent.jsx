@@ -6,7 +6,6 @@ import CategoryMenu from "./CategoryMenu";
 import FeaturedProducts from "./FeaturedProducts";
 import SearchBar from "./SearchBar";
 import ProductCard from "./ProductCard";
-import UnifiedNavbar from "../common/UnifiedNavbar";
 import heroImg from "../../assets/image/hero-auction.png";
 
 function GuestHomePageContent({ user }) {
@@ -27,13 +26,13 @@ function GuestHomePageContent({ user }) {
   // Load watchlist for bidder
   useEffect(() => {
     const loadWatchlist = async () => {
-      if (!user || user.role !== 'bidder') return;
+      if (!user || user.role !== "bidder") return;
       try {
         const res = await bidderAPI.getWatchlist();
-        const ids = (res?.data || []).map(item => item.product_id || item.products?.id);
+        const ids = (res?.data || []).map((item) => item.product_id || item.products?.id);
         setWatchlistIds(new Set(ids));
       } catch (err) {
-        console.error('Load watchlist error:', err);
+        console.error("Load watchlist error:", err);
       }
     };
     loadWatchlist();
@@ -51,7 +50,7 @@ function GuestHomePageContent({ user }) {
 
       setProducts(Array.isArray(prodRes?.data) ? prodRes.data : []);
       setCategories(Array.isArray(catRes?.data) ? catRes.data : []);
-      
+
       // Featured API trả về object { ending_soon: [], most_bids: [], highest_price: [] }
       const featuredData = featuredRes?.data || {};
       setEndingSoon(Array.isArray(featuredData.ending_soon) ? featuredData.ending_soon : []);
@@ -67,9 +66,6 @@ function GuestHomePageContent({ user }) {
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-800">
-      {/* Unified Navbar for all roles */}
-      <UnifiedNavbar user={user} />
-
       {/* Category Menu 2 cấp */}
       <CategoryMenu categories={categories} />
 
@@ -184,75 +180,6 @@ function GuestHomePageContent({ user }) {
           </div>
         </div>
       </section>
-
-      {/* Footer */}
-      <footer className="bg-gray-900 text-gray-300 py-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
-            <div>
-              <h4 className="text-white font-bold text-lg mb-4">AuctionHub</h4>
-              <p className="text-sm text-gray-400">Nền tảng đấu giá trực tuyến hàng đầu Việt Nam.</p>
-            </div>
-            <div>
-              <h5 className="text-white font-semibold mb-4">Về chúng tôi</h5>
-              <ul className="space-y-2 text-sm">
-                <li>
-                  <a className="hover:text-white transition" href="#">
-                    Giới thiệu
-                  </a>
-                </li>
-                <li>
-                  <a className="hover:text-white transition" href="#">
-                    Liên hệ
-                  </a>
-                </li>
-                <li>
-                  <a className="hover:text-white transition" href="#">
-                    Tin tức
-                  </a>
-                </li>
-              </ul>
-            </div>
-            <div>
-              <h5 className="text-white font-semibold mb-4">Hỗ trợ</h5>
-              <ul className="space-y-2 text-sm">
-                <li>
-                  <a className="hover:text-white transition" href="#">
-                    Trung tâm trợ giúp
-                  </a>
-                </li>
-                <li>
-                  <a className="hover:text-white transition" href="#">
-                    Điều khoản sử dụng
-                  </a>
-                </li>
-                <li>
-                  <a className="hover:text-white transition" href="#">
-                    Chính sách bảo mật
-                  </a>
-                </li>
-              </ul>
-            </div>
-            <div>
-              <h5 className="text-white font-semibold mb-4">Theo dõi chúng tôi</h5>
-              <div className="flex gap-4 text-2xl">
-                <a href="#" className="hover:text-blue-400 transition">
-                  📘
-                </a>
-                <a href="#" className="hover:text-pink-400 transition">
-                  📷
-                </a>
-                <a href="#" className="hover:text-blue-300 transition">
-                  🐦
-                </a>
-              </div>
-            </div>
-          </div>
-          <div className="border-t border-gray-800 pt-8 text-center text-sm">
-            <p>&copy; 2025 AuctionHub by TayDuKy Team. All rights reserved.</p>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 }
