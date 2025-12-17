@@ -677,18 +677,8 @@ export const rejectBid = async (req, res) => {
       })
       .eq('id', productId)
 
-    res.json({
-      success: true,
-      message: 'Đã từ chối lượt đấu giá.',
-      data: updatedBid,
-      meta: {
-        active_bid_count: activeBidCount ?? 0,
-        current_price: nextHighest
-      }
-    })
-
-    // Gửi email thông báo cho bidder bị từ chối (async)
-    (async () => {
+    // Gửi email thông báo cho bidder bị từ chối (async - fire and forget)
+    setImmediate(async () => {
       try {
         const { data: bidder } = await supabase
           .from('profiles')
@@ -712,7 +702,18 @@ export const rejectBid = async (req, res) => {
       } catch (emailError) {
         console.error('❌ Error sending bid rejected email:', emailError)
       }
-    })()
+    })
+
+    // Send response immediately and return
+    return res.json({
+      success: true,
+      message: 'Đã từ chối lượt đấu giá.',
+      data: updatedBid,
+      meta: {
+        active_bid_count: activeBidCount ?? 0,
+        current_price: nextHighest
+      }
+    })
   } catch (error) {
     console.error('❌ Error rejecting bid:', error)
     res.status(500).json({ success: false, message: 'Không thể từ chối lượt đấu giá.' })
