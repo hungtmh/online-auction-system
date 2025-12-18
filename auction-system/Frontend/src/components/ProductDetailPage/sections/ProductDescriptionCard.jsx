@@ -15,6 +15,12 @@ export default function ProductDescriptionCard({
   descriptionHistory = [],
   productCreatedAt
 }) {
+  // Filter out the first history item if it duplicates the main description
+  const validHistory = descriptionHistory.filter((item, index) => {
+    if (index === 0 && item.description === descriptionHtml) return false
+    return true
+  })
+
   return (
     <div className="bg-white rounded-xl shadow-md p-6">
       <h2 className="text-2xl font-bold text-gray-900 mb-4">Mô tả chi tiết sản phẩm</h2>
@@ -27,9 +33,9 @@ export default function ProductDescriptionCard({
       )}
 
       {/* Appended descriptions with timestamp and bullet format */}
-      {descriptionHistory.length > 0 && (
+      {validHistory.length > 0 && (
         <div className="space-y-3 mt-6">
-          {descriptionHistory.map((item, index) => (
+          {validHistory.map((item, index) => (
             <div key={item.id || index}>
               <p className="text-sm font-semibold text-gray-700 mb-1">
                 ✏️ {formatDateTime(item.added_at)}
@@ -42,7 +48,7 @@ export default function ProductDescriptionCard({
         </div>
       )}
 
-      {!descriptionHtml && descriptionHistory.length === 0 && (
+      {!descriptionHtml && validHistory.length === 0 && (
         <div className="text-sm text-gray-500">Không có mô tả cho sản phẩm này.</div>
       )}
     </div>

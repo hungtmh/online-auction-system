@@ -81,9 +81,9 @@ export default function BidHistory({ bids = [] }) {
       {bids.length === 0 ? (
         <p className="text-sm text-gray-500">Chưa có lượt đấu giá nào.</p>
       ) : (
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto max-h-96 overflow-y-auto">
           <table className="min-w-full text-sm">
-            <thead>
+            <thead className="sticky top-0 bg-white z-10">
               <tr className="text-left text-gray-500 border-b">
                 <th className="py-2 pr-4">Thời điểm</th>
                 <th className="py-2 pr-4">Người giữ giá</th>

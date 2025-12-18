@@ -38,11 +38,18 @@ const formatRelativeTime = (target) => {
   if (days < 3) {
     if (days > 0) return `${days} ngày ${hours} giờ nữa`
     if (hours > 0) return `${hours} giờ ${minutes} phút nữa`
-    return `${minutes} phút nữa`
+    if (minutes > 0) return `${minutes} phút nữa`
+    return 'Dưới 1 phút nữa'
   }
   
   // Otherwise show full date
-  return targetDate.toLocaleString('vi-VN')
+  return targetDate.toLocaleString('vi-VN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
 }
 
 const formatDateTime = (date) => {
@@ -65,10 +72,21 @@ const useCountdown = (target) => {
         setLabel('Đã kết thúc')
         return
       }
-      const hours = Math.floor(diff / 36e5)
-      const minutes = Math.floor((diff % 36e5) / 6e4)
-      const seconds = Math.floor((diff % 6e4) / 1e3)
-      setLabel(`${hours}h ${minutes}m ${seconds}s`)
+      
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000)
+      
+      if (days >= 3) {
+        setLabel(`${days} ngày nữa`)
+      } else {
+        if (days > 0) {
+          setLabel(`${days} ngày ${hours} giờ ${minutes} phút ${seconds} giây`)
+        } else {
+          setLabel(`${hours} giờ ${minutes} phút ${seconds} giây`)
+        }
+      }
     }
     update()
     const timer = setInterval(update, 1000)

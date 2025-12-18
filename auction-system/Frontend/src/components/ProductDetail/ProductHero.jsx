@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import 'quill/dist/quill.snow.css'
 
 const FALLBACK_IMAGE = 'https://via.placeholder.com/800x500?text=Auction+Item'
@@ -38,6 +38,7 @@ function InfoTag({ label, value }) {
 }
 
 export default function ProductHero({ product }) {
+  const [activeImageIndex, setActiveImageIndex] = useState(0)
   const gallery = resolveImages(product)
   const category = product?.categories?.name
   const sellerName = product?.seller?.full_name || product?.seller_name || 'Ẩn danh'
@@ -46,26 +47,65 @@ export default function ProductHero({ product }) {
   const sellerNegative =
     product?.seller?.rating_negative ?? product?.seller_rating_negative ?? product?.seller_rating_bad ?? 0
 
+  const handlePrev = (e) => {
+    e.stopPropagation()
+    setActiveImageIndex((prev) => (prev === 0 ? gallery.length - 1 : prev - 1))
+  }
+
+  const handleNext = (e) => {
+    e.stopPropagation()
+    setActiveImageIndex((prev) => (prev === gallery.length - 1 ? 0 : prev + 1))
+  }
+
   return (
     <section className="bg-white rounded-2xl shadow-sm p-6 mb-6">
       <div className="flex flex-col lg:flex-row gap-6">
         <div className="lg:w-2/3">
-          <div className="rounded-2xl overflow-hidden bg-gray-100">
+          <div className="relative rounded-2xl overflow-hidden bg-gray-100 group">
             <img
-              src={gallery[0] || FALLBACK_IMAGE}
+              src={gallery[activeImageIndex] || FALLBACK_IMAGE}
               alt={product?.title}
-              className="w-full h-[420px] object-cover"
+              className="w-full h-[420px] object-contain bg-gray-50"
             />
+            
+            {gallery.length > 1 && (
+              <>
+                <button
+                  onClick={handlePrev}
+                  className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white text-gray-800 p-2 rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+                  </svg>
+                </button>
+                <button
+                  onClick={handleNext}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white text-gray-800 p-2 rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                  </svg>
+                </button>
+              </>
+            )}
           </div>
+          
           {gallery.length > 1 && (
-            <div className="grid grid-cols-4 gap-3 mt-3">
-              {gallery.slice(1, 5).map((image, index) => (
-                <img
+            <div className="flex gap-3 mt-3 overflow-x-auto pb-2">
+              {gallery.map((image, index) => (
+                <button
                   key={`${image}-${index}`}
-                  src={image}
-                  alt={`Ảnh phụ ${index + 1}`}
-                  className="w-full h-24 object-cover rounded-lg border border-gray-100"
-                />
+                  onClick={() => setActiveImageIndex(index)}
+                  className={`flex-shrink-0 relative rounded-lg overflow-hidden border-2 transition-all ${
+                    activeImageIndex === index ? 'border-blue-600 ring-2 ring-blue-100' : 'border-transparent hover:border-gray-300'
+                  }`}
+                >
+                  <img
+                    src={image}
+                    alt={`Ảnh phụ ${index + 1}`}
+                    className="w-20 h-20 object-cover"
+                  />
+                </button>
               ))}
             </div>
           )}
