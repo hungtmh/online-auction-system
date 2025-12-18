@@ -16,6 +16,10 @@ function ProfileSection({ user, onProfileChange }) {
     date_of_birth: ''
   })
   const [message, setMessage] = useState(null)
+  const [upgradeRequest, setUpgradeRequest] = useState(null)
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false)
+  const [upgradeReason, setUpgradeReason] = useState('')
+  const [requestingUpgrade, setRequestingUpgrade] = useState(false)
 
   useEffect(() => {
     loadProfile()
@@ -24,18 +28,48 @@ function ProfileSection({ user, onProfileChange }) {
   const loadProfile = async () => {
     try {
       setLoading(true)
-      const data = await authAPI.getProfile()
-      setProfile(data)
+      const [profileData, upgradeData] = await Promise.all([
+        authAPI.getProfile(),
+        bidderAPI.getUpgradeRequestStatus()
+      ])
+      
+      setProfile(profileData)
+      setUpgradeRequest(upgradeData?.data)
+      
       setFormData({
-        full_name: data?.full_name || '',
-        phone: data?.phone || '',
-        address: data?.address || '',
-        date_of_birth: data?.date_of_birth || ''
+        full_name: profileData?.full_name || '',
+        phone: profileData?.phone || '',
+        address: profileData?.address || '',
+        date_of_birth: profileData?.date_of_birth || ''
       })
     } catch (error) {
       console.error('Failed to load profile:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleRequestUpgrade = async () => {
+    if (!upgradeReason.trim()) {
+      setMessage({ type: 'error', text: 'Vui lòng nhập lý do muốn trở thành người bán' })
+      return
+    }
+
+    try {
+      setRequestingUpgrade(true)
+      const res = await bidderAPI.requestUpgrade(upgradeReason)
+      if (res?.success) {
+        setUpgradeRequest(res.data)
+        setShowUpgradeModal(false)
+        setMessage({ type: 'success', text: 'Đã gửi yêu cầu nâng cấp thành công!' })
+      } else {
+        setMessage({ type: 'error', text: res?.message || 'Có lỗi xảy ra' })
+      }
+    } catch (error) {
+      console.error('Failed to request upgrade:', error)
+      setMessage({ type: 'error', text: 'Không thể gửi yêu cầu' })
+    } finally {
+      setRequestingUpgrade(false)
     }
   }
 
@@ -273,7 +307,108 @@ function ProfileSection({ user, onProfileChange }) {
             </button>
           </div>
         )}
+
+        {/* Upgrade Request Section */}
+        {profile?.role === 'bidder' && (
+          <div className="mt-8 pt-6 border-t">
+            <h3 className="text-lg font-bold text-gray-900 mb-4">Nâng cấp tài khoản</h3>
+            
+            {upgradeRequest && upgradeRequest.status === 'pending' ? (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl">⏳</span>
+                  <div>
+                    <h4 className="font-semibold text-yellow-800">Yêu cầu đang chờ duyệt</h4>
+                    <p className="text-sm text-yellow-700 mt-1">
+                      Bạn đã gửi yêu cầu vào ngày {new Date(upgradeRequest.created_at).toLocaleDateString('vi-VN')}.
+                      Vui lòng chờ quản trị viên xét duyệt.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ) : upgradeRequest && upgradeRequest.status === 'rejected' ? (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-start gap-3">
+                    <span className="text-2xl">❌</span>
+                    <div>
+                      <h4 className="font-semibold text-red-800">Yêu cầu bị từ chối</h4>
+                      <p className="text-sm text-red-700 mt-1">
+                        Yêu cầu trước đó của bạn đã bị từ chối.
+                        {upgradeRequest.admin_note && (
+                          <span className="block mt-1 font-medium">
+                            Lý do: "{upgradeRequest.admin_note}"
+                          </span>
+                        )}
+                        Bạn có thể gửi lại yêu cầu mới.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setShowUpgradeModal(true)}
+                    className="px-4 py-2 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700 transition whitespace-nowrap ml-4"
+                  >
+                    Gửi lại yêu cầu
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-semibold text-blue-800">Trở thành người bán</h4>
+                    <p className="text-sm text-blue-700 mt-1">
+                      Đăng ký để có thể đăng bán sản phẩm đấu giá trên hệ thống.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setShowUpgradeModal(true)}
+                    className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition"
+                  >
+                    Đăng ký ngay
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
+
+      {/* Upgrade Request Modal */}
+      {showUpgradeModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+            <h3 className="text-xl font-bold text-gray-900 mb-4">Đăng ký trở thành người bán</h3>
+            <p className="text-gray-600 mb-4 text-sm">
+              Vui lòng cho chúng tôi biết những loại sản phẩm bạn muốn bán và kinh nghiệm của bạn (nếu có).
+            </p>
+            
+            <textarea
+              value={upgradeReason}
+              onChange={(e) => setUpgradeReason(e.target.value)}
+              placeholder="Ví dụ: Tôi muốn bán các sản phẩm đồ cổ, tranh nghệ thuật. Tôi đã có 5 năm kinh nghiệm sưu tầm và kinh doanh..."
+              rows={4}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-6"
+            />
+
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setShowUpgradeModal(false)}
+                className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                onClick={handleRequestUpgrade}
+                disabled={requestingUpgrade || !upgradeReason.trim()}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {requestingUpgrade ? 'Đang gửi...' : 'Gửi yêu cầu'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

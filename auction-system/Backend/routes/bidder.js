@@ -23,7 +23,9 @@ import {
   updateBidderProfile,
   uploadBidderAvatar,
   getUserBidStatus,
-  getCurrentWinner
+  getCurrentWinner,
+  requestUpgrade,
+  getUpgradeRequestStatus
 } from '../controllers/bidderController.js'
 import { paymentProofUpload, avatarImageUpload } from '../utils/upload.js'
 
@@ -134,5 +136,19 @@ router.put('/profile', updateBidderProfile)
  * @access  Private (Bidder)
  */
 router.post('/profile/avatar', avatarImageUpload.single('avatar'), uploadBidderAvatar)
+
+/**
+ * @route   POST /api/bidder/upgrade-request
+ * @desc    Gửi yêu cầu nâng cấp lên Seller
+ * @access  Private (Bidder)
+ */
+router.post('/upgrade-request', requestUpgrade)
+
+/**
+ * @route   GET /api/bidder/upgrade-request/status
+ * @desc    Kiểm tra trạng thái yêu cầu nâng cấp
+ * @access  Private (Bidder)
+ */
+router.get('/upgrade-request/status', getUpgradeRequestStatus)
 
 export default router

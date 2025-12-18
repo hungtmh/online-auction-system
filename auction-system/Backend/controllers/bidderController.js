@@ -1206,3 +1206,90 @@ export const getCurrentWinner = async (req, res) => {
   }
 }
 
+/**
+ * @route   POST /api/bidder/upgrade-request
+ * @desc    Gửi yêu cầu nâng cấp lên Seller
+ * @access  Private (Bidder)
+ */
+export const requestUpgrade = async (req, res) => {
+  try {
+    const userId = req.user.id
+    const { reason } = req.body
+
+    // Kiểm tra xem đã có request nào đang pending chưa
+    const { data: existingRequest, error: checkError } = await supabase
+      .from('upgrade_requests')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('status', 'pending')
+      .single()
+
+    if (existingRequest) {
+      return res.status(400).json({
+        success: false,
+        message: 'Bạn đã có yêu cầu nâng cấp đang chờ duyệt'
+      })
+    }
+
+    // Tạo request mới
+    const { data, error } = await supabase
+      .from('upgrade_requests')
+      .insert({
+        user_id: userId,
+        reason: reason || '',
+        status: 'pending'
+      })
+      .select()
+      .single()
+
+    if (error) throw error
+
+    res.json({
+      success: true,
+      message: 'Đã gửi yêu cầu nâng cấp thành công',
+      data
+    })
+  } catch (error) {
+    console.error('❌ Error requesting upgrade:', error)
+    res.status(500).json({
+      success: false,
+      message: 'Không thể gửi yêu cầu nâng cấp'
+    })
+  }
+}
+
+/**
+ * @route   GET /api/bidder/upgrade-request/status
+ * @desc    Kiểm tra trạng thái yêu cầu nâng cấp
+ * @access  Private (Bidder)
+ */
+export const getUpgradeRequestStatus = async (req, res) => {
+  try {
+    const userId = req.user.id
+
+    // Lấy request gần nhất
+    const { data, error } = await supabase
+      .from('upgrade_requests')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single()
+
+    if (error && error.code !== 'PGRST116') { // PGRST116 is "The result contains 0 rows"
+      throw error
+    }
+
+    res.json({
+      success: true,
+      data: data || null
+    })
+  } catch (error) {
+    console.error('❌ Error getting upgrade request status:', error)
+    res.status(500).json({
+      success: false,
+      message: 'Không thể lấy trạng thái yêu cầu'
+    })
+  }
+}
+

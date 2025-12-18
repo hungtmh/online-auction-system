@@ -157,6 +157,23 @@ const bidderAPI = {
   getMyAutoBidStatus: async (productId) => {
     const response = await api.get(`/bidder/bids/my/status/${productId}`)
     return response.data
+  },
+
+  /**
+   * Gửi yêu cầu nâng cấp lên Seller
+   * @param {string} reason
+   */
+  requestUpgrade: async (reason) => {
+    const response = await api.post('/bidder/upgrade-request', { reason })
+    return response.data
+  },
+
+  /**
+   * Kiểm tra trạng thái yêu cầu nâng cấp
+   */
+  getUpgradeRequestStatus: async () => {
+    const response = await api.get('/bidder/upgrade-request/status')
+    return response.data
   }
 }
 
