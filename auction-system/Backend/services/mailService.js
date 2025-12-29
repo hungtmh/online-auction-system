@@ -256,20 +256,20 @@ export const notifyQuestionAnswered = async ({ product, seller, question, answer
         .eq('is_rejected', false)
     ])
 
-    // Tạo danh sách unique recipients
+    // Tạo danh sách unique recipients (Intersection: Askers AND Bidders)
+    // Yêu cầu: "email về những người đã đặt đấu giá ít nhất 1 lần và gửi câu hỏi"
     const recipientMap = new Map()
 
-    // Thêm người đặt câu hỏi
-    askersRes.data?.forEach(item => {
-      if (item.profiles && item.profiles.id !== seller.id) {
-        recipientMap.set(item.profiles.id, item.profiles)
-      }
-    })
+    // Tạo Set các bidder_id để tra cứu nhanh
+    const bidderIds = new Set(biddersRes.data?.map(b => b.bidder_id) || [])
 
-    // Thêm bidders
-    biddersRes.data?.forEach(item => {
-      if (item.profiles && item.profiles.id !== seller.id) {
-        recipientMap.set(item.profiles.id, item.profiles)
+    // Chỉ gửi cho những người đã hỏi (Askers) MÀ CŨNG LÀ Bidders
+    askersRes.data?.forEach(item => {
+      const userId = item.asker_id
+      if (bidderIds.has(userId)) {
+        if (item.profiles && item.profiles.id !== seller.id) {
+          recipientMap.set(item.profiles.id, item.profiles)
+        }
       }
     })
 
