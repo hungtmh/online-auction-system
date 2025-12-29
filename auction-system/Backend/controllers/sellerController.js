@@ -98,15 +98,15 @@ export const createProduct = async (req, res) => {
 
     // Lấy cài đặt từ system_settings (do Admin quản lý)
     const settings = await getSystemSettingMap(['auto_extend_enabled', 'auto_extend_minutes', 'auto_extend_threshold', 'min_bid_increment_percent'])
-    
+
     // Validate bước giá theo % giá khởi điểm
     const minBidIncrementPercent = Number(settings.min_bid_increment_percent) || 5
     const minStepPrice = Math.ceil(startPriceNumber * minBidIncrementPercent / 100)
-    
+
     if (stepPriceNumber < minStepPrice) {
-      return res.status(400).json({ 
-        success: false, 
-        message: `Bước giá phải tối thiểu ${minStepPrice.toLocaleString('vi-VN')} VND (${minBidIncrementPercent}% của giá khởi điểm).` 
+      return res.status(400).json({
+        success: false,
+        message: `Bước giá phải tối thiểu ${minStepPrice.toLocaleString('vi-VN')} VND (${minBidIncrementPercent}% của giá khởi điểm).`
       })
     }
 
@@ -247,16 +247,16 @@ export const updateProduct = async (req, res) => {
 
     const hasMutableChanges = Boolean(
       name ||
-        category_id ||
-        starting_price !== undefined ||
-        step_price !== undefined ||
-        buy_now_price !== undefined ||
-        end_time ||
-        Array.isArray(images) ||
-        allow_unrated_bidders !== undefined ||
-        auto_extend !== undefined ||
-        auto_extend_minutes !== undefined ||
-        auto_extend_threshold !== undefined
+      category_id ||
+      starting_price !== undefined ||
+      step_price !== undefined ||
+      buy_now_price !== undefined ||
+      end_time ||
+      Array.isArray(images) ||
+      allow_unrated_bidders !== undefined ||
+      auto_extend !== undefined ||
+      auto_extend_minutes !== undefined ||
+      auto_extend_threshold !== undefined
     )
 
     const isAppendOnly = Boolean(append_description && !hasMutableChanges)
@@ -492,32 +492,30 @@ export const answerBidderQuestion = async (req, res) => {
 
     if (updateError) throw updateError
 
-    // Gửi email thông báo (async - không block response)
-    (async () => {
-      try {
-        // Lấy thông tin đầy đủ product và seller
-        const { data: fullProduct } = await supabase
-          .from('products')
-          .select('id, name, thumbnail_url')
-          .eq('id', question.product_id)
-          .single()
+    // Gửi email thông báo (sync for reliability)
+    try {
+      // Lấy thông tin đầy đủ product và seller
+      const { data: fullProduct } = await supabase
+        .from('products')
+        .select('id, name, thumbnail_url')
+        .eq('id', question.product_id)
+        .single()
 
-        const { data: seller } = await supabase
-          .from('profiles')
-          .select('id, email, full_name')
-          .eq('id', sellerId)
-          .single()
+      const { data: seller } = await supabase
+        .from('profiles')
+        .select('id, email, full_name')
+        .eq('id', sellerId)
+        .single()
 
-        await mailService.notifyQuestionAnswered({
-          product: fullProduct,
-          seller,
-          question: { ...updated, question: updated.question },
-          answer: trimmedAnswer
-        })
-      } catch (emailError) {
-        console.error('❌ Error sending question answered email:', emailError)
-      }
-    })()
+      await mailService.notifyQuestionAnswered({
+        product: fullProduct,
+        seller,
+        question: { ...updated, question: updated.question },
+        answer: trimmedAnswer
+      })
+    } catch (emailError) {
+      console.error('❌ Error sending question answered email:', emailError)
+    }
 
     res.json({
       success: true,
@@ -677,32 +675,31 @@ export const rejectBid = async (req, res) => {
       })
       .eq('id', productId)
 
-    // Gửi email thông báo cho bidder bị từ chối (async - fire and forget)
-    setImmediate(async () => {
-      try {
-        const { data: bidder } = await supabase
-          .from('profiles')
-          .select('id, email, full_name')
-          .eq('id', bid.bidder_id)
-          .single()
+    // Gửi email thông báo cho bidder bị từ chối
+    // User complaint was about "Ask Question". For consistency I will use `await` here too since this is a single reject action.
+    try {
+      const { data: bidder } = await supabase
+        .from('profiles')
+        .select('id, email, full_name')
+        .eq('id', bid.bidder_id)
+        .single()
 
-        const { data: fullProduct } = await supabase
-          .from('products')
-          .select('id, name, thumbnail_url')
-          .eq('id', productId)
-          .single()
+      const { data: fullProduct } = await supabase
+        .from('products')
+        .select('id, name, thumbnail_url')
+        .eq('id', productId)
+        .single()
 
-        if (bidder && fullProduct) {
-          await mailService.notifyBidRejected({
-            product: fullProduct,
-            bidder,
-            reason: req.body.reason || 'Người bán đã từ chối tham gia đấu giá của bạn'
-          })
-        }
-      } catch (emailError) {
-        console.error('❌ Error sending bid rejected email:', emailError)
+      if (bidder && fullProduct) {
+        await mailService.notifyBidRejected({
+          product: fullProduct,
+          bidder,
+          reason: req.body.reason || 'Người bán đã từ chối tham gia đấu giá của bạn'
+        })
       }
-    })
+    } catch (emailError) {
+      console.error('❌ Error sending bid rejected email:', emailError)
+    }
 
     // Send response immediately and return
     return res.json({
