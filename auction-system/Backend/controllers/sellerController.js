@@ -596,7 +596,7 @@ export const rejectBid = async (req, res) => {
 
     const { data: product, error: productError } = await supabase
       .from('products')
-      .select('id, seller_id, status, starting_price')
+      .select('id, seller_id, status, starting_price, step_price')
       .eq('id', productId)
       .single()
 
@@ -612,6 +612,7 @@ export const rejectBid = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Không thể thao tác trên sản phẩm đã kết thúc.' })
     }
 
+    // Lấy thông tin bid để biết ai bị reject
     const { data: bid, error: bidError } = await supabase
       .from('bids')
       .select('id, product_id, bidder_id, is_rejected')
@@ -623,65 +624,94 @@ export const rejectBid = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Không tìm thấy lượt đấu giá.' })
     }
 
-    if (bid.is_rejected) {
-      return res.status(400).json({ success: false, message: 'Lượt đấu giá này đã bị từ chối trước đó.' })
+    const bidderToRejectId = bid.bidder_id
+
+    // 1. Thêm vào bảng rejected_bidders (chặn bid sau này)
+    const { data: existingReject } = await supabase
+      .from('rejected_bidders')
+      .select('id')
+      .eq('product_id', productId)
+      .eq('bidder_id', bidderToRejectId)
+      .maybeSingle()
+
+    if (!existingReject) {
+      const { error: rejectInsertError } = await supabase
+        .from('rejected_bidders')
+        .insert({
+          product_id: productId,
+          bidder_id: bidderToRejectId,
+          seller_id: sellerId,
+          reason: req.body.reason || 'Người bán từ chối'
+        })
+      if (rejectInsertError) throw rejectInsertError
     }
 
-    const rejectionPayload = {
-      is_rejected: true,
-      rejected_at: new Date().toISOString()
-    }
-
-    const { data: updatedBid, error: updateError } = await supabase
+    // 2. Mark ALL existing bids for this user/product as rejected
+    const { error: updateBidsError } = await supabase
       .from('bids')
-      .update(rejectionPayload)
-      .eq('id', bidId)
-      .select(`
-        id,
-        bid_amount,
-        max_bid_amount,
-        created_at,
-        bidder_id,
-        product_id,
-        is_rejected,
-        rejected_at,
-        profiles:bidder_id (
-          id,
-          full_name,
-          rating_positive,
-          rating_negative
-        )
-      `)
-      .single()
+      .update({
+        is_rejected: true,
+        rejected_at: new Date().toISOString()
+      })
+      .eq('product_id', productId)
+      .eq('bidder_id', bidderToRejectId)
 
-    if (updateError) throw updateError
+    if (updateBidsError) throw updateBidsError
 
-    const { data: activeBids, count: activeBidCount } = await supabase
+    // 3. Recalculate price based on remaining valid bids
+    // Strategy: Find Top 2 valid bidders
+    const { data: remainingBids } = await supabase
       .from('bids')
-      .select('bid_amount', { count: 'exact' })
+      .select('max_bid_amount, bidder_id, created_at')
       .eq('product_id', productId)
       .eq('is_rejected', false)
-      .order('bid_amount', { ascending: false })
-      .limit(1)
+      .order('max_bid_amount', { ascending: false })
+      .order('created_at', { ascending: true }) // Earliest bid wins ties
+      .limit(2)
 
-    const nextHighest = activeBids?.[0]?.bid_amount ?? product.starting_price ?? 0
+    let newCurrentPrice = product.starting_price
+    let newBidCount = 0
+
+    // Count exact remaining valid bids
+    const { count } = await supabase
+      .from('bids')
+      .select('*', { count: 'exact', head: true })
+      .eq('product_id', productId)
+      .eq('is_rejected', false)
+
+    newBidCount = count || 0
+
+    if (remainingBids && remainingBids.length > 0) {
+      const top1 = remainingBids[0]
+
+      if (remainingBids.length >= 2) {
+        // >= 2 valid bidders. Price determined by 2nd highest.
+        const top2 = remainingBids[1]
+        // Standard auto-bid logic: 2nd_bid_max + step.
+        const potentialPrice = Number(top2.max_bid_amount) + Number(product.step_price)
+        newCurrentPrice = Math.min(Number(top1.max_bid_amount), potentialPrice)
+      } else {
+        // Only 1 valid bidder left. Price resets to starting price.
+        // (Or typically starting_price, unless reserve is met, but simpler here)
+        newCurrentPrice = product.starting_price
+      }
+    }
 
     await supabase
       .from('products')
       .update({
-        current_price: nextHighest,
-        bid_count: activeBidCount ?? 0,
+        current_price: newCurrentPrice,
+        bid_count: newBidCount,
         updated_at: new Date().toISOString()
       })
       .eq('id', productId)
 
-    // Gửi email thông báo cho bidder bị từ chối
-    // User complaint was about "Ask Question". For consistency I will use `await` here too since this is a single reject action.
+    // Notify Rejected Bidder
     try {
       const { data: bidder } = await supabase
         .from('profiles')
         .select('id, email, full_name')
-        .eq('id', bid.bidder_id)
+        .eq('id', bidderToRejectId)
         .single()
 
       const { data: fullProduct } = await supabase
@@ -701,14 +731,12 @@ export const rejectBid = async (req, res) => {
       console.error('❌ Error sending bid rejected email:', emailError)
     }
 
-    // Send response immediately and return
     return res.json({
       success: true,
-      message: 'Đã từ chối lượt đấu giá.',
-      data: updatedBid,
+      message: 'Đã chặn người mua và cập nhật lại giá sản phẩm.',
       meta: {
-        active_bid_count: activeBidCount ?? 0,
-        current_price: nextHighest
+        new_bid_count: newBidCount,
+        new_current_price: newCurrentPrice
       }
     })
   } catch (error) {
