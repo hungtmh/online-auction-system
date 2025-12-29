@@ -788,6 +788,7 @@ export const askSellerQuestion = async (req, res) => {
         answered_at,
         asker:profiles!questions_asker_id_fkey ( id, full_name )
       `)
+      .single()
     if (insertError) throw insertError
 
     // Gửi email thông báo cho seller (async)
