@@ -219,7 +219,7 @@ export const placeBid = async (req, res) => {
     // 4. Tính giá theo công thức
     // A = người đang giữ giá cao nhất TRƯỚC KHI B (tôi) vào
     // B = tôi (người mới đặt)
-    
+
     let newCurrentPrice
     let winnerBidderId
     let isWinning
@@ -372,7 +372,7 @@ export const placeBid = async (req, res) => {
             .select('id, email, full_name')
             .eq('id', product.seller_id)
             .single()
-          
+
           await mailService.notifyAuctionEnded({
             product: { ...product, final_price: newCurrentPrice },
             seller,
@@ -389,9 +389,9 @@ export const placeBid = async (req, res) => {
       success: true,
       message: finalizeAuction
         ? 'Bạn đã mua ngay sản phẩm. Phiên đấu giá đã kết thúc!'
-        : isWinning 
-            ? 'Đặt giá thành công! Bạn đang giữ giá sản phẩm.' 
-            : 'Đặt giá thành công! Tuy nhiên có người khác đã đặt giá cao hơn.',
+        : isWinning
+          ? 'Đặt giá thành công! Bạn đang giữ giá sản phẩm.'
+          : 'Đặt giá thành công! Tuy nhiên có người khác đã đặt giá cao hơn.',
       data: {
         current_price: newCurrentPrice,
         your_max_bid: parsedMaxBid,
@@ -545,7 +545,7 @@ export const getMyBids = async (req, res) => {
     }
 
     const uniqueBids = Array.from(productBidsMap.values())
-    
+
     // Sort by created_at descending (latest first)
     uniqueBids.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
 
@@ -788,43 +788,41 @@ export const askSellerQuestion = async (req, res) => {
         answered_at,
         asker:profiles!questions_asker_id_fkey ( id, full_name )
       `)
-      .single()
-
     if (insertError) throw insertError
 
     // Gửi email thông báo cho seller (async)
-    (async () => {
-      try {
-        const { data: seller } = await supabase
-          .from('profiles')
-          .select('id, email, full_name')
-          .eq('id', product.seller_id)
-          .single()
+    // Gửi email thông báo cho seller
+    try {
+      const { data: seller } = await supabase
+        .from('profiles')
+        .select('id, email, full_name')
+        .eq('id', product.seller_id)
+        .single()
 
-        const { data: asker } = await supabase
-          .from('profiles')
-          .select('id, email, full_name')
-          .eq('id', askerId)
-          .single()
+      const { data: asker } = await supabase
+        .from('profiles')
+        .select('id, email, full_name')
+        .eq('id', askerId)
+        .single()
 
-        const { data: fullProduct } = await supabase
-          .from('products')
-          .select('id, name, thumbnail_url')
-          .eq('id', id)
-          .single()
+      const { data: fullProduct } = await supabase
+        .from('products')
+        .select('id, name, thumbnail_url')
+        .eq('id', id)
+        .single()
 
-        if (seller && asker && fullProduct) {
-          await mailService.notifyNewQuestion({
-            product: fullProduct,
-            seller,
-            asker,
-            question: inserted
-          })
-        }
-      } catch (emailError) {
-        console.error('❌ Error sending new question email:', emailError)
+      if (seller && asker && fullProduct) {
+        await mailService.notifyNewQuestion({
+          product: fullProduct,
+          seller,
+          asker,
+          question: inserted
+        })
       }
-    })()
+    } catch (emailError) {
+      console.error('❌ Error sending new question email:', emailError)
+      // Don't crash the request, just log
+    }
 
     res.json({
       success: true,

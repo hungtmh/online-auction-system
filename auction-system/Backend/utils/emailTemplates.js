@@ -76,7 +76,7 @@ const baseTemplate = (content, title = 'Thông báo từ AuctionHub') => `
 // ============================================
 export const newBidToSeller = (data) => {
   const { sellerName, bidderName, productName, productImage, oldPrice, newPrice, productId } = data
-  
+
   const content = `
     <h2>🔔 Có người đặt giá mới!</h2>
     <p>Xin chào <strong>${sellerName}</strong>,</p>
@@ -96,7 +96,7 @@ export const newBidToSeller = (data) => {
     
     <a href="${APP_URL}/products/${productId}" class="btn">Xem chi tiết sản phẩm</a>
   `
-  
+
   return {
     subject: `[${APP_NAME}] Có người đặt giá mới cho "${productName}"`,
     html: baseTemplate(content, 'Có người đặt giá mới')
@@ -108,20 +108,20 @@ export const newBidToSeller = (data) => {
 // ============================================
 export const newBidToBidder = (data) => {
   const { bidderName, productName, productImage, bidAmount, productId, endTime, isWinning = true } = data
-  
+
   // Nội dung khác nhau tùy vào trạng thái thắng/thua
   const winningContent = `
     <div class="info-box success">
       <strong>🎯 Bạn đang giữ giá cao nhất!</strong> Theo dõi sản phẩm để không bỏ lỡ khi có người đặt giá cao hơn.
     </div>
   `
-  
+
   const losingContent = `
     <div class="info-box warning">
       <strong>⚠️ Có người đang giữ giá cao hơn bạn!</strong> Giá tối đa của bạn thấp hơn người khác. Hãy đặt giá cao hơn nếu muốn thắng!
     </div>
   `
-  
+
   const content = `
     <h2>✅ Đặt giá thành công!</h2>
     <p>Xin chào <strong>${bidderName}</strong>,</p>
@@ -138,7 +138,7 @@ export const newBidToBidder = (data) => {
     
     <a href="${APP_URL}/products/${productId}" class="btn ${isWinning ? 'btn-success' : 'btn-warning'}">Theo dõi đấu giá</a>
   `
-  
+
   return {
     subject: `[${APP_NAME}] Đặt giá thành công - "${productName}"`,
     html: baseTemplate(content, 'Đặt giá thành công')
@@ -150,7 +150,7 @@ export const newBidToBidder = (data) => {
 // ============================================
 export const outbidNotification = (data) => {
   const { previousBidderName, productName, productImage, previousPrice, newPrice, newBidderName, productId, endTime } = data
-  
+
   const content = `
     <h2>⚠️ Có người đặt giá cao hơn bạn!</h2>
     <p>Xin chào <strong>${previousBidderName}</strong>,</p>
@@ -169,7 +169,7 @@ export const outbidNotification = (data) => {
     
     <a href="${APP_URL}/products/${productId}" class="btn btn-warning">Đặt giá ngay</a>
   `
-  
+
   return {
     subject: `[${APP_NAME}] Có người đặt giá cao hơn bạn - "${productName}"`,
     html: baseTemplate(content, 'Giá của bạn bị vượt')
@@ -181,7 +181,7 @@ export const outbidNotification = (data) => {
 // ============================================
 export const bidRejectedToBidder = (data) => {
   const { bidderName, productName, productImage, reason, productId } = data
-  
+
   const content = `
     <h2>❌ Bạn đã bị từ chối tham gia đấu giá</h2>
     <p>Xin chào <strong>${bidderName}</strong>,</p>
@@ -202,7 +202,7 @@ export const bidRejectedToBidder = (data) => {
     
     <a href="${APP_URL}/auctions" class="btn">Xem các sản phẩm khác</a>
   `
-  
+
   return {
     subject: `[${APP_NAME}] Bạn đã bị từ chối đấu giá - "${productName}"`,
     html: baseTemplate(content, 'Bị từ chối đấu giá')
@@ -214,7 +214,7 @@ export const bidRejectedToBidder = (data) => {
 // ============================================
 export const auctionEndedNoWinner = (data) => {
   const { sellerName, productName, productImage, startingPrice, productId } = data
-  
+
   const content = `
     <h2>📢 Đấu giá kết thúc - Không có người thắng</h2>
     <p>Xin chào <strong>${sellerName}</strong>,</p>
@@ -232,7 +232,7 @@ export const auctionEndedNoWinner = (data) => {
     
     <a href="${APP_URL}/seller/add-product" class="btn">Đăng lại sản phẩm</a>
   `
-  
+
   return {
     subject: `[${APP_NAME}] Đấu giá kết thúc - Không có người mua - "${productName}"`,
     html: baseTemplate(content, 'Đấu giá kết thúc')
@@ -244,7 +244,7 @@ export const auctionEndedNoWinner = (data) => {
 // ============================================
 export const auctionEndedToSeller = (data) => {
   const { sellerName, productName, productImage, finalPrice, winnerName, winnerEmail, productId } = data
-  
+
   const content = `
     <h2>🎉 Đấu giá kết thúc - Có người thắng!</h2>
     <p>Xin chào <strong>${sellerName}</strong>,</p>
@@ -266,7 +266,7 @@ export const auctionEndedToSeller = (data) => {
     
     <a href="${APP_URL}/orders/${productId}" class="btn btn-success">Hoàn tất đơn hàng</a>
   `
-  
+
   return {
     subject: `[${APP_NAME}] 🎉 Sản phẩm đã bán thành công - "${productName}"`,
     html: baseTemplate(content, 'Đấu giá thành công')
@@ -278,7 +278,7 @@ export const auctionEndedToSeller = (data) => {
 // ============================================
 export const auctionEndedToWinner = (data) => {
   const { winnerName, productName, productImage, finalPrice, sellerName, sellerEmail, productId } = data
-  
+
   const content = `
     <h2>🏆 Chúc mừng! Bạn đã thắng đấu giá!</h2>
     <p>Xin chào <strong>${winnerName}</strong>,</p>
@@ -300,7 +300,7 @@ export const auctionEndedToWinner = (data) => {
     
     <a href="${APP_URL}/orders/${productId}" class="btn btn-success">Thanh toán ngay</a>
   `
-  
+
   return {
     subject: `[${APP_NAME}] 🏆 Chúc mừng! Bạn đã thắng đấu giá - "${productName}"`,
     html: baseTemplate(content, 'Bạn đã thắng đấu giá')
@@ -312,7 +312,7 @@ export const auctionEndedToWinner = (data) => {
 // ============================================
 export const newQuestionToSeller = (data) => {
   const { sellerName, askerName, productName, productImage, question, productId, questionId } = data
-  
+
   const content = `
     <h2>❓ Có câu hỏi mới về sản phẩm của bạn</h2>
     <p>Xin chào <strong>${sellerName}</strong>,</p>
@@ -334,7 +334,7 @@ export const newQuestionToSeller = (data) => {
     
     <a href="${APP_URL}/products/${productId}" class="btn">Trả lời ngay</a>
   `
-  
+
   return {
     subject: `[${APP_NAME}] Câu hỏi mới về "${productName}"`,
     html: baseTemplate(content, 'Câu hỏi mới')
@@ -346,7 +346,7 @@ export const newQuestionToSeller = (data) => {
 // ============================================
 export const questionAnsweredNotification = (data) => {
   const { recipientName, sellerName, productName, productImage, question, answer, productId } = data
-  
+
   const content = `
     <h2>💬 Người bán đã trả lời câu hỏi</h2>
     <p>Xin chào <strong>${recipientName}</strong>,</p>
@@ -369,7 +369,7 @@ export const questionAnsweredNotification = (data) => {
     
     <a href="${APP_URL}/products/${productId}" class="btn">Xem chi tiết sản phẩm</a>
   `
-  
+
   return {
     subject: `[${APP_NAME}] Câu hỏi về "${productName}" đã được trả lời`,
     html: baseTemplate(content, 'Câu hỏi đã được trả lời')

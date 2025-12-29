@@ -43,8 +43,8 @@ const sendMail = async (to, subject, html) => {
 const sendMailToMany = async (recipients, subject, htmlGenerator) => {
   const results = await Promise.allSettled(
     recipients.map(async (recipient) => {
-      const html = typeof htmlGenerator === 'function' 
-        ? htmlGenerator(recipient) 
+      const html = typeof htmlGenerator === 'function'
+        ? htmlGenerator(recipient)
         : htmlGenerator
       return sendMail(recipient.email, subject, html)
     })
@@ -241,7 +241,7 @@ export const notifyQuestionAnswered = async ({ product, seller, question, answer
     // 1. Người đặt câu hỏi này
     // 2. Tất cả bidders đã đặt giá cho sản phẩm
     // 3. Tất cả người đã đặt câu hỏi khác
-    
+
     const [askersRes, biddersRes] = await Promise.all([
       // Lấy tất cả người đã hỏi
       supabase
@@ -258,14 +258,14 @@ export const notifyQuestionAnswered = async ({ product, seller, question, answer
 
     // Tạo danh sách unique recipients
     const recipientMap = new Map()
-    
+
     // Thêm người đặt câu hỏi
     askersRes.data?.forEach(item => {
       if (item.profiles && item.profiles.id !== seller.id) {
         recipientMap.set(item.profiles.id, item.profiles)
       }
     })
-    
+
     // Thêm bidders
     biddersRes.data?.forEach(item => {
       if (item.profiles && item.profiles.id !== seller.id) {
@@ -276,7 +276,7 @@ export const notifyQuestionAnswered = async ({ product, seller, question, answer
     // Gửi email cho từng người
     for (const [userId, recipient] of recipientMap) {
       if (!recipient.email) continue
-      
+
       const { subject, html } = templates.questionAnsweredNotification({
         recipientName: recipient.full_name,
         sellerName: seller.full_name,
@@ -286,7 +286,7 @@ export const notifyQuestionAnswered = async ({ product, seller, question, answer
         answer,
         productId: product.id
       })
-      
+
       await sendMail(recipient.email, subject, html)
     }
 
