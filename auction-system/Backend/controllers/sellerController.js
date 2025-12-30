@@ -844,21 +844,89 @@ export const rateWinner = async (req, res) => {
 
     const trimmedComment = comment?.trim() || null
 
-    const { data: inserted, error: insertError } = await supabase
+    // 1. Check if rating exists (gracefully handle potential duplicates)
+    // We select ALL matches to decide whether to update or insert
+    const { data: existingRatings } = await supabase
       .from('ratings')
-      .insert({
-        from_user_id: sellerId,
-        to_user_id: product.winner_id,
-        product_id: id,
-        rating,
-        comment: trimmedComment
+      .select('id, rating')
+      .eq('product_id', id)
+      .eq('from_user_id', sellerId)
+      .eq('to_user_id', product.winner_id)
+
+    let resultData = null
+
+    if (existingRatings && existingRatings.length > 0) {
+      // === UPDATE MODE ===
+      // If duplicates exist, we update the first one.
+      const existingId = existingRatings[0].id
+
+      const { data: updated, error: updateError } = await supabase
+        .from('ratings')
+        .update({
+          rating,
+          comment: trimmedComment,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', existingId)
+        .select('id, rating, comment, created_at')
+        .single()
+
+      if (updateError) throw updateError
+      resultData = updated
+    } else {
+      // === INSERT MODE ===
+      const { data: inserted, error: insertError } = await supabase
+        .from('ratings')
+        .insert({
+          from_user_id: sellerId,
+          to_user_id: product.winner_id,
+          product_id: id,
+          rating,
+          comment: trimmedComment
+        })
+        .select('id, rating, comment, created_at')
+        .single()
+
+      if (insertError) throw insertError
+      resultData = inserted
+    }
+
+    // 2. RECALCULATE COUNTS (Source of Truth)
+    // To ensure accuracy and fix any previous double-counting or sync issues, 
+    // we query the actual count from the ratings table and force-update the profile.
+    const userIdToUpdate = product.winner_id
+
+    const [posRes, negRes] = await Promise.all([
+      supabase
+        .from('ratings')
+        .select('id', { count: 'exact', head: true })
+        .eq('to_user_id', userIdToUpdate)
+        .eq('rating', 'positive'),
+      supabase
+        .from('ratings')
+        .select('id', { count: 'exact', head: true })
+        .eq('to_user_id', userIdToUpdate)
+        .eq('rating', 'negative')
+    ])
+
+    const exactPositiveCount = posRes.count || 0
+    const exactNegativeCount = negRes.count || 0
+
+    // Force update profile with calculated counts
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .update({
+        rating_positive: exactPositiveCount,
+        rating_negative: exactNegativeCount
       })
-      .select('id, rating, comment, created_at')
-      .single()
+      .eq('id', userIdToUpdate)
 
-    if (insertError) throw insertError
+    if (profileError) {
+      console.error('Failed to sync profile rating counts:', profileError)
+      // Continue, as the primary action (rating) succeeded
+    }
 
-    res.json({ success: true, message: 'Đã gửi đánh giá thành công.', data: inserted })
+    res.json({ success: true, message: 'Đã gửi đánh giá thành công.', data: resultData })
   } catch (error) {
     console.error('❌ Error rating winner:', error)
     res.status(500).json({ success: false, message: 'Không thể gửi đánh giá.' })

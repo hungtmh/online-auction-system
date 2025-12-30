@@ -588,7 +588,8 @@ export default function OrderCompletionPage({ user }) {
     try {
       await orderAPI.submitRating(productId, payload);
       setFeedback({ type: "success", text: "Đã gửi đánh giá!" });
-      await loadOrder();
+      // Reload lại trang để cập nhật rating count và UI mới nhất
+      window.location.reload();
     } catch (err) {
       setFeedback({ type: "error", text: err?.response?.data?.message || "Lỗi khi đánh giá" });
     } finally {
