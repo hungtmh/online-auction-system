@@ -185,8 +185,12 @@ export const getMyProducts = async (req, res) => {
         bids (count)
       `)
       .eq('seller_id', seller_id)
-      .range(offset, offset + limit - 1)
       .order('created_at', { ascending: false })
+
+    // Apply pagination only if limit is NOT 'all'
+    if (limit !== 'all') {
+      query = query.range(offset, offset + limit - 1)
+    }
 
     // Lọc theo status nếu có
     if (status) {
