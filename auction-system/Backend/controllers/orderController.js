@@ -17,7 +17,7 @@ import { supabase } from '../config/supabase.js'
 
 const ORDER_STATUS = {
   PENDING_PAYMENT: 'pending_payment',
-  PAYMENT_CONFIRMED: 'payment_confirmed', 
+  PAYMENT_CONFIRMED: 'payment_confirmed',
   SHIPPED: 'shipped',
   DELIVERED: 'delivered',
   COMPLETED: 'completed',
@@ -387,19 +387,19 @@ export const submitRating = async (req, res) => {
     const toUserId = isSeller ? order.buyer_id : order.seller_id
     const trimmedComment = comment?.trim() || null
 
-    // Kiểm tra đã có rating chưa
-    const { data: existingRating } = await supabase
+    // Kiểm tra đã có rating chưa (fetch list to handle potential duplicates)
+    const { data: existingRatings } = await supabase
       .from('ratings')
       .select('id, rating')
       .eq('product_id', productId)
       .eq('from_user_id', userId)
       .eq('to_user_id', toUserId)
-      .maybeSingle()
 
     let savedRating
 
-    if (existingRating) {
-      // CẬP NHẬT rating (cho phép thay đổi)
+    if (existingRatings && existingRatings.length > 0) {
+      // CẬP NHẬT rating (lấy cái đầu tiên nếu có nhiều)
+      const existingRating = existingRatings[0]
       const oldRating = existingRating.rating
 
       const { data: updated, error: updateError } = await supabase
@@ -416,28 +416,22 @@ export const submitRating = async (req, res) => {
       if (updateError) throw updateError
       savedRating = updated
 
-      // Cập nhật điểm rating của người được đánh giá (trừ cái cũ, cộng cái mới)
-      if (oldRating !== rating) {
-        const ratingDelta = {
-          rating_positive: (rating === 'positive' ? 1 : 0) - (oldRating === 'positive' ? 1 : 0),
-          rating_negative: (rating === 'negative' ? 1 : 0) - (oldRating === 'negative' ? 1 : 0)
-        }
+      // Recalculate counts (Source of Truth)
+      // We calculate directly from the ratings table to ensure accuracy
+      const [posRes, negRes] = await Promise.all([
+        supabase.from('ratings').select('id', { count: 'exact', head: true }).eq('to_user_id', toUserId).eq('rating', 'positive'),
+        supabase.from('ratings').select('id', { count: 'exact', head: true }).eq('to_user_id', toUserId).eq('rating', 'negative')
+      ])
 
-        await supabase.rpc('increment_rating', {
-          user_id: toUserId,
-          positive_delta: ratingDelta.rating_positive,
-          negative_delta: ratingDelta.rating_negative
-        }).catch(async () => {
-          // Fallback nếu không có RPC
-          const { data: profile } = await supabase.from('profiles').select('rating_positive, rating_negative').eq('id', toUserId).single()
-          if (profile) {
-            await supabase.from('profiles').update({
-              rating_positive: Math.max(0, (profile.rating_positive || 0) + ratingDelta.rating_positive),
-              rating_negative: Math.max(0, (profile.rating_negative || 0) + ratingDelta.rating_negative)
-            }).eq('id', toUserId)
-          }
-        })
-      }
+      const newPositive = posRes.count || 0
+      const newNegative = negRes.count || 0
+
+      // Update profile with exact counts
+      await supabase.from('profiles').update({
+        rating_positive: newPositive,
+        rating_negative: newNegative
+      }).eq('id', toUserId)
+
     } else {
       // TẠO rating mới
       const { data: inserted, error: insertError } = await supabase
@@ -455,14 +449,20 @@ export const submitRating = async (req, res) => {
       if (insertError) throw insertError
       savedRating = inserted
 
-      // Cập nhật điểm rating của người được đánh giá
-      const ratingField = rating === 'positive' ? 'rating_positive' : 'rating_negative'
-      const { data: profile } = await supabase.from('profiles').select(ratingField).eq('id', toUserId).single()
-      if (profile) {
-        await supabase.from('profiles').update({
-          [ratingField]: (profile[ratingField] || 0) + 1
-        }).eq('id', toUserId)
-      }
+      // Recalculate counts (Source of Truth)
+      const [posRes, negRes] = await Promise.all([
+        supabase.from('ratings').select('id', { count: 'exact', head: true }).eq('to_user_id', toUserId).eq('rating', 'positive'),
+        supabase.from('ratings').select('id', { count: 'exact', head: true }).eq('to_user_id', toUserId).eq('rating', 'negative')
+      ])
+
+      const newPositive = posRes.count || 0
+      const newNegative = negRes.count || 0
+
+      // Update profile with exact counts
+      await supabase.from('profiles').update({
+        rating_positive: newPositive,
+        rating_negative: newNegative
+      }).eq('id', toUserId)
     }
 
     // Cập nhật flag đã rate
@@ -471,17 +471,17 @@ export const submitRating = async (req, res) => {
 
     // Kiểm tra nếu cả 2 đã rate thì chuyển status = completed
     const { data: updatedOrder } = await supabase.from('orders').select('seller_rated, buyer_rated').eq('id', order.id).single()
-    
+
     if (updatedOrder?.seller_rated && updatedOrder?.buyer_rated && order.status === ORDER_STATUS.DELIVERED) {
       await supabase.from('orders').update({ status: ORDER_STATUS.COMPLETED, updated_at: new Date().toISOString() }).eq('id', order.id)
-      
+
       // Cập nhật product status
       await supabase.from('products').update({ status: 'completed', updated_at: new Date().toISOString() }).eq('id', productId)
     }
 
     res.json({
       success: true,
-      message: existingRating ? 'Đã cập nhật đánh giá' : 'Đã gửi đánh giá thành công',
+      message: (existingRatings && existingRatings.length > 0) ? 'Đã cập nhật đánh giá' : 'Đã gửi đánh giá thành công',
       data: savedRating
     })
   } catch (error) {
