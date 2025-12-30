@@ -23,7 +23,9 @@ import {
   getWinnerSummary,
   rateWinner,
   cancelWinnerTransaction,
-  reopenAuction
+  reopenAuction,
+  getBidRequests,
+  updateBidRequestStatus
 } from '../controllers/sellerController.js'
 import { productImageUpload, avatarImageUpload } from '../utils/upload.js'
 
@@ -106,5 +108,9 @@ router.get('/products/:id/winner-summary', getWinnerSummary)
 router.post('/products/:id/winner/rate', rateWinner)
 router.post('/products/:id/winner/cancel', cancelWinnerTransaction)
 router.post('/products/:id/reopen', reopenAuction)
+
+// Bidder Permission Requests
+router.get('/products/:productId/requests', getBidRequests)
+router.post('/requests/:requestId/approve', updateBidRequestStatus)
 
 export default router

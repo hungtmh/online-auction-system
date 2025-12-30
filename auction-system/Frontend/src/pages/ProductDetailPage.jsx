@@ -11,6 +11,7 @@ import AskSellerForm from "../components/ProductDetail/AskSellerForm";
 import UnifiedNavbar from "../components/common/UnifiedNavbar";
 import ProductDescriptionCard from "../components/ProductDetailPage/sections/ProductDescriptionCard";
 import SellerBidManagement from "../components/ProductDetailPage/sections/SellerBidManagement";
+import SellerPermissionRequests from "../components/ProductDetailPage/sections/SellerPermissionRequests";
 import WinnerSummaryCard from "../components/ProductDetailPage/sections/WinnerSummaryCard";
 import RelatedProducts from "../components/ProductDetail/RelatedProducts";
 import QuillEditor from "../components/Seller/ProductCreation/QuillEditor";
@@ -583,6 +584,8 @@ export default function ProductDetailPage({ user }) {
             <section id="history">
               <BidHistory bids={product.bids || []} />
             </section>
+
+            {isSellerOwner && <SellerPermissionRequests productId={product.id} isSellerOwner={isSellerOwner} />}
 
             {isSellerOwner && <SellerBidManagement bids={sellerBids} onRejectBid={handleRejectBid} rejectingBidId={rejectingBidId} errorMessage={bidModerationError} successMessage={bidModerationSuccess} canModerate={mode === MODES.ACTIVE} />}
 

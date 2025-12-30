@@ -149,7 +149,76 @@ export const placeBid = async (req, res) => {
       })
     }
 
-    // Kiểm tra bidder có bị reject không
+    // --- RATING & PERMISSION LOGIC ---
+    // 1. Get bidder's rating
+    const { data: bidderProfile } = await supabase
+      .from('profiles')
+      .select('rating_positive, rating_negative')
+      .eq('id', bidder_id)
+      .single()
+
+    const pos = bidderProfile?.rating_positive || 0
+    const neg = bidderProfile?.rating_negative || 0
+    const totalRatings = pos + neg
+    const score = totalRatings > 0 ? pos / totalRatings : 0 // 0 if no ratings
+
+    const isUnrated = totalRatings === 0
+    const isHighRating = totalRatings > 0 && score >= 0.8
+
+    // Determine if user needs permission
+    // 1. If High Rating -> No permission needed (Safe)
+    // 2. If Unrated -> Only need permission if product.allow_unrated_bidders is FALSE
+    // 3. If Low Rating (Existing ratings but < 80%) -> ALWAYS need permission
+
+    let needsPermission = false
+
+    if (isHighRating) {
+      needsPermission = false
+    } else if (isUnrated) {
+      needsPermission = !product.allow_unrated_bidders
+    } else {
+      // Low Rating
+      needsPermission = true
+    }
+
+    if (needsPermission) {
+      // 3. Check Permission
+      const { data: permission } = await supabase
+        .from('product_allowed_bidders')
+        .select('status')
+        .eq('product_id', product_id)
+        .eq('bidder_id', bidder_id)
+        .maybeSingle()
+
+      if (!permission) {
+        // Case A: No request yet -> Create Pending Request
+        await supabase.from('product_allowed_bidders').insert({
+          product_id,
+          bidder_id,
+          status: 'pending'
+        })
+        return res.status(403).json({
+          success: false,
+          message: 'Điểm đánh giá của bạn dưới 80%. Hệ thống đã gửi yêu cầu xin phép đến người bán. Vui lòng chờ phê duyệt.'
+        })
+      } else if (permission.status === 'pending') {
+        // Case B: Request Pending
+        return res.status(403).json({
+          success: false,
+          message: 'Yêu cầu của bạn đang chờ người bán phê duyệt.'
+        })
+      } else if (permission.status === 'rejected') {
+        // Case C: Rejected
+        return res.status(403).json({
+          success: false,
+          message: 'Người bán đã từ chối yêu cầu tham gia của bạn.'
+        })
+      }
+      // Case D: Approved -> Continue
+    }
+    // ---------------------------------
+
+    // Kiểm tra bidder có bị reject không (Logic cũ)
     const { data: rejected } = await supabase
       .from('rejected_bidders')
       .select('id')

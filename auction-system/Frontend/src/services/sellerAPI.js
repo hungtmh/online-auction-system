@@ -151,6 +151,16 @@ const sellerAPI = {
   reopenAuction: async (productId, payload) => {
     const response = await api.post(`/seller/products/${productId}/reopen`, payload)
     return response.data
+  },
+
+  getBidRequests: async (productId) => {
+    const response = await api.get(`/seller/products/${productId}/requests`)
+    return response.data
+  },
+
+  processBidRequest: async (requestId, status) => {
+    const response = await api.post(`/seller/requests/${requestId}/approve`, { status })
+    return response.data
   }
 }
 
