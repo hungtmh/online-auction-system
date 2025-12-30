@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import sellerAPI from '../../../services/sellerAPI'
 import { initialFormState, MAX_UPLOAD_IMAGES } from './constants'
 import { stripHtml } from './utils'
@@ -8,6 +9,7 @@ import StepIndicator from './StepIndicator'
 import InfoBanner from './InfoBanner'
 
 const ProductCreation = ({ categories, loadingCategories }) => {
+  const navigate = useNavigate()
   const [step, setStep] = useState(1)
   const [formData, setFormData] = useState(() => ({ ...initialFormState }))
   const [errors, setErrors] = useState({})
@@ -43,7 +45,7 @@ const ProductCreation = ({ categories, loadingCategories }) => {
   const handleInputChange = (event) => {
     const { name, value } = event.target
     setFormData((prev) => ({ ...prev, [name]: value }))
-    
+
     // Clear field error when user starts typing
     if (fieldErrors[name]) {
       setFieldErrors((prev) => ({ ...prev, [name]: null }))
@@ -65,7 +67,7 @@ const ProductCreation = ({ categories, loadingCategories }) => {
 
   const handleDescriptionChange = (value) => {
     setFormData((prev) => ({ ...prev, description: value }))
-    
+
     // Clear description error when user starts typing
     if (fieldErrors.description) {
       setFieldErrors((prev) => ({ ...prev, description: null }))
@@ -149,7 +151,7 @@ const ProductCreation = ({ categories, loadingCategories }) => {
       const minPercent = Number(systemSettings.min_bid_increment_percent) || 5
       const startingPrice = Number(formData.starting_price)
       const minStepPrice = Math.ceil(startingPrice * minPercent / 100)
-      
+
       if (Number(formData.step_price) < minStepPrice) {
         nextErrors.step_price = `Bước giá phải tối thiểu ${minStepPrice.toLocaleString('vi-VN')} VND (${minPercent}% của giá khởi điểm).`
       }
@@ -170,7 +172,7 @@ const ProductCreation = ({ categories, loadingCategories }) => {
       nextErrors.end_time = 'Vui lòng chọn thời điểm kết thúc.'
     } else {
       endTimeObj = new Date(formData.end_time)
-      
+
       if (isNaN(endTimeObj.getTime())) {
         nextErrors.end_time = 'Định dạng thời gian kết thúc không hợp lệ.'
       } else {
@@ -185,7 +187,7 @@ const ProductCreation = ({ categories, loadingCategories }) => {
     // ========== VALIDATE START TIME (Bắt đầu) ==========
     if (formData.start_time) {
       startTimeObj = new Date(formData.start_time)
-      
+
       if (isNaN(startTimeObj.getTime())) {
         // Check 1: Format không hợp lệ
         nextErrors.start_time = 'Định dạng thời gian bắt đầu không hợp lệ.'
@@ -194,7 +196,7 @@ const ProductCreation = ({ categories, loadingCategories }) => {
         const minStartTime = new Date(now.getTime() + FUTURE_BUFFER_MS)
         if (startTimeObj < minStartTime) {
           nextErrors.start_time = 'Thời điểm bắt đầu phải nằm trong tương lai (ít nhất sau 1 phút từ bây giờ).'
-        } 
+        }
         // Check 3: Start time phải nhỏ hơn End time (chỉ check khi End hợp lệ)
         else if (endTimeObj && !isNaN(endTimeObj.getTime()) && !nextErrors.end_time) {
           if (startTimeObj.getTime() >= endTimeObj.getTime()) {
@@ -218,6 +220,7 @@ const ProductCreation = ({ categories, loadingCategories }) => {
 
     if (Object.keys(validationErrors).length === 0) {
       setStep(2)
+      window.scrollTo(0, 0)
     } else {
       // Auto-dismiss field errors after 10 seconds
       setTimeout(() => {
@@ -249,12 +252,17 @@ const ProductCreation = ({ categories, loadingCategories }) => {
 
       setStatus({
         type: 'success',
-        message: 'Đăng sản phẩm thành công! Vui lòng chờ admin duyệt.'
+        message: 'Đăng sản phẩm thành công! Đang chuyển hướng...'
       })
 
-      setFormData({ ...initialFormState })
+      // setFormData({ ...initialFormState })
       setErrors({})
-      setStep(1)
+      // setStep(1)
+
+      // Redirect to My Products
+      setTimeout(() => {
+        navigate('/seller/my-products')
+      }, 1000)
     } catch (error) {
       const errorMessage = error?.response?.data?.message || 'Không thể đăng sản phẩm, vui lòng thử lại.'
       setStatus({ type: 'error', message: errorMessage })
@@ -270,11 +278,10 @@ const ProductCreation = ({ categories, loadingCategories }) => {
 
       {status && (
         <div
-          className={`mb-4 rounded-md border px-4 py-3 text-sm ${
-            status.type === 'success'
+          className={`mb-4 rounded-md border px-4 py-3 text-sm ${status.type === 'success'
               ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
               : 'border-red-200 bg-red-50 text-red-700'
-          }`}
+            }`}
         >
           {status.message}
         </div>

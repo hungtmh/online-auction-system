@@ -53,7 +53,7 @@ const MyProductsSection = () => {
       try {
         setLoading(true)
         setError(null)
-        const params = {}
+        const params = { limit: 'all' }
         if (statusFilter !== 'all') params.status = statusFilter
         const response = await sellerAPI.getMyProducts(params)
         if (!response?.success) {
@@ -81,9 +81,8 @@ const MyProductsSection = () => {
             key={tab.id}
             type="button"
             onClick={() => setStatusFilter(tab.id)}
-            className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
-              statusFilter === tab.id ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-            }`}
+            className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors ${statusFilter === tab.id ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
           >
             {tab.label}
           </button>
