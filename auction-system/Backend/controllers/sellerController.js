@@ -1251,3 +1251,110 @@ export const uploadProductImage = async (req, res) => {
     res.status(500).json({ success: false, message: 'Không thể upload ảnh.' })
   }
 }
+
+// ============================================
+// BIDDER PERMISSION REQUESTS
+// ============================================
+
+/**
+ * @route   GET /api/seller/products/:productId/requests
+ * @desc    Lấy danh sách yêu cầu xin phép đấu giá (cho sp này)
+ * @access  Private (Seller)
+ */
+export const getBidRequests = async (req, res) => {
+  try {
+    const { productId } = req.params
+    const sellerId = req.user.id
+
+    // Check ownership
+    const { data: product, error: productError } = await supabase
+      .from('products')
+      .select('seller_id')
+      .eq('id', productId)
+      .single()
+
+    if (productError || !product) {
+      return res.status(404).json({ success: false, message: 'Không tìm thấy sản phẩm' })
+    }
+
+    if (product.seller_id !== sellerId) {
+      return res.status(403).json({ success: false, message: 'Không có quyền truy cập' })
+    }
+
+    // Get requests
+    const { data: requests, error } = await supabase
+      .from('product_allowed_bidders')
+      .select(`
+        id,
+        status,
+        created_at,
+        bidder:bidder_id (
+          id,
+          full_name,
+          email,
+          rating_positive,
+          rating_negative
+        )
+      `)
+      .eq('product_id', productId)
+      .order('created_at', { ascending: false })
+
+    if (error) throw error
+
+    res.json({
+      success: true,
+      data: requests
+    })
+  } catch (error) {
+    console.error('❌ Error getting bid requests:', error)
+    res.status(500).json({ success: false, message: 'Lỗi lấy danh sách yêu cầu' })
+  }
+}
+
+/**
+ * @route   POST /api/seller/requests/:requestId/approve
+ * @desc    Phê duyệt/Từ chối yêu cầu
+ * @access  Private (Seller)
+ */
+export const updateBidRequestStatus = async (req, res) => {
+  try {
+    const { requestId } = req.params
+    const sellerId = req.user.id
+    const { status } = req.body // 'approved' or 'rejected'
+
+    if (!['approved', 'rejected'].includes(status)) {
+      return res.status(400).json({ success: false, message: 'Status không hợp lệ' })
+    }
+
+    // Check request ownership via product
+    const { data: request, error: reqError } = await supabase
+      .from('product_allowed_bidders')
+      .select('id, product_id, products!inner(seller_id)')
+      .eq('id', requestId)
+      .single()
+
+    if (reqError || !request) {
+      return res.status(404).json({ success: false, message: 'Không tìm thấy yêu cầu' })
+    }
+
+    if (request.products.seller_id !== sellerId) {
+      return res.status(403).json({ success: false, message: 'Không có quyền xử lý yêu cầu này' })
+    }
+
+    // Update
+    const { error: updateError } = await supabase
+      .from('product_allowed_bidders')
+      .update({ status, updated_at: new Date().toISOString() })
+      .eq('id', requestId)
+
+    if (updateError) throw updateError
+
+    res.json({
+      success: true,
+      message: status === 'approved' ? 'Đã phê duyệt yêu cầu' : 'Đã từ chối yêu cầu'
+    })
+  } catch (error) {
+    console.error('❌ Error updating bid request:', error)
+    res.status(500).json({ success: false, message: 'Lỗi cập nhật trạng thái' })
+  }
+}
