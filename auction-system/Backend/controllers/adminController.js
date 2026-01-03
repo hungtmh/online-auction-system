@@ -272,13 +272,14 @@ export const unbanUser = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Gỡ cấm: set is_banned = false
+    // Gỡ cấm: set is_banned = false và khôi phục role về bidder
     const { data, error } = await supabase
       .from("profiles")
       .update({
         is_banned: false,
         banned_reason: null,
         banned_at: null,
+        role: "bidder", // Khôi phục role mặc định (khi ban đã hạ về guest)
         updated_at: new Date().toISOString(),
       })
       .eq("id", id)
@@ -289,7 +290,7 @@ export const unbanUser = async (req, res) => {
 
     res.json({
       success: true,
-      message: "Đã gỡ cấm user thành công",
+      message: "Đã gỡ cấm user thành công. Role đã được khôi phục về Bidder.",
       data: data,
     });
   } catch (error) {

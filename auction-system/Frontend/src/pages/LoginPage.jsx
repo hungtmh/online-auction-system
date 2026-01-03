@@ -1,11 +1,12 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import ReCAPTCHA from "react-google-recaptcha";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { authAPI, setAccessToken } from "../services/api";
 import { useDialog } from "../context/DialogContext.jsx";
 
 function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const recaptchaRef = useRef(null);
   const { alert } = useDialog();
 
@@ -22,6 +23,18 @@ function LoginPage() {
   const [otpCode, setOtpCode] = useState("");
   const [otpLoading, setOtpLoading] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
+
+  // Check URL error parameter (from Google login redirect)
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const errorType = params.get("error");
+
+    if (errorType === "account_banned") {
+      setError("Tài khoản đã bị chặn.");
+      // Clear the URL parameter
+      navigate("/login", { replace: true });
+    }
+  }, [location.search, navigate]);
 
   const handleResendVerification = async () => {
     setResendLoading(true);
