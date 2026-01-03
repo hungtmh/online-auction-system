@@ -26,7 +26,7 @@ function App() {
     try {
       // Nếu có access token trong memory, fetch user profile
       let token = getAccessToken()
-      
+
       // Nếu không có access token, thử refresh từ cookie
       if (!token) {
         try {
@@ -38,7 +38,7 @@ function App() {
           return
         }
       }
-      
+
       // Fetch user profile
       const userData = await authAPI.getProfile()
       setUser(userData)
@@ -65,7 +65,7 @@ function App() {
   // ═══════════════════════════════════════════════════════════
   const getDashboardByRole = () => {
     if (!user) return <GuestHomePage />
-    
+
     switch (user.role) {
       case 'admin':
         return <AdminDashboard />      // Thắng phụ trách
@@ -73,10 +73,12 @@ function App() {
         return <GuestHomePage user={user} />     // Cường phụ trách - Seller mặc định vào guest page với navbar riêng
       case 'bidder':
         return <GuestHomePage user={user} />     // Khoa phụ trách - Bidder cũng vào trang chủ mới
+      case 'guest':
+        return <GuestHomePage user={user} />     // Guest đã đăng nhập (user bị ban rồi unban)
       default:
-        return <GuestHomePage />       // Khải phụ trách
+        return <GuestHomePage />     // Fallback - vẫn pass user nếu có
     }
-  }   
+  }
 
   return (
     <Router>
@@ -92,55 +94,55 @@ function App() {
 
           {/* Route chính - redirect theo role */}
           <Route path="/" element={getDashboardByRole()} />
-          
+
           {/* Dashboard route - redirect theo role */}
           <Route path="/dashboard" element={getDashboardByRole()} />
 
 
 
           {/* Route riêng cho từng role (nếu muốn truy cập trực tiếp) */}
-          <Route 
-            path="/admin" 
-            element={user?.role === 'admin' ? <AdminDashboard /> : <Navigate to="/" />} 
+          <Route
+            path="/admin"
+            element={user?.role === 'admin' ? <AdminDashboard /> : <Navigate to="/" />}
           />
-          <Route 
-            path="/seller" 
-            element={user?.role === 'seller' ? <GuestHomePage user={user} /> : <Navigate to="/" />} 
+          <Route
+            path="/seller"
+            element={user?.role === 'seller' ? <GuestHomePage user={user} /> : <Navigate to="/" />}
           />
-          <Route 
-            path="/seller/my-products" 
-            element={user?.role === 'seller' ? <SellerDashboardPage /> : <Navigate to="/" />} 
+          <Route
+            path="/seller/my-products"
+            element={user?.role === 'seller' ? <SellerDashboardPage /> : <Navigate to="/" />}
           />
-          <Route 
-            path="/seller/add-product" 
-            element={user?.role === 'seller' ? <SellerDashboardPage /> : <Navigate to="/" />} 
+          <Route
+            path="/seller/add-product"
+            element={user?.role === 'seller' ? <SellerDashboardPage /> : <Navigate to="/" />}
           />
-          <Route 
-            path="/bidder" 
-            element={(user?.role === 'bidder' || user?.role === 'seller') ? <BidderDashboard /> : <Navigate to="/" />} 
+          <Route
+            path="/bidder"
+            element={(user?.role === 'bidder' || user?.role === 'seller') ? <BidderDashboard /> : <Navigate to="/" />}
           />
-          <Route 
-            path="/bidder/profile" 
-            element={(user?.role === 'bidder' || user?.role === 'seller') ? <BidderDashboard /> : <Navigate to="/" />} 
+          <Route
+            path="/bidder/profile"
+            element={(user?.role === 'bidder' || user?.role === 'seller') ? <BidderDashboard /> : <Navigate to="/" />}
           />
-          <Route 
-            path="/bidder/my-bids" 
-            element={(user?.role === 'bidder' || user?.role === 'seller') ? <BidderDashboard /> : <Navigate to="/" />} 
+          <Route
+            path="/bidder/my-bids"
+            element={(user?.role === 'bidder' || user?.role === 'seller') ? <BidderDashboard /> : <Navigate to="/" />}
           />
-          <Route 
-            path="/bidder/watchlist" 
-            element={(user?.role === 'bidder' || user?.role === 'seller') ? <BidderDashboard /> : <Navigate to="/" />} 
+          <Route
+            path="/bidder/watchlist"
+            element={(user?.role === 'bidder' || user?.role === 'seller') ? <BidderDashboard /> : <Navigate to="/" />}
           />
-          <Route 
-            path="/bidder/password" 
-            element={(user?.role === 'bidder' || user?.role === 'seller') ? <BidderDashboard /> : <Navigate to="/" />} 
+          <Route
+            path="/bidder/password"
+            element={(user?.role === 'bidder' || user?.role === 'seller') ? <BidderDashboard /> : <Navigate to="/" />}
           />
 
           {/* Route for auction list - Tất cả user đều xem được */}
           <Route path="/auctions" element={<AuctionListPage user={user} />} />
           <Route path="/products/:id" element={<ProductDetailPage user={user} />} />
           <Route path="/products/:id/checkout" element={<WinnerCheckoutPage user={user} />} />
-          
+
           {/* Route hoàn tất đơn hàng - cho seller và buyer */}
           <Route path="/orders/:id" element={<OrderCompletionPage user={user} />} />
 

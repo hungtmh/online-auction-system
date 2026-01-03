@@ -22,14 +22,15 @@ function AuthCallback() {
     }
 
     if (token) {
-      // Lưu access token vào memory
+      // Lưu access token vào memory trước
       setAccessToken(token)
-      console.log('✅ OAuth login successful')
-      
-      // Redirect về dashboard
+      console.log('✅ OAuth login successful, token saved')
+
+      // Force reload trang chủ - App.jsx sẽ dùng refresh token cookie để lấy lại access token
+      // Đợi 1 chút để cookie được set từ backend
       setTimeout(() => {
-        window.location.href = '/dashboard'
-      }, 500)
+        window.location.href = '/'
+      }, 300)
     } else {
       navigate('/')
     }

@@ -34,16 +34,24 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
           // Bước 1: Kiểm tra user đã tồn tại bằng cách query profiles table
           // (tránh dùng listUsers vì có thể bị lỗi database với nhiều users)
           // ═══════════════════════════════════════════════════════════
-          const { data: existingProfile, error: profileError } = await supabase.from("profiles").select("id, email").eq("email", email).single();
+          const { data: existingProfile, error: profileError } = await supabase.from("profiles").select("id, email, is_banned").eq("email", email).single();
 
           if (existingProfile) {
+            // Kiểm tra user có bị banned không
+            if (existingProfile.is_banned) {
+              console.log(`🚫 Banned user tried to login via Google: ${email}`);
+              return done(null, false, { message: "banned" });
+            }
+
             // User đã có profile - lấy thông tin từ auth
-            //console.log(`✅ Found existing profile for: ${email}`);
+            console.log(`🔍 Found existing profile for: ${email}, is_banned: ${existingProfile.is_banned}`);
             const { data: authUser, error: getUserError } = await supabase.auth.admin.getUserById(existingProfile.id);
 
             if (authUser && authUser.user) {
-              //console.log(`✅ Existing user logged in via Google: ${email}`);
+              console.log(`✅ Existing user logged in via Google: ${email}`);
               return done(null, authUser.user);
+            } else {
+              console.log(`❌ Failed to get auth user for: ${email}`, getUserError);
             }
           }
 
