@@ -57,6 +57,15 @@ const adminAPI = {
   },
 
   /**
+   * Reset mật khẩu user và gửi email thông báo
+   * @param {string} userId
+   */
+  resetUserPassword: async (userId) => {
+    const response = await api.post(`/admin/users/${userId}/reset-password`)
+    return response.data
+  },
+
+  /**
    * Xóa user
    * @param {string} userId
    * @deprecated Sử dụng banUser thay thế

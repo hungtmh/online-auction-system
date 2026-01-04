@@ -122,7 +122,7 @@ function LoginPage() {
           case "seller":
           case "bidder":
           default:
-            window.location.href = "/";
+            window.location.href = "/";  // Redirect về trang chủ
             break;
         }
       }

@@ -108,6 +108,31 @@ function UserManagement() {
     }
   };
 
+  const handleResetPassword = async (userId, userEmail) => {
+    const confirmed = await confirmDialog({
+      icon: '🔐',
+      title: 'Reset mật khẩu',
+      message: `Bạn có chắc muốn reset mật khẩu cho "${userEmail}"? Mật khẩu mới sẽ được gửi qua email.`,
+      confirmText: 'Reset mật khẩu',
+    });
+    if (!confirmed) return;
+    
+    try {
+      const response = await adminAPI.resetUserPassword(userId);
+      await showAlert({
+        icon: '✅',
+        title: 'Đã reset mật khẩu',
+        message: response.message || `Mật khẩu mới đã được gửi đến ${userEmail}`,
+      });
+    } catch (err) {
+      await showAlert({
+        icon: '⚠️',
+        title: 'Không thể reset mật khẩu',
+        message: err.response?.data?.message || 'Vui lòng thử lại.',
+      });
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -154,29 +179,29 @@ function UserManagement() {
       </div>
 
       {/* Users Table */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200">
+      <div className="bg-white rounded-lg shadow overflow-x-auto">
+        <table className="w-full divide-y divide-gray-200 table-fixed">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+              <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase" style={{width: '80px'}}>
                 ID
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+              <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase" style={{width: '200px'}}>
                 Email
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+              <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase" style={{width: '140px'}}>
                 Họ tên
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+              <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase" style={{width: '90px'}}>
                 Role
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+              <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase" style={{width: '90px'}}>
                 Ngày tạo
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+              <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase" style={{width: '90px'}}>
                 Trạng thái
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+              <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase" style={{width: '140px'}}>
                 Hành động
               </th>
             </tr>
@@ -184,36 +209,34 @@ function UserManagement() {
           <tbody className="bg-white divide-y divide-gray-200">
             {users.length === 0 ? (
               <tr>
-                <td colSpan="7" className="px-6 py-8 text-center text-gray-500">
+                <td colSpan="7" className="px-3 py-8 text-center text-gray-500">
                   Không có users nào
                 </td>
               </tr>
             ) : (
               users.map((user) => (
                 <tr key={user.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {user.id}
+                  <td className="px-2 py-3 text-xs text-gray-900 font-mono truncate" title={user.id}>
+                    {user.id.substring(0, 8)}...
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  <td className="px-2 py-3 text-sm text-gray-900 truncate" title={user.email}>
                     {user.email}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  <td className="px-2 py-3 text-sm text-gray-900 truncate" title={user.full_name}>
                     {user.full_name || 'N/A'}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-2 py-3 whitespace-nowrap">
                     {user.role === 'admin' ? (
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-gray-700">Admin</span>
-                        <span className="text-xs text-gray-500" title="Không thể thay đổi role của Admin">
-                          🔒
-                        </span>
+                      <div className="flex items-center gap-1">
+                        <span className="text-xs font-medium text-gray-700">Admin</span>
+                        <span className="text-xs" title="Không thể thay đổi">🔒</span>
                       </div>
                     ) : (
                     <select
                       value={user.role}
                       onChange={(e) => handleChangeRole(user.id, e.target.value)}
-                      className="text-sm border border-gray-300 rounded px-2 py-1"
-                        disabled={user.role === 'admin'}
+                      className="text-xs border border-gray-300 rounded px-1 py-1 w-full"
+                      disabled={user.role === 'admin'}
                     >
                       <option value="bidder">Bidder</option>
                       <option value="seller">Seller</option>
@@ -221,45 +244,54 @@ function UserManagement() {
                     </select>
                     )}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <td className="px-2 py-3 text-xs text-gray-500 whitespace-nowrap">
                     {new Date(user.created_at).toLocaleDateString('vi-VN')}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">
+                  <td className="px-2 py-3 text-xs">
                     {user.is_banned ? (
-                      <span className="px-2 py-1 bg-red-100 text-red-800 rounded-full text-xs font-medium">
-                        🚫 Đã bị cấm
+                      <span className="px-2 py-1 bg-red-100 text-red-800 rounded-full text-xs">
+                        🚫 Bị cấm
                       </span>
                     ) : (
-                      <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">
+                      <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs">
                         ✅ Hoạt động
                       </span>
                     )}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm space-x-2">
-                    {user.is_banned ? (
+                  <td className="px-2 py-3 whitespace-nowrap">
+                    <div className="flex items-center gap-1">
+                      {/* Nút Reset mật khẩu */}
                       <button
-                        onClick={() => handleUnbanUser(user.id, user.email)}
-                        className="px-3 py-1.5 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors font-medium"
-                        title="Gỡ cấm user"
+                        onClick={() =>  handleResetPassword(user.id, user.email)}
+                        className="px-2 py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-600 transition-colors"
+                        title="Reset mật khẩu"
                       >
-                        ✅ Gỡ cấm
+                        🔐 Reset MK
                       </button>
-                    ) : (
-                      // Không cho phép cấm Admin
-                      user.role === 'admin' ? (
-                        <span className="px-3 py-1.5 bg-gray-300 text-gray-600 rounded-lg cursor-not-allowed font-medium" title="Không thể cấm tài khoản Admin">
-                          🔒 Không thể cấm
+                      
+                      {/* Nút Cấm/Gỡ cấm */}
+                      {user.is_banned ? (
+                        <button
+                          onClick={() => handleUnbanUser(user.id, user.email)}
+                          className="px-2 py-1 bg-green-500 text-white rounded text-xs hover:bg-green-600 transition-colors"
+                          title="Gỡ xoá"
+                        >
+                          ✅ Gỡ cấm
+                        </button>
+                      ) : user.role === 'admin' ? (
+                        <span className="px-2 py-1 bg-gray-200 text-gray-500 rounded text-xs cursor-not-allowed" title="Không thể cấm Admin">
+                          🔒 Không thể xoá
                         </span>
                       ) : (
                         <button
                           onClick={() => handleBanUser(user.id, user.email)}
-                          className="px-3 py-1.5 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-medium"
+                          className="px-2 py-1 bg-orange-500 text-white rounded text-xs hover:bg-orange-600 transition-colors"
                           title="Cấm user"
                         >
-                          🚫 Cấm
+                          🚫 Xoá
                         </button>
-                      )
-                    )}
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))

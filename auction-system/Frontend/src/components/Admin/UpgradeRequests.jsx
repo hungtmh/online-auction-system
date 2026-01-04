@@ -133,8 +133,8 @@ function UpgradeRequests() {
     const confirmed = await confirm({
       icon: '🚀',
       title: 'Phê duyệt hàng loạt',
-      message: `Bạn có chắc muốn PHÊ DUYỆT ${selectedRequests.length} yêu cầu đã chọn?`,
-      confirmText: 'Phê duyệt tất cả',
+      message: `Bạn có muốn phê duyệt yêu cầu đã chọn?`,
+      confirmText: 'Phê duyệt',
     });
     if (!confirmed) return;
 
@@ -151,7 +151,7 @@ function UpgradeRequests() {
       await alert({
         icon: '✅',
         title: 'Đã phê duyệt',
-        message: `Đã phê duyệt ${count} yêu cầu thành công. Các yêu cầu đã được chuyển sang tab "Đã duyệt".`,
+        message: `Đã phê duyệt yêu cầu thành công.`,
       });
     } catch (err) {
       await alert({
@@ -175,8 +175,8 @@ function UpgradeRequests() {
     const confirmed = await confirm({
       icon: '❌',
       title: 'Từ chối hàng loạt',
-      message: `Bạn có chắc muốn TỪ CHỐI ${selectedRequests.length} yêu cầu đã chọn?`,
-      confirmText: 'Từ chối tất cả',
+      message: `Bạn có muốn từ chối yêu cầu đã chọn?`,
+      confirmText: 'Từ chối',
     });
     if (!confirmed) return;
 
@@ -193,7 +193,7 @@ function UpgradeRequests() {
       await alert({
         icon: '❌',
         title: 'Đã từ chối',
-        message: `Đã từ chối ${count} yêu cầu thành công. Các yêu cầu đã được chuyển sang tab "Đã từ chối".`,
+        message: `Đã từ chối yêu cầu thành công.`,
       });
     } catch (err) {
       await alert({
