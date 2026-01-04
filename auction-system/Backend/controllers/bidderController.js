@@ -425,12 +425,49 @@ export const placeBid = async (req, res) => {
           }
         }
 
+        // --- NEW: Lấy danh sách các bidder khác để gửi broadcast ---
+        let otherBidders = []
+        try {
+          // Danh sách cần loại trừ:
+          // 1. Người vừa đặt (bidder_id) -> đã có email riêng
+          // 2. Người vừa bị outbid NẾU isWinning=true (previousHighestBidder) -> đã có email riêng
+          const excludedIds = [bidder_id]
+          if (previousHighestBidder) {
+            excludedIds.push(previousHighestBidder.id)
+          }
+
+          // Lấy tất cả unique bidder_id đã từng bid sản phẩm này
+          const { data: participants } = await supabase
+            .from('bids')
+            .select('bidder_id')
+            .eq('product_id', product.id)
+            .eq('is_rejected', false)
+
+          if (participants) {
+            const uniqueParticipantIds = [...new Set(participants.map(p => p.bidder_id))]
+            const targetIds = uniqueParticipantIds.filter(id => !excludedIds.includes(id))
+
+            if (targetIds.length > 0) {
+              const { data: profiles } = await supabase
+                .from('profiles')
+                .select('id, email, full_name')
+                .in('id', targetIds)
+
+              if (profiles) otherBidders = profiles
+            }
+          }
+        } catch (err) {
+          console.error('⚠️ Error fetching other bidders for broadcast:', err)
+        }
+        // -----------------------------------------------------------
+
         // Gửi email
         await mailService.notifyNewBid({
           product,
           bidder,
           bidAmount: newCurrentPrice,
           previousHighestBidder,
+          otherBidders, // PASS LIST HERE
           isWinning // Truyền để biết bidder có đang thắng không
         })
 

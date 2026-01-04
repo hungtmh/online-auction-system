@@ -61,7 +61,7 @@ const sendMailToMany = async (recipients, subject, htmlGenerator) => {
  * - Gửi cho bidder mới (luôn gửi - với thông tin họ có đang thắng hay không)
  * - Gửi cho người giữ giá trước đó NẾU họ BỊ VƯỢT (isWinning = true)
  */
-export const notifyNewBid = async ({ product, bidder, bidAmount, previousHighestBidder, isWinning = true }) => {
+export const notifyNewBid = async ({ product, bidder, bidAmount, previousHighestBidder, otherBidders = [], isWinning = true }) => {
   try {
     // 1. Gửi cho seller (luôn gửi khi có bid mới)
     const { data: seller } = await supabase
@@ -84,7 +84,7 @@ export const notifyNewBid = async ({ product, bidder, bidAmount, previousHighest
     }
 
     // 2. Gửi cho bidder mới (LUÔN GỬI)
-    // Nội dung email sẽ khác nhau tùy vào isWinning
+    // Nội dung email sẽ khác nhau tùy vào trạng thái thắng/thua
     if (bidder?.email) {
       const { subject, html } = templates.newBidToBidder({
         bidderName: bidder.full_name,
@@ -93,7 +93,7 @@ export const notifyNewBid = async ({ product, bidder, bidAmount, previousHighest
         bidAmount,
         productId: product.id,
         endTime: product.end_time,
-        isWinning // Truyền để template hiển thị đúng
+        isWinning
       })
       await sendMail(bidder.email, subject, html)
     }
@@ -111,6 +111,24 @@ export const notifyNewBid = async ({ product, bidder, bidAmount, previousHighest
         endTime: product.end_time
       })
       await sendMail(previousHighestBidder.email, subject, html)
+    }
+
+    // 4. Gửi broadcast cho những người khác (đã từng bid nhưng không phải winner cũ bị outbid)
+    if (otherBidders && otherBidders.length > 0) {
+      console.log(`📡 Broadcasting update to ${otherBidders.length} other bidders...`)
+      await Promise.allSettled(otherBidders.map(async (recipient) => {
+        if (!recipient.email) return
+
+        const { subject, html } = templates.auctionUpdateNotification({
+          recipientName: recipient.full_name,
+          productName: product.name,
+          productImage: product.thumbnail_url,
+          newPrice: bidAmount,
+          productId: product.id,
+          endTime: product.end_time
+        })
+        await sendMail(recipient.email, subject, html)
+      }))
     }
 
     console.log(`✅ New bid notifications sent for product ${product.id}`)

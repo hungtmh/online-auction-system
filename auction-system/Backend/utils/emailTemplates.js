@@ -177,6 +177,37 @@ export const outbidNotification = (data) => {
 }
 
 // ============================================
+// 3.5. CẬP NHẬT GIÁ SẢN PHẨM (GỬI BROADCAST)
+// ============================================
+export const auctionUpdateNotification = (data) => {
+  const { recipientName, productName, productImage, newPrice, productId, endTime } = data
+
+  const content = `
+    <h2>🔔 Cập nhật giá đấu giá!</h2>
+    <p>Xin chào <strong>${recipientName}</strong>,</p>
+    <p>Sản phẩm bạn đang quan tâm đã có người đặt giá mới:</p>
+    
+    <div class="product-card">
+      ${productImage ? `<img src="${productImage}" alt="${productName}">` : ''}
+      <h3>${productName}</h3>
+      <p class="price">Giá hiện tại: ${formatCurrency(newPrice)}</p>
+      <p>Kết thúc: <strong>${formatDateTime(endTime)}</strong></p>
+    </div>
+    
+    <div class="info-box">
+      <strong>👀 Đừng rời mắt!</strong> Phiên đấu giá đang diễn ra sôi nổi. Hãy kiểm tra ngay để đảm bảo cơ hội chiến thắng của bạn.
+    </div>
+    
+    <a href="${APP_URL}/products/${productId}" class="btn">Xem chi tiết</a>
+  `
+
+  return {
+    subject: `[${APP_NAME}] Cập nhật giá mới: ${formatCurrency(newPrice)} - "${productName}"`,
+    html: baseTemplate(content, 'Cập nhật giá sản phẩm')
+  }
+}
+
+// ============================================
 // 4. NGƯỜI MUA BỊ TỪ CHỐI RA GIÁ
 // ============================================
 export const bidRejectedToBidder = (data) => {
@@ -380,6 +411,7 @@ export default {
   newBidToSeller,
   newBidToBidder,
   outbidNotification,
+  auctionUpdateNotification,
   bidRejectedToBidder,
   auctionEndedNoWinner,
   auctionEndedToSeller,
