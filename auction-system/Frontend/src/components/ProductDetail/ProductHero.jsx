@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import 'quill/dist/quill.snow.css'
 
 const FALLBACK_IMAGE = 'https://via.placeholder.com/800x500?text=Auction+Item'
@@ -38,10 +39,12 @@ function InfoTag({ label, value }) {
 }
 
 export default function ProductHero({ product }) {
+  const navigate = useNavigate()
   const [activeImageIndex, setActiveImageIndex] = useState(0)
   const [isTransitioning, setIsTransitioning] = useState(false)
   const gallery = resolveImages(product)
   const category = product?.categories?.name
+  const categoryId = product?.category_id
   const sellerName = product?.seller?.full_name || product?.seller_name || 'Ẩn danh'
   const sellerPositive =
     product?.seller?.rating_positive ?? product?.seller_rating_positive ?? product?.seller_rating ?? 0
@@ -69,6 +72,12 @@ export default function ProductHero({ product }) {
     setIsTransitioning(true)
     setActiveImageIndex(index)
     setTimeout(() => setIsTransitioning(false), 500)
+  }
+
+  const handleCategoryClick = () => {
+    if (categoryId) {
+      navigate(`/auctions?category=${categoryId}`)
+    }
   }
 
   return (
@@ -137,9 +146,12 @@ export default function ProductHero({ product }) {
 
         <div className="lg:w-1/3 space-y-4">
           {category && (
-            <span className="inline-flex items-center px-3 py-1 rounded-full bg-blue-50 text-blue-600 text-sm font-medium">
+            <button
+              onClick={handleCategoryClick}
+              className="inline-flex items-center px-3 py-1 rounded-full bg-blue-50 text-blue-600 text-sm font-medium hover:bg-blue-100 transition-colors cursor-pointer"
+            >
               {category}
-            </span>
+            </button>
           )}
           <h1 className="text-2xl font-bold text-gray-900">{product?.name}</h1>
           <div className="max-h-32 overflow-y-auto">
