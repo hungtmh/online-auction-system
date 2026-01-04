@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { authAPI } from '../../../services/api'
 import bidderAPI from '../../../services/bidderAPI'
 
 function ProfileSection({ user, onProfileChange }) {
+  const navigate = useNavigate()
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState(false)
@@ -20,9 +22,16 @@ function ProfileSection({ user, onProfileChange }) {
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
   const [upgradeReason, setUpgradeReason] = useState('')
   const [requestingUpgrade, setRequestingUpgrade] = useState(false)
+  
+  // Ratings state
+  const [ratings, setRatings] = useState(null)
+  const [loadingRatings, setLoadingRatings] = useState(false)
+  const [showRatings, setShowRatings] = useState(false)
+  const [ratingFilter, setRatingFilter] = useState('all') // 'all', 'positive', 'negative'
 
   useEffect(() => {
     loadProfile()
+    loadRatings()
   }, [])
 
   const loadProfile = async () => {
@@ -46,6 +55,18 @@ function ProfileSection({ user, onProfileChange }) {
       console.error('Failed to load profile:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const loadRatings = async () => {
+    try {
+      setLoadingRatings(true)
+      const res = await bidderAPI.getMyRatings()
+      setRatings(res?.data)
+    } catch (error) {
+      console.error('Failed to load ratings:', error)
+    } finally {
+      setLoadingRatings(false)
     }
   }
 
@@ -282,13 +303,150 @@ function ProfileSection({ user, onProfileChange }) {
         </div>
 
         <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-          <h3 className="text-sm font-medium text-gray-700 mb-2">Đánh giá</h3>
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-sm font-medium text-gray-700">Đánh giá</h3>
+            <button
+              onClick={() => setShowRatings(!showRatings)}
+              className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+            >
+              {showRatings ? 'Ẩn chi tiết' : 'Xem chi tiết'}
+            </button>
+          </div>
           <div className="flex items-center gap-4">
             <span className="text-green-600 font-medium">👍 {profile?.rating_positive || 0} tích cực</span>
             <span className="text-gray-400">|</span>
             <span className="text-red-600 font-medium">👎 {profile?.rating_negative || 0} tiêu cực</span>
           </div>
         </div>
+
+        {/* Chi tiết ratings */}
+        {showRatings && (
+          <div className="mt-6 border-t pt-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Chi tiết đánh giá</h3>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setRatingFilter('all')}
+                  className={`px-3 py-1 text-sm rounded-full transition ${
+                    ratingFilter === 'all'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  Tất cả ({ratings?.summary?.total || 0})
+                </button>
+                <button
+                  onClick={() => setRatingFilter('positive')}
+                  className={`px-3 py-1 text-sm rounded-full transition ${
+                    ratingFilter === 'positive'
+                      ? 'bg-green-600 text-white'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  👍 Tích cực ({ratings?.summary?.positive || 0})
+                </button>
+                <button
+                  onClick={() => setRatingFilter('negative')}
+                  className={`px-3 py-1 text-sm rounded-full transition ${
+                    ratingFilter === 'negative'
+                      ? 'bg-red-600 text-white'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  👎 Tiêu cực ({ratings?.summary?.negative || 0})
+                </button>
+              </div>
+            </div>
+
+            {loadingRatings ? (
+              <div className="flex justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {(() => {
+                  const displayRatings =
+                    ratingFilter === 'all'
+                      ? ratings?.all
+                      : ratingFilter === 'positive'
+                      ? ratings?.positive
+                      : ratings?.negative
+                  
+                  if (!displayRatings || displayRatings.length === 0) {
+                    return (
+                      <div className="text-center py-8 text-gray-500">
+                        <p className="text-4xl mb-2">📋</p>
+                        <p>Chưa có đánh giá nào</p>
+                      </div>
+                    )
+                  }
+
+                  return displayRatings.map((rating) => (
+                    <div
+                      key={rating.id}
+                      className={`border rounded-lg p-4 ${
+                        rating.rating === 'positive'
+                          ? 'bg-green-50 border-green-200'
+                          : 'bg-red-50 border-red-200'
+                      }`}
+                    >
+                      <div className="flex items-start gap-4">
+                        {rating.products?.thumbnail_url && (
+                          <img
+                            src={rating.products.thumbnail_url}
+                            alt={rating.products.name}
+                            className="w-16 h-16 object-cover rounded-lg flex-shrink-0"
+                          />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span
+                              className={`text-2xl ${
+                                rating.rating === 'positive' ? '👍' : '👎'
+                              }`}
+                            >
+                              {rating.rating === 'positive' ? '👍' : '👎'}
+                            </span>
+                            <span
+                              className={`text-sm font-semibold ${
+                                rating.rating === 'positive'
+                                  ? 'text-green-700'
+                                  : 'text-red-700'
+                              }`}
+                            >
+                              {rating.rating === 'positive' ? 'Tích cực' : 'Tiêu cực'}
+                            </span>
+                          </div>
+                          
+                          <button
+                            onClick={() => navigate(`/products/${rating.product_id}`)}
+                            className="font-semibold text-gray-900 hover:text-blue-600 transition text-left mb-1"
+                          >
+                            {rating.products?.name || 'Sản phẩm'}
+                          </button>
+                          
+                          {rating.comment && (
+                            <p className="text-sm text-gray-700 mb-2">
+                              💬 {rating.comment}
+                            </p>
+                          )}
+                          
+                          <div className="flex items-center gap-4 text-xs text-gray-500">
+                            <span>Từ: {rating.rater?.full_name || 'Ẩn danh'}</span>
+                            <span>•</span>
+                            <span>
+                              {new Date(rating.created_at).toLocaleDateString('vi-VN')}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                })()}
+              </div>
+            )}
+          </div>
+        )}
 
         {editing && (
           <div className="mt-6 flex gap-3">

@@ -161,6 +161,14 @@ const sellerAPI = {
   processBidRequest: async (requestId, status) => {
     const response = await api.post(`/seller/requests/${requestId}/approve`, { status })
     return response.data
+  },
+
+  /**
+   * Lấy danh sách đánh giá của tôi
+   */
+  getMyRatings: async () => {
+    const response = await api.get('/seller/ratings')
+    return response.data
   }
 }
 

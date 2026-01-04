@@ -1416,3 +1416,63 @@ export const getUpgradeRequestStatus = async (req, res) => {
   }
 }
 
+/**
+ * @route   GET /api/bidder/ratings
+ * @desc    Lấy danh sách đánh giá của bidder
+ * @access  Private (Bidder)
+ */
+export const getMyRatings = async (req, res) => {
+  try {
+    const userId = req.user.id
+
+    // Lấy tất cả ratings mà user nhận được
+    const { data: ratings, error } = await supabase
+      .from('ratings')
+      .select(`
+        id,
+        rating,
+        comment,
+        created_at,
+        product_id,
+        from_user_id,
+        products (
+          id,
+          name,
+          thumbnail_url
+        ),
+        rater:profiles!ratings_from_user_id_fkey (
+          id,
+          full_name
+        )
+      `)
+      .eq('to_user_id', userId)
+      .order('created_at', { ascending: false })
+
+    if (error) throw error
+
+    // Phân loại ratings
+    const positiveRatings = ratings?.filter(r => r.rating === 'positive') || []
+    const negativeRatings = ratings?.filter(r => r.rating === 'negative') || []
+
+    res.json({
+      success: true,
+      data: {
+        all: ratings || [],
+        positive: positiveRatings,
+        negative: negativeRatings,
+        summary: {
+          total: ratings?.length || 0,
+          positive: positiveRatings.length,
+          negative: negativeRatings.length
+        }
+      }
+    })
+  } catch (error) {
+    console.error('❌ Error getting ratings:', error)
+    res.status(500).json({
+      success: false,
+      message: 'Không thể lấy danh sách đánh giá'
+    })
+  }
+}
+

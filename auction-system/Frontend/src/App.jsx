@@ -118,6 +118,10 @@ function App() {
             element={user?.role === 'seller' ? <SellerDashboardPage /> : <Navigate to="/" />}
           />
           <Route
+            path="/seller/profile"
+            element={user?.role === 'seller' ? <SellerDashboardPage /> : <Navigate to="/" />}
+          />
+          <Route
             path="/bidder"
             element={(user?.role === 'bidder' || user?.role === 'seller') ? <BidderDashboard /> : <Navigate to="/" />}
           />
