@@ -122,6 +122,7 @@ export default function BidActionPanel({
 }) {
   const [maxBid, setMaxBid] = useState('')
   const [inputError, setInputError] = useState(null)
+  const [showConfirm, setShowConfirm] = useState(false)
   const countdown = useCountdown(product?.end_time)
   const isActive = mode === 'ACTIVE'
   const isGuest = !user
@@ -130,6 +131,13 @@ export default function BidActionPanel({
   // Seller can bid on OTHER products, not their own
   const canBid = (user?.role === 'bidder' || user?.role === 'seller') && !isOwnProduct
   const nextMinimumBid = useMemo(() => calcNextBid(product), [product])
+  
+  // Kiểm tra rating của user
+  const userRatingPositive = user?.rating_positive || 0
+  const userRatingNegative = user?.rating_negative || 0
+  const totalRatings = userRatingPositive + userRatingNegative
+  const ratingScore = totalRatings > 0 ? (userRatingPositive / totalRatings) * 100 : 0
+  const hasHighRating = totalRatings > 0 && ratingScore >= 80
 
   useEffect(() => {
     setInputError(null)
@@ -151,12 +159,24 @@ export default function BidActionPanel({
     }
 
     setInputError(null)
+    
+    // Hiển thị dialog xác nhận
+    setShowConfirm(true)
+  }
+  
+  const handleConfirmBid = async () => {
+    setShowConfirm(false)
+    const numericMaxBid = Number(maxBid)
     const result = await onPlaceBid(numericMaxBid)
     
     // Nếu đặt giá thành công, clear input
     if (result?.success) {
       setMaxBid('')
     }
+  }
+  
+  const handleCancelBid = () => {
+    setShowConfirm(false)
   }
 
   if (mode !== 'ACTIVE') {
@@ -303,6 +323,40 @@ export default function BidActionPanel({
 
       {canBid && (
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Thông báo về rating nếu < 80% */}
+          {!hasHighRating && totalRatings > 0 && (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
+              <div className="flex items-start gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                </svg>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-yellow-800">Điểm đánh giá của bạn: {ratingScore.toFixed(1)}%</p>
+                  <p className="text-xs text-yellow-700 mt-1">
+                    Điểm đánh giá dưới 80% cần được người bán phê duyệt mới có thể đấu giá. 
+                    Hệ thống sẽ tự động gửi yêu cầu xin phép.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {totalRatings === 0 && (
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+              <div className="flex items-start gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+                </svg>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-blue-800">Tài khoản mới</p>
+                  <p className="text-xs text-blue-700 mt-1">
+                    Bạn chưa có đánh giá. Người bán có quyền chấp nhận hoặc từ chối yêu cầu đấu giá của bạn.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+          
           <div>
             <label className="text-sm font-medium text-gray-700 mb-2 block">
               Nhập giá tối đa bạn sẵn sàng trả
@@ -349,6 +403,77 @@ export default function BidActionPanel({
             </div>
           )}
         </form>
+      )}
+      
+      {/* Confirmation Dialog */}
+      {showConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl animate-in fade-in zoom-in duration-200">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6 text-blue-600">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-bold text-gray-900">Xác nhận đặt giá</h3>
+            </div>
+            
+            <div className="space-y-3 mb-6">
+              <div className="bg-gray-50 rounded-xl p-4">
+                <p className="text-sm text-gray-600 mb-1">Sản phẩm</p>
+                <p className="font-semibold text-gray-900">{product?.name}</p>
+              </div>
+              
+              <div className="bg-blue-50 rounded-xl p-4">
+                <p className="text-sm text-blue-600 mb-1">Giá tối đa của bạn</p>
+                <p className="text-2xl font-bold text-blue-700">{formatCurrency(Number(maxBid))}</p>
+              </div>
+              
+              <div className="bg-gray-50 rounded-xl p-3 space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Giá hiện tại:</span>
+                  <span className="font-medium text-gray-900">{formatCurrency(product?.current_price || product?.starting_price)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Bước giá:</span>
+                  <span className="font-medium text-gray-900">{formatCurrency(product?.step_price)}</span>
+                </div>
+              </div>
+              
+              {!hasHighRating && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3">
+                  <p className="text-xs text-yellow-800">
+                    ⚠️ {totalRatings === 0 
+                      ? 'Bạn chưa có đánh giá. Yêu cầu đấu giá cần được người bán chấp nhận.'
+                      : `Điểm đánh giá của bạn (${ratingScore.toFixed(1)}%) dưới 80%. Yêu cầu đấu giá cần được người bán phê duyệt.`
+                    }
+                  </p>
+                </div>
+              )}
+              
+              <p className="text-xs text-gray-500 italic">
+                💡 Hệ thống sẽ tự động đấu giá cho bạn với giá vừa đủ để thắng, không vượt quá giá tối đa này.
+              </p>
+            </div>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={handleCancelBid}
+                disabled={bidSubmitting}
+                className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-xl font-medium hover:bg-gray-50 transition disabled:opacity-60"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={handleConfirmBid}
+                disabled={bidSubmitting}
+                className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {bidSubmitting ? '⏳ Đang xử lý...' : 'Xác nhận đặt giá'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

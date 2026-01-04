@@ -39,6 +39,7 @@ function InfoTag({ label, value }) {
 
 export default function ProductHero({ product }) {
   const [activeImageIndex, setActiveImageIndex] = useState(0)
+  const [isTransitioning, setIsTransitioning] = useState(false)
   const gallery = resolveImages(product)
   const category = product?.categories?.name
   const sellerName = product?.seller?.full_name || product?.seller_name || 'Ẩn danh'
@@ -49,12 +50,25 @@ export default function ProductHero({ product }) {
 
   const handlePrev = (e) => {
     e.stopPropagation()
+    if (isTransitioning) return
+    setIsTransitioning(true)
     setActiveImageIndex((prev) => (prev === 0 ? gallery.length - 1 : prev - 1))
+    setTimeout(() => setIsTransitioning(false), 500)
   }
 
   const handleNext = (e) => {
     e.stopPropagation()
+    if (isTransitioning) return
+    setIsTransitioning(true)
     setActiveImageIndex((prev) => (prev === gallery.length - 1 ? 0 : prev + 1))
+    setTimeout(() => setIsTransitioning(false), 500)
+  }
+
+  const handleThumbnailClick = (index) => {
+    if (isTransitioning || index === activeImageIndex) return
+    setIsTransitioning(true)
+    setActiveImageIndex(index)
+    setTimeout(() => setIsTransitioning(false), 500)
   }
 
   return (
@@ -63,16 +77,19 @@ export default function ProductHero({ product }) {
         <div className="lg:w-2/3">
           <div className="relative rounded-2xl overflow-hidden bg-gray-100 group">
             <img
+              key={activeImageIndex}
               src={gallery[activeImageIndex] || FALLBACK_IMAGE}
               alt={product?.title}
-              className="w-full h-[420px] object-contain bg-gray-50"
+              className="w-full h-[420px] object-contain bg-gray-50 transition-opacity duration-500 ease-in-out"
+              style={{ opacity: isTransitioning ? 0 : 1 }}
             />
             
             {gallery.length > 1 && (
               <>
                 <button
                   onClick={handlePrev}
-                  className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white text-gray-800 p-2 rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
+                  disabled={isTransitioning}
+                  className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white text-gray-800 p-2 rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
@@ -80,7 +97,8 @@ export default function ProductHero({ product }) {
                 </button>
                 <button
                   onClick={handleNext}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white text-gray-800 p-2 rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
+                  disabled={isTransitioning}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white text-gray-800 p-2 rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
@@ -95,16 +113,22 @@ export default function ProductHero({ product }) {
               {gallery.map((image, index) => (
                 <button
                   key={`${image}-${index}`}
-                  onClick={() => setActiveImageIndex(index)}
-                  className={`flex-shrink-0 relative rounded-lg overflow-hidden border-2 transition-all ${
-                    activeImageIndex === index ? 'border-blue-600 ring-2 ring-blue-100' : 'border-transparent hover:border-gray-300'
-                  }`}
+                  onClick={() => handleThumbnailClick(index)}
+                  disabled={isTransitioning}
+                  className={`flex-shrink-0 relative rounded-lg overflow-hidden border-2 transition-all duration-300 ${
+                    activeImageIndex === index 
+                      ? 'border-blue-600 ring-2 ring-blue-100 scale-105 shadow-md' 
+                      : 'border-transparent hover:border-gray-300 hover:scale-105 hover:shadow-sm'
+                  } ${isTransitioning ? 'cursor-not-allowed opacity-70' : ''}`}
                 >
                   <img
                     src={image}
                     alt={`Ảnh phụ ${index + 1}`}
-                    className="w-20 h-20 object-cover"
+                    className="w-20 h-20 object-cover transition-transform duration-300"
                   />
+                  {activeImageIndex === index && (
+                    <div className="absolute inset-0 bg-blue-600/10 pointer-events-none"></div>
+                  )}
                 </button>
               ))}
             </div>

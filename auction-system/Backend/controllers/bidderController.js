@@ -651,6 +651,24 @@ export const getMyBids = async (req, res) => {
     }
 
     const uniqueBids = Array.from(productBidsMap.values())
+    
+    // Thêm thông tin highest_bidder_id cho mỗi product
+    for (const bid of uniqueBids) {
+      const productId = bid.product_id
+      
+      // Lấy tất cả bids của product này để tìm người đang giữ giá cao nhất
+      const { data: productBids } = await supabase
+        .from('bids')
+        .select('bidder_id, max_bid_amount, created_at, is_rejected')
+        .eq('product_id', productId)
+        .eq('is_rejected', false)
+        .order('max_bid_amount', { ascending: false })
+        .order('created_at', { ascending: true })
+      
+      // Người có max_bid_amount cao nhất, nếu bằng nhau thì người đặt trước thắng
+      const highestBidder = productBids?.[0]
+      bid.products.highest_bidder_id = highestBidder?.bidder_id || null
+    }
 
     // Sort by created_at descending (latest first)
     uniqueBids.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
