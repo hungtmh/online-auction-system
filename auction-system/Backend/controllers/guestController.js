@@ -459,3 +459,96 @@ export const getPublicSettings = async (req, res) => {
     res.status(500).json({ success: false, message: "Không thể lấy cài đặt hệ thống" });
   }
 };
+
+/**
+ * GET /api/guest/users/:userId/profile
+ * Lấy thông tin profile công khai của user
+ */
+export const getUserProfile = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    if (!userId) {
+      return res.status(400).json({ success: false, message: "Thiếu mã người dùng" });
+    }
+
+    const { data: userProfile, error } = await supabase
+      .from("profiles")
+      .select("id, full_name, avatar_url, rating_positive, rating_negative, role")
+      .eq("id", userId)
+      .maybeSingle();
+
+    if (error) throw error;
+
+    if (!userProfile) {
+      return res.status(404).json({ success: false, message: "Không tìm thấy người dùng" });
+    }
+
+    res.json({ success: true, data: userProfile });
+  } catch (error) {
+    console.error("❌ Error getting user profile:", error);
+    res.status(500).json({ success: false, message: "Không thể lấy thông tin người dùng" });
+  }
+};
+
+/**
+ * GET /api/guest/users/:userId/ratings
+ * Lấy danh sách đánh giá của user
+ */
+export const getUserRatings = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    if (!userId) {
+      return res.status(400).json({ success: false, message: "Thiếu mã người dùng" });
+    }
+
+    const { data: ratings, error } = await supabase
+      .from("ratings")
+      .select(`
+        id,
+        rating,
+        comment,
+        created_at,
+        product_id,
+        from_user_id,
+        products (
+          id,
+          name,
+          thumbnail_url
+        ),
+        rater:profiles!ratings_from_user_id_fkey (
+          id,
+          full_name
+        )
+      `)
+      .eq("to_user_id", userId)
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+
+    // Transform data
+    const transformedRatings = (ratings || []).map(r => ({
+      id: r.id,
+      rating: r.rating,
+      comment: r.comment,
+      created_at: r.created_at,
+      product_id: r.product_id,
+      product_name: r.products?.name,
+      product_thumbnail_url: r.products?.thumbnail_url,
+      rater_id: r.rater?.id,
+      rater_name: r.rater?.full_name
+    }));
+
+    res.json({ 
+      success: true, 
+      data: {
+        ratings: transformedRatings
+      }
+    });
+  } catch (error) {
+    console.error("❌ Error getting user ratings:", error);
+    res.status(500).json({ success: false, message: "Không thể lấy đánh giá" });
+  }
+};
+

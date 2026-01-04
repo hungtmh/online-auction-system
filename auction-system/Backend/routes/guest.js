@@ -7,7 +7,7 @@
 
 import express from "express";
 import { query, param, validationResult } from "express-validator";
-import { getProducts, getProductById, searchProducts, getCategories, getFeaturedProducts, getSellerProfile, getPublicSettings } from "../controllers/guestController.js";
+import { getProducts, getProductById, searchProducts, getCategories, getFeaturedProducts, getSellerProfile, getPublicSettings, getUserProfile, getUserRatings } from "../controllers/guestController.js";
 
 const router = express.Router();
 
@@ -73,5 +73,19 @@ router.get("/sellers/:id", [param("id").notEmpty().withMessage("id is required")
  * @access  Public
  */
 router.get("/settings", getPublicSettings);
+
+/**
+ * @route   GET /api/guest/users/:userId/profile
+ * @desc    Lấy thông tin profile công khai của user
+ * @access  Public
+ */
+router.get("/users/:userId/profile", [param("userId").notEmpty().withMessage("userId is required"), validate], getUserProfile);
+
+/**
+ * @route   GET /api/guest/users/:userId/ratings
+ * @desc    Lấy danh sách đánh giá của user
+ * @access  Public
+ */
+router.get("/users/:userId/ratings", [param("userId").notEmpty().withMessage("userId is required"), validate], getUserRatings);
 
 export default router;

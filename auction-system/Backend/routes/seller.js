@@ -25,7 +25,8 @@ import {
   cancelWinnerTransaction,
   reopenAuction,
   getBidRequests,
-  updateBidRequestStatus
+  updateBidRequestStatus,
+  getMyRatings
 } from '../controllers/sellerController.js'
 import { productImageUpload, avatarImageUpload } from '../utils/upload.js'
 
@@ -112,5 +113,12 @@ router.post('/products/:id/reopen', reopenAuction)
 // Bidder Permission Requests
 router.get('/products/:productId/requests', getBidRequests)
 router.post('/requests/:requestId/approve', updateBidRequestStatus)
+
+/**
+ * @route   GET /api/seller/ratings
+ * @desc    Lấy danh sách đánh giá của tôi
+ * @access  Private (Seller)
+ */
+router.get('/ratings', getMyRatings)
 
 export default router

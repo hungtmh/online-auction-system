@@ -5,15 +5,18 @@ import guestAPI from "../services/guestAPI";
 import PublicLayout from "../components/Layout/PublicLayout";
 import MyProductsSection from "../components/Seller/MyProductsSection";
 import ProductCreation from "../components/Seller/ProductCreation/ProductCreation";
+import SellerProfileSection from "../components/Seller/SellerProfileSection";
 
 const TAB_TITLES = {
   "my-products": "Sản phẩm của tôi",
   "add-product": "Đăng sản phẩm mới",
+  "profile": "Thông tin cá nhân",
 };
 
 const TAB_CONFIG = [
   { id: "my-products", label: "📦 Sản phẩm của tôi" },
   { id: "add-product", label: "➕ Đăng sản phẩm" },
+  { id: "profile", label: "👤 Hồ sơ" },
 ];
 
 const DEFAULT_ACTIVE_TAB = "my-products";
@@ -30,6 +33,7 @@ function SellerDashboardPage() {
     const path = location.pathname;
     if (path.includes("/my-products")) return "my-products";
     if (path.includes("/add-product")) return "add-product";
+    if (path.includes("/profile")) return "profile";
     return DEFAULT_ACTIVE_TAB;
   };
 
@@ -79,6 +83,10 @@ function SellerDashboardPage() {
 
     if (activeTab === "add-product") {
       return <ProductCreation categories={categories} loadingCategories={loadingCategories} />;
+    }
+
+    if (activeTab === "profile") {
+      return <SellerProfileSection user={user} onProfileChange={setUser} />;
     }
 
     return (

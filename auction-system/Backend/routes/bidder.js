@@ -25,7 +25,8 @@ import {
   getUserBidStatus,
   getCurrentWinner,
   requestUpgrade,
-  getUpgradeRequestStatus
+  getUpgradeRequestStatus,
+  getMyRatings
 } from '../controllers/bidderController.js'
 import { paymentProofUpload, avatarImageUpload } from '../utils/upload.js'
 
@@ -150,5 +151,12 @@ router.post('/upgrade-request', requestUpgrade)
  * @access  Private (Bidder)
  */
 router.get('/upgrade-request/status', getUpgradeRequestStatus)
+
+/**
+ * @route   GET /api/bidder/ratings
+ * @desc    Lấy danh sách đánh giá của tôi
+ * @access  Private (Bidder)
+ */
+router.get('/ratings', getMyRatings)
 
 export default router

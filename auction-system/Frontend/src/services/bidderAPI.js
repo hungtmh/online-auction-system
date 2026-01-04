@@ -174,6 +174,14 @@ const bidderAPI = {
   getUpgradeRequestStatus: async () => {
     const response = await api.get('/bidder/upgrade-request/status')
     return response.data
+  },
+
+  /**
+   * Lấy danh sách đánh giá của tôi
+   */
+  getMyRatings: async () => {
+    const response = await api.get('/bidder/ratings')
+    return response.data
   }
 }
 

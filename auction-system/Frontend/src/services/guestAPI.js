@@ -63,6 +63,24 @@ const guestAPI = {
     const response = await axios.get(`${API_BASE}/guest/sellers/${sellerId}`);
     return response.data;
   },
+
+  /**
+   * Lấy thông tin profile công khai của user
+   * @param {string} userId
+   */
+  getUserProfile: async (userId) => {
+    const response = await axios.get(`${API_BASE}/guest/users/${userId}/profile`);
+    return response.data;
+  },
+
+  /**
+   * Lấy danh sách đánh giá của user
+   * @param {string} userId
+   */
+  getUserRatings: async (userId) => {
+    const response = await axios.get(`${API_BASE}/guest/users/${userId}/ratings`);
+    return response.data;
+  },
 };
 
 export default guestAPI;

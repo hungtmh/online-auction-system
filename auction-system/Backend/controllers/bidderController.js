@@ -651,6 +651,24 @@ export const getMyBids = async (req, res) => {
     }
 
     const uniqueBids = Array.from(productBidsMap.values())
+    
+    // Thêm thông tin highest_bidder_id cho mỗi product
+    for (const bid of uniqueBids) {
+      const productId = bid.product_id
+      
+      // Lấy tất cả bids của product này để tìm người đang giữ giá cao nhất
+      const { data: productBids } = await supabase
+        .from('bids')
+        .select('bidder_id, max_bid_amount, created_at, is_rejected')
+        .eq('product_id', productId)
+        .eq('is_rejected', false)
+        .order('max_bid_amount', { ascending: false })
+        .order('created_at', { ascending: true })
+      
+      // Người có max_bid_amount cao nhất, nếu bằng nhau thì người đặt trước thắng
+      const highestBidder = productBids?.[0]
+      bid.products.highest_bidder_id = highestBidder?.bidder_id || null
+    }
 
     // Sort by created_at descending (latest first)
     uniqueBids.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
@@ -1394,6 +1412,66 @@ export const getUpgradeRequestStatus = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Không thể lấy trạng thái yêu cầu'
+    })
+  }
+}
+
+/**
+ * @route   GET /api/bidder/ratings
+ * @desc    Lấy danh sách đánh giá của bidder
+ * @access  Private (Bidder)
+ */
+export const getMyRatings = async (req, res) => {
+  try {
+    const userId = req.user.id
+
+    // Lấy tất cả ratings mà user nhận được
+    const { data: ratings, error } = await supabase
+      .from('ratings')
+      .select(`
+        id,
+        rating,
+        comment,
+        created_at,
+        product_id,
+        from_user_id,
+        products (
+          id,
+          name,
+          thumbnail_url
+        ),
+        rater:profiles!ratings_from_user_id_fkey (
+          id,
+          full_name
+        )
+      `)
+      .eq('to_user_id', userId)
+      .order('created_at', { ascending: false })
+
+    if (error) throw error
+
+    // Phân loại ratings
+    const positiveRatings = ratings?.filter(r => r.rating === 'positive') || []
+    const negativeRatings = ratings?.filter(r => r.rating === 'negative') || []
+
+    res.json({
+      success: true,
+      data: {
+        all: ratings || [],
+        positive: positiveRatings,
+        negative: negativeRatings,
+        summary: {
+          total: ratings?.length || 0,
+          positive: positiveRatings.length,
+          negative: negativeRatings.length
+        }
+      }
+    })
+  } catch (error) {
+    console.error('❌ Error getting ratings:', error)
+    res.status(500).json({
+      success: false,
+      message: 'Không thể lấy danh sách đánh giá'
     })
   }
 }
