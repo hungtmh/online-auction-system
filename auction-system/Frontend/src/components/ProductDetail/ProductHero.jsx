@@ -45,6 +45,7 @@ export default function ProductHero({ product }) {
   const gallery = resolveImages(product)
   const category = product?.categories?.name
   const categoryId = product?.category_id
+  const sellerId = product?.seller_id
   const sellerName = product?.seller?.full_name || product?.seller_name || 'Ẩn danh'
   const sellerPositive =
     product?.seller?.rating_positive ?? product?.seller_rating_positive ?? product?.seller_rating ?? 0
@@ -77,6 +78,12 @@ export default function ProductHero({ product }) {
   const handleCategoryClick = () => {
     if (categoryId) {
       navigate(`/auctions?category=${categoryId}`)
+    }
+  }
+
+  const handleSellerRatingClick = () => {
+    if (sellerId) {
+      navigate(`/users/${sellerId}/ratings`)
     }
   }
 
@@ -175,9 +182,13 @@ export default function ProductHero({ product }) {
           <div className="border-t pt-4 mt-4">
             <p className="text-sm text-gray-500">Người bán</p>
             <p className="font-semibold text-gray-900">{sellerName}</p>
-            <p className="text-sm text-gray-500">
-              Điểm đánh giá: +{sellerPositive} / -{sellerNegative}
-            </p>
+            <button
+              onClick={handleSellerRatingClick}
+              className="text-sm text-blue-600 hover:text-blue-700 hover:underline transition-colors cursor-pointer font-medium"
+            >
+              Điểm đánh giá: <span className="text-green-600">+{sellerPositive}</span> / <span className="text-red-600">-{sellerNegative}</span>
+              <span className="ml-1">→</span>
+            </button>
           </div>
         </div>
       </div>
