@@ -398,14 +398,12 @@ function AdminDashboard() {
                   </div>
                 </div>
 
-                {/* Đang online */}
+                {/* Báo cáo spam đã xử lý */}
                 <div className="bg-white border-2 border-blue-400 rounded-xl p-4 text-center hover:shadow-lg transition">
-                  <div className="flex justify-center mb-2">
-                    <div className="w-8 h-8 bg-green-500 rounded-full"></div>
-                  </div>
-                  <div className="text-slate-600 text-sm">Đang online</div>
+                  <div className="text-4xl mb-2">✅</div>
+                  <div className="text-slate-600 text-sm">Spam đã xử lý</div>
                   <div className="text-3xl font-bold text-green-600">
-                    {stats?.onlineUsers || '0'}
+                    {stats?.totalSpamReports || '0'}
                   </div>
                 </div>
 

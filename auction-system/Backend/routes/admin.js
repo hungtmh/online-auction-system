@@ -14,6 +14,7 @@ import {
   banUser,
   deleteUser,
   unbanUser,
+  resetUserPassword,
   getAllProducts,
   approveProduct,
   rejectProduct,
@@ -86,6 +87,13 @@ router.post('/users/:id/ban', banUser)
  * @access  Private (Admin)
  */
 router.post('/users/:id/unban', unbanUser)
+
+/**
+ * @route   POST /api/admin/users/:id/reset-password
+ * @desc    Reset mật khẩu user và gửi email thông báo
+ * @access  Private (Admin)
+ */
+router.post('/users/:id/reset-password', resetUserPassword)
 
 /**
  * @route   DELETE /api/admin/users/:id

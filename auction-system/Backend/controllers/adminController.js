@@ -10,6 +10,9 @@
  */
 
 import { supabase } from "../config/supabase.js";
+import mailService from "../services/mailService.js";
+import crypto from "crypto";
+import bcrypt from "bcryptjs";
 
 /**
  * @route   GET /api/admin/users
@@ -298,6 +301,154 @@ export const unbanUser = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Không thể gỡ cấm user",
+    });
+  }
+};
+
+/**
+ * @route   POST /api/admin/users/:id/reset-password
+ * @desc    Reset mật khẩu user và gửi email thông báo
+ * @access  Private (Admin)
+ */
+export const resetUserPassword = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Lấy thông tin user từ profiles
+    const { data: user, error: userError } = await supabase
+      .from("profiles")
+      .select("id, email, full_name")
+      .eq("id", id)
+      .single();
+
+    if (userError || !user) {
+      return res.status(404).json({
+        success: false,
+        message: "Không tìm thấy user",
+      });
+    }
+
+    // Kiểm tra xem user có đăng ký bằng Google OAuth không
+    const { data: authUser, error: authError } = await supabase.auth.admin.getUserById(id);
+    
+    if (authError) {
+      console.error("❌ Error getting auth user:", authError);
+      throw authError;
+    }
+
+    console.log("📋 Auth user info:", JSON.stringify(authUser?.user?.app_metadata, null, 2));
+
+    // Kiểm tra provider - nếu là google thì không thể reset password
+    const provider = authUser?.user?.app_metadata?.provider;
+    const providers = authUser?.user?.app_metadata?.providers || [];
+    
+    if (provider === 'google' || providers.includes('google')) {
+      // Kiểm tra xem user có identities với provider email không
+      const identities = authUser?.user?.identities || [];
+      const hasEmailIdentity = identities.some(i => i.provider === 'email');
+      
+      if (!hasEmailIdentity) {
+        return res.status(400).json({
+          success: false,
+          message: "Không thể reset mật khẩu cho tài khoản đăng nhập bằng Google. User này cần đăng nhập bằng nút 'Đăng nhập với Google'.",
+        });
+      }
+    }
+
+    // Tạo mật khẩu mới ngẫu nhiên (8 ký tự chữ + số dễ đọc)
+    const newPassword = crypto.randomBytes(4).toString("hex"); // 8 ký tự hex
+
+    console.log(`🔐 Attempting to reset password for ${user.email} to: ${newPassword}`);
+
+    // Hash mật khẩu mới bằng bcrypt (giống như khi đăng ký)
+    const saltRounds = 10;
+    const passwordHash = await bcrypt.hash(newPassword, saltRounds);
+
+    // Cập nhật mật khẩu trong Supabase Auth sử dụng admin API
+    // QUAN TRỌNG: Cập nhật cả user_metadata.password_hash vì hệ thống login dùng bcrypt để kiểm tra
+    const { data: updateData, error: updateError } = await supabase.auth.admin.updateUserById(id, {
+      password: newPassword,
+      user_metadata: {
+        ...authUser?.user?.user_metadata,
+        password_hash: passwordHash,
+      },
+    });
+
+    if (updateError) {
+      console.error("❌ Error updating password:", updateError);
+      throw updateError;
+    }
+
+    console.log(`✅ Password updated successfully for ${user.email}`);
+    console.log(`📧 New password: ${newPassword}`);
+    console.log(`🔒 Password hash updated in user_metadata`);
+
+    // Gửi email thông báo mật khẩu mới
+    const emailHtml = `
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reset mật khẩu</title>
+</head>
+<body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 0; background-color: #f5f5f5;">
+  <div style="max-width: 600px; margin: 0 auto; background: #ffffff;">
+    <div style="background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); color: white; padding: 30px; text-align: center;">
+      <h1 style="margin: 0; font-size: 24px;">🔐 Mật khẩu đã được đặt lại</h1>
+    </div>
+    <div style="padding: 30px; color: #333; line-height: 1.6;">
+      <p>Xin chào <strong>${user.full_name || user.email}</strong>,</p>
+      <p>Mật khẩu tài khoản của bạn đã được quản trị viên đặt lại.</p>
+      
+      <div style="background: #eff6ff; border-left: 4px solid #2563eb; padding: 15px; margin: 20px 0; border-radius: 0 8px 8px 0;">
+        <p style="margin: 0 0 10px 0;"><strong>Thông tin đăng nhập mới:</strong></p>
+        <p style="margin: 0;">Email: <strong>${user.email}</strong></p>
+        <p style="margin: 0;">Mật khẩu mới: <strong style="font-size: 18px; color: #2563eb;">${newPassword}</strong></p>
+      </div>
+      
+      <div style="background: #fef2f2; border-left: 4px solid #ef4444; padding: 15px; margin: 20px 0; border-radius: 0 8px 8px 0;">
+        <p style="margin: 0;"><strong>⚠️ Lưu ý bảo mật:</strong></p>
+        <p style="margin: 5px 0 0 0;">Vui lòng đăng nhập và đổi mật khẩu ngay sau khi nhận được email này để bảo mật tài khoản.</p>
+      </div>
+      
+      <p>Nếu bạn không yêu cầu đặt lại mật khẩu, vui lòng liên hệ với chúng tôi ngay.</p>
+      
+      <p>Trân trọng,<br><strong>Đội ngũ AuctionHub</strong></p>
+    </div>
+    <div style="background: #f8fafc; padding: 20px; text-align: center; color: #64748b; font-size: 12px; border-top: 1px solid #e2e8f0;">
+      <p>© 2025 AuctionHub. Tất cả quyền được bảo lưu.</p>
+    </div>
+  </div>
+</body>
+</html>
+    `;
+
+    try {
+      await mailService.sendMail(
+        user.email,
+        "🔐 Mật khẩu tài khoản của bạn đã được đặt lại - AuctionHub",
+        emailHtml
+      );
+      console.log(`✅ Password reset email sent to ${user.email}`);
+    } catch (mailError) {
+      console.error("⚠️ Could not send email, but password was reset:", mailError);
+      // Vẫn trả về success vì mật khẩu đã được reset
+    }
+
+    res.json({
+      success: true,
+      message: `Đã reset mật khẩu và gửi email thông báo đến ${user.email}`,
+      data: {
+        userId: id,
+        email: user.email,
+      },
+    });
+  } catch (error) {
+    console.error("❌ Error resetting user password:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message || "Không thể reset mật khẩu user",
     });
   }
 };
@@ -686,6 +837,11 @@ export const getSystemStats = async (req, res) => {
     // Yêu cầu nâng cấp pending
     const { count: pendingUpgrades } = await supabase.from("upgrade_requests").select("id", { count: "exact" }).eq("status", "pending");
 
+    // Tổng số báo cáo spam đã xử lý (resolved + dismissed)
+    const { count: resolvedSpam } = await supabase.from("spam_reports").select("id", { count: "exact" }).eq("status", "resolved");
+    const { count: dismissedSpam } = await supabase.from("spam_reports").select("id", { count: "exact" }).eq("status", "dismissed");
+    const totalSpamReports = (resolvedSpam || 0) + (dismissedSpam || 0);
+
     res.json({
       success: true,
       data: {
@@ -695,6 +851,7 @@ export const getSystemStats = async (req, res) => {
         totalBids: totalBids || 0,
         totalCategories: totalCategories || 0,
         pendingUpgrades: pendingUpgrades || 0,
+        totalSpamReports: totalSpamReports,
       },
     });
   } catch (error) {
