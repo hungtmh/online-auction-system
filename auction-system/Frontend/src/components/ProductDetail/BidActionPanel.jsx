@@ -98,15 +98,17 @@ const useCountdown = (target) => {
 
 const maskName = (name) => {
   if (!name) return 'Ẩn danh'
-  const cleaned = name.trim().replace(/\s+/g, ' ')
-  if (!cleaned) return 'Ẩn danh'
-
-  const lettersOnly = cleaned.replace(/\s/g, '')
-  if (!lettersOnly) return 'Ẩn danh'
-
-  const visibleChars = Math.min(2, lettersOnly.length)
-  const suffix = lettersOnly.slice(-visibleChars)
-  return `****${suffix}`
+  const words = name.trim().split(/\s+/)
+  
+  if (words.length > 1) {
+    // Nhiều từ: hiển thị ****[từ cuối]
+    const lastName = words[words.length - 1]
+    return `****${lastName}`
+  } else {
+    // 1 từ: hiển thị n*d*h*a (xen kẽ ký tự và dấu *)
+    const singleWord = words[0]
+    return singleWord.split('').join('*')
+  }
 }
 
 export default function BidActionPanel({

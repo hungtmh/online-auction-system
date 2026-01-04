@@ -144,9 +144,6 @@ export default function ProductCard({ product, user, isInWatchlist: initialWatch
 
       {/* Content */}
       <div className="p-4 flex flex-col flex-grow">
-        {/* Product Name */}
-        <div className="text-sm text-gray-600 mb-1 h-5">{displayName}</div>
-        
         {/* Title - Fixed height */}
         <h3 className="font-bold text-lg text-gray-900 line-clamp-2 mb-2 group-hover:text-blue-600 transition h-14">
           {product.title}

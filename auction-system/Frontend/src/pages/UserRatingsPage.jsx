@@ -52,6 +52,21 @@ function UserRatingsPage({ user }) {
     return new Date(dateString).toLocaleDateString('vi-VN')
   }
 
+  const maskName = (name) => {
+    if (!name) return 'Người dùng'
+    const words = name.trim().split(/\s+/)
+    
+    if (words.length > 1) {
+      // Nhiều từ: hiển thị ****[từ cuối]
+      const lastName = words[words.length - 1]
+      return `****${lastName}`
+    } else {
+      // 1 từ: hiển thị n*d*h*a (xen kẽ ký tự và dấu *)
+      const singleWord = words[0]
+      return singleWord.split('').join('*')
+    }
+  }
+
   const filteredRatings = getFilteredRatings()
   const positiveCount = ratings.filter(r => r.rating === 'positive').length
   const negativeCount = ratings.filter(r => r.rating === 'negative').length
@@ -220,7 +235,7 @@ function UserRatingsPage({ user }) {
                         {rating.product_thumbnail_url ? (
                           <img
                             src={rating.product_thumbnail_url}
-                            alt={rating.product_name}
+                            alt="Product"
                             className="w-full h-full object-cover"
                           />
                         ) : (
@@ -266,7 +281,7 @@ function UserRatingsPage({ user }) {
                       </div>
                       <div className="flex items-center gap-4 text-xs text-slate-500">
                         <span>
-                          Từ: <span className="font-medium">{rating.rater_name || 'Người dùng'}</span>
+                          Từ: <span className="font-medium">{maskName(rating.rater_name)}</span>
                         </span>
                         <span>{formatDate(rating.created_at)}</span>
                       </div>
