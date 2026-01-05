@@ -359,6 +359,17 @@ export const updateProduct = async (req, res) => {
           message: 'Không thể lưu bổ sung mô tả. Vui lòng thử lại.' 
         })
       }
+
+      // Gửi email cho tất cả bidders
+      const mailService = await import('../services/mailService.js')
+      await mailService.notifyProductDescriptionUpdate({
+        product: {
+          id: product.id,
+          name: product.name,
+          thumbnail_url: product.thumbnail_url
+        },
+        newDescription: append_description
+      })
     }
 
     if (Object.keys(updateData).length === 0 && !append_description) {

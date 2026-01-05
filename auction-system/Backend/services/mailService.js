@@ -373,12 +373,61 @@ export const notifyBidPermissionResponse = async ({ product, bidder, status }) =
   }
 }
 
+// ============================================
+// NEW: BỔ SUNG MÔ TẢ SẢN PHẨM
+// ============================================
+/**
+ * Gửi thông báo cho tất cả bidders khi seller cập nhật mô tả
+ */
+export const notifyProductDescriptionUpdate = async ({ product, newDescription }) => {
+  try {
+    // Lấy danh sách unique bidders đã đặt giá cho sản phẩm này
+    const { data: bids } = await supabase
+      .from('bids')
+      .select('bidder_id, profiles!inner(id, email, full_name)')
+      .eq('product_id', product.id)
+      .eq('is_rejected', false)
+
+    if (!bids || bids.length === 0) {
+      console.log('ℹ️  No bidders to notify for product description update')
+      return
+    }
+
+    // Tạo map để loại bỏ duplicate bidders
+    const bidderMap = new Map()
+    bids.forEach(bid => {
+      if (bid.profiles?.email) {
+        bidderMap.set(bid.bidder_id, bid.profiles)
+      }
+    })
+
+    // Gửi email cho từng bidder
+    await Promise.allSettled(
+      Array.from(bidderMap.values()).map(async (bidder) => {
+        const { subject, html } = templates.productDescriptionUpdatedToBidders({
+          bidderName: bidder.full_name,
+          productName: product.name,
+          productImage: product.thumbnail_url,
+          productId: product.id,
+          newDescription
+        })
+        await sendMail(bidder.email, subject, html)
+      })
+    )
+
+    console.log(`✅ Product description update notifications sent to ${bidderMap.size} bidders`)
+  } catch (error) {
+    console.error('❌ Error sending product description update notifications:', error)
+  }
+}
+
 export default {
   sendMail,
   notifyNewBid,
   notifyBidRejected,
   notifyBidPermissionRequest,
   notifyBidPermissionResponse,
+  notifyProductDescriptionUpdate,
   notifyAuctionEndedNoWinner,
   notifyAuctionEnded,
   notifyNewQuestion,

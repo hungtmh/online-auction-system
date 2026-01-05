@@ -502,6 +502,40 @@ export const questionAnsweredNotification = (data) => {
   }
 }
 
+// ============================================
+// NEW: BỔ SUNG MÔ TẢ SẢN PHẨM - GỬI CHO BIDDERS
+// ============================================
+export const productDescriptionUpdatedToBidders = (data) => {
+  const { bidderName, productName, productImage, productId, newDescription } = data
+
+  const content = `
+    <h2>📝 Mô tả sản phẩm đã được cập nhật</h2>
+    <p>Xin chào <strong>${bidderName}</strong>,</p>
+    <p>Người bán đã bổ sung thông tin mô tả cho sản phẩm bạn đang theo dõi:</p>
+    
+    <div class="product-card">
+      ${productImage ? `<img src="${productImage}" alt="${productName}">` : ''}
+      <h3>${productName}</h3>
+    </div>
+    
+    <div class="info-box info">
+      <strong>📌 Nội dung bổ sung:</strong>
+      <div style="margin-top: 8px; padding: 12px; background: white; border-radius: 8px;">
+        ${newDescription}
+      </div>
+    </div>
+    
+    <p>Hãy xem chi tiết để cập nhật thông tin mới nhất về sản phẩm.</p>
+    
+    <a href="${APP_URL}/products/${productId}" class="btn">Xem chi tiết sản phẩm</a>
+  `
+
+  return {
+    subject: `[${APP_NAME}] Cập nhật mô tả: "${productName}"`,
+    html: baseTemplate(content, 'Cập nhật mô tả sản phẩm')
+  }
+}
+
 export default {
   newBidToSeller,
   newBidToBidder,
@@ -511,6 +545,7 @@ export default {
   bidPermissionRequestToSeller,
   bidPermissionApprovedToBidder,
   bidPermissionRejectedToBidder,
+  productDescriptionUpdatedToBidders,
   auctionEndedNoWinner,
   auctionEndedToSeller,
   auctionEndedToWinner,
