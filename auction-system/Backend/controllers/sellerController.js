@@ -182,7 +182,12 @@ export const getMyProducts = async (req, res) => {
           id,
           name
         ),
-        bids (count)
+        bids (count),
+        winner:winner_id (
+          id,
+          full_name,
+          email
+        )
       `)
       .eq('seller_id', seller_id)
       .order('created_at', { ascending: false })
@@ -338,27 +343,10 @@ export const updateProduct = async (req, res) => {
 
     let mergedDescription = product.description
 
+    // KHÔNG cho phép sửa description gốc qua update
+    // Chỉ cho phép bổ sung qua append_description
     if (append_description) {
-      mergedDescription = `${product.description}\n\n${append_description}`
-      updateData.description = mergedDescription
-    }
-
-    if (Object.keys(updateData).length === 0) {
-      return res.status(400).json({ success: false, message: 'Không có nội dung cần cập nhật.' })
-    }
-
-    updateData.updated_at = new Date().toISOString()
-
-    const { data: updated, error: updateError } = await supabase
-      .from('products')
-      .update(updateData)
-      .eq('id', id)
-      .select()
-      .single()
-
-    if (updateError) throw updateError
-
-    if (append_description) {
+      // Lưu vào bảng product_descriptions thay vì merge vào description gốc
       const { error: appendError } = await supabase.from('product_descriptions').insert({
         product_id: id,
         description: append_description
@@ -366,14 +354,50 @@ export const updateProduct = async (req, res) => {
 
       if (appendError) {
         console.warn('⚠️  Không thể lưu bổ sung mô tả:', appendError.message)
+        return res.status(500).json({ 
+          success: false, 
+          message: 'Không thể lưu bổ sung mô tả. Vui lòng thử lại.' 
+        })
       }
+
+      // Gửi email cho tất cả bidders
+      const mailService = await import('../services/mailService.js')
+      await mailService.notifyProductDescriptionUpdate({
+        product: {
+          id: product.id,
+          name: product.name,
+          thumbnail_url: product.thumbnail_url
+        },
+        newDescription: append_description
+      })
+    }
+
+    if (Object.keys(updateData).length === 0 && !append_description) {
+      return res.status(400).json({ success: false, message: 'Không có nội dung cần cập nhật.' })
+    }
+
+    // Chỉ update nếu có thay đổi khác ngoài description
+    let updated = product
+    if (Object.keys(updateData).length > 0) {
+      updateData.updated_at = new Date().toISOString()
+
+      const { data: updatedProduct, error: updateError } = await supabase
+        .from('products')
+        .update(updateData)
+        .eq('id', id)
+        .select()
+        .single()
+
+      if (updateError) throw updateError
+      updated = updatedProduct
     }
 
     res.json({
       success: true,
-      message: 'Cập nhật sản phẩm thành công.',
-      data: updated,
-      mergedDescription
+      message: append_description 
+        ? 'Đã bổ sung mô tả mới thành công. Mô tả gốc được giữ nguyên.' 
+        : 'Cập nhật sản phẩm thành công.',
+      data: updated
     })
   } catch (error) {
     console.error('❌ Error updating product:', error)
@@ -1329,7 +1353,13 @@ export const updateBidRequestStatus = async (req, res) => {
     // Check request ownership via product
     const { data: request, error: reqError } = await supabase
       .from('product_allowed_bidders')
-      .select('id, product_id, products!inner(seller_id)')
+      .select(`
+        id, 
+        product_id, 
+        bidder_id,
+        products!inner(id, name, thumbnail_url, seller_id),
+        profiles!product_allowed_bidders_bidder_id_fkey(id, email, full_name)
+      `)
       .eq('id', requestId)
       .single()
 
@@ -1348,6 +1378,19 @@ export const updateBidRequestStatus = async (req, res) => {
       .eq('id', requestId)
 
     if (updateError) throw updateError
+
+    // Gửi email cho bidder
+    const product = {
+      id: request.products.id,
+      name: request.products.name,
+      thumbnail_url: request.products.thumbnail_url
+    }
+    const bidder = request.profiles
+
+    if (product && bidder) {
+      const mailService = await import('../services/mailService.js')
+      await mailService.notifyBidPermissionResponse({ product, bidder, status })
+    }
 
     res.json({
       success: true,
@@ -1378,7 +1421,7 @@ export const getMyRatings = async (req, res) => {
         created_at,
         product_id,
         from_user_id,
-        products (
+        products!ratings_product_id_fkey (
           id,
           name,
           thumbnail_url
@@ -1415,6 +1458,122 @@ export const getMyRatings = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Không thể lấy danh sách đánh giá'
+    })
+  }
+}
+
+/**
+ * @route   GET /api/seller/expiration-status
+ * @desc    Kiểm tra trạng thái hết hạn seller
+ * @access  Private (Seller)
+ */
+export const getExpirationStatus = async (req, res) => {
+  try {
+    const sellerId = req.user.id
+
+    const { data: seller, error } = await supabase
+      .from('profiles')
+      .select('id, role, seller_expired_at')
+      .eq('id', sellerId)
+      .single()
+
+    if (error || !seller) {
+      return res.status(404).json({
+        success: false,
+        message: 'Seller not found'
+      })
+    }
+
+    const now = new Date()
+    const expiredAt = seller.seller_expired_at ? new Date(seller.seller_expired_at) : null
+    const isExpired = !expiredAt || now > expiredAt
+    const daysRemaining = expiredAt && !isExpired 
+      ? Math.ceil((expiredAt - now) / (1000 * 60 * 60 * 24))
+      : 0
+
+    res.json({
+      success: true,
+      data: {
+        seller_expired_at: seller.seller_expired_at,
+        is_expired: isExpired,
+        days_remaining: daysRemaining,
+        can_create_product: !isExpired
+      }
+    })
+  } catch (error) {
+    console.error('❌ Error getting expiration status:', error)
+    res.status(500).json({
+      success: false,
+      message: 'Không thể kiểm tra trạng thái'
+    })
+  }
+}
+
+/**
+ * @route   POST /api/seller/extension-request
+ * @desc    Tạo yêu cầu gia hạn quyền seller
+ * @access  Private (Seller)
+ */
+export const requestExtension = async (req, res) => {
+  try {
+    const sellerId = req.user.id
+    const { reason } = req.body
+
+    // Kiểm tra role seller
+    const { data: seller, error: roleError } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', sellerId)
+      .single()
+
+    if (roleError || seller?.role !== 'seller') {
+      return res.status(403).json({
+        success: false,
+        message: 'Chỉ seller mới có thể yêu cầu gia hạn'
+      })
+    }
+
+    // Kiểm tra xem đã có yêu cầu gia hạn pending chưa
+    const { data: existingRequest, error: checkError } = await supabase
+      .from('upgrade_requests')
+      .select('*')
+      .eq('user_id', sellerId)
+      .eq('status', 'pending')
+      .is('reviewed_at', null)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single()
+
+    if (existingRequest) {
+      return res.status(400).json({
+        success: false,
+        message: 'Bạn đã có yêu cầu gia hạn đang chờ duyệt'
+      })
+    }
+
+    // Tạo yêu cầu gia hạn mới
+    const { data, error } = await supabase
+      .from('upgrade_requests')
+      .insert({
+        user_id: sellerId,
+        reason: reason || '',
+        status: 'pending'
+      })
+      .select()
+      .single()
+
+    if (error) throw error
+
+    res.json({
+      success: true,
+      message: 'Đã gửi yêu cầu gia hạn thành công',
+      data
+    })
+  } catch (error) {
+    console.error('❌ Error requesting extension:', error)
+    res.status(500).json({
+      success: false,
+      message: 'Không thể gửi yêu cầu gia hạn'
     })
   }
 }
