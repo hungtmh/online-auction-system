@@ -68,15 +68,24 @@ async function enrichProducts(products) {
 /**
  * GET /api/guest/products
  * public product list with pagination, optional category and sort
+ * Supports both parent and child category filtering
  */
 export const getProducts = async (req, res) => {
   try {
-    const { page = 1, limit = 12, category, status = "active", sort } = req.query;
+    const {
+      page = 1,
+      limit = 12,
+      category, // Child category ID (specific)
+      parent_category, // Parent category ID (only products directly under parent)
+      status = "active",
+      sort,
+    } = req.query;
+
     const pageNum = parseInt(page);
     const limitNum = parseInt(limit);
     const offset = (pageNum - 1) * limitNum;
 
-    console.log("📦 getProducts params:", { page: pageNum, limit: limitNum, category, status, sort });
+    //console.log("getProducts params:", { page: pageNum, limit: limitNum, category, parent_category, status, sort });
 
     const selectStr = `*, categories ( id, name, parent_id )`;
 
@@ -90,25 +99,42 @@ export const getProducts = async (req, res) => {
     else if (sort === "price_asc") query = query.order("starting_price", { ascending: true });
     else query = query.order("created_at", { ascending: false });
 
+    // Category filtering logic:
+    // 1. If 'category' (child) is specified → filter by child only
+    // 2. Else if 'parent_category' is specified → filter by parent + all children
+    // 3. Else → show all products
     if (category) {
-      console.log("🏷️  Filtering by category:", category);
+      // console.log("Filtering by child category:", category);
       query = query.eq("category_id", category);
+    } else if (parent_category) {
+      // console.log("Filtering by parent category (including children):", parent_category);
+
+      // Get all child category IDs under this parent
+      const { data: childCategories } = await supabase.from("categories").select("id").eq("parent_id", parent_category);
+
+      const childIds = childCategories?.map((c) => c.id) || [];
+
+      // Include parent + all children
+      const allCategoryIds = [parent_category, ...childIds];
+
+      // console.log(`Including ${allCategoryIds.length} categories (1 parent + ${childIds.length} children)`);
+
+      query = query.in("category_id", allCategoryIds);
     }
 
     const { data, error, count } = await query;
 
     if (error) {
-      console.error("❌ Supabase query error:", error);
+      //console.error("Supabase query error:", error);
       throw error;
     }
 
-    console.log(`✅ Found ${data?.length} products (total: ${count})`);
-
+    //console.log(`Found ${data?.length} products (total: ${count})`);
     const enriched = await enrichProducts(data || []);
 
     res.json({ success: true, data: enriched, meta: { page: pageNum, limit: limitNum, total: count } });
   } catch (error) {
-    console.error("❌ Error getting products:", error);
+    //console.error("Error getting products:", error);
     res.status(500).json({ success: false, message: "Không thể lấy danh sách sản phẩm" });
   }
 };
@@ -119,8 +145,6 @@ export const getProducts = async (req, res) => {
 export const getProductById = async (req, res) => {
   try {
     const { id } = req.params;
-
-    console.log("📦 Getting product detail:", id);
 
     // Query product với categories và descriptions
     const { data: product, error: productError } = await supabase
@@ -136,7 +160,7 @@ export const getProductById = async (req, res) => {
       .single();
 
     if (productError) {
-      console.error("❌ Product query error:", productError);
+      //console.error("Product query error:", productError);
       throw productError;
     }
 
@@ -145,7 +169,7 @@ export const getProductById = async (req, res) => {
     // Query seller info
     const { data: seller } = await supabase.from("profiles").select("id, full_name, rating_positive, rating_negative").eq("id", product.seller_id).single();
 
-    // Query bids với bidder profiles - QUAN TRỌNG: lấy cả max_bid_amount để xác định người giữ giá
+    // Query bids với bidder profiles
     const { data: bids } = await supabase.from("bids").select("id, bid_amount, max_bid_amount, created_at, bidder_id, is_rejected, rejected_at, profiles:bidder_id ( id, full_name, rating_positive, rating_negative )").eq("product_id", id).order("created_at", { ascending: false });
 
     // Query questions với asker profiles
@@ -202,11 +226,11 @@ export const getProductById = async (req, res) => {
       questions: questions || [],
     };
 
-    console.log("✅ Product detail loaded successfully");
+    // console.log("Product detail loaded successfully");
 
     res.json({ success: true, data: response });
   } catch (error) {
-    console.error("❌ Error getting product:", error);
+    //console.error("Error getting product:", error);
     res.status(500).json({ success: false, message: "Không thể lấy thông tin sản phẩm" });
   }
 };
@@ -240,6 +264,7 @@ export const searchProducts = async (req, res) => {
     const {
       q: rawQ,
       category,
+      parent_category,
       sort = "",
       page = 1,
       limit = 12,
@@ -269,7 +294,7 @@ export const searchProducts = async (req, res) => {
         // :* nghĩa là tìm từ bắt đầu bằng... (Full Text Search Prefix)
         const searchQuery = keywords.map((word) => `'${word}':*`).join(" & ");
 
-        console.log("🔍 Search Query:", searchQuery);
+        // console.log("Search Query:", searchQuery);
 
         // 4. Gọi lệnh tìm kiếm xuống DB
         query = query.textSearch("search_vector", searchQuery, {
@@ -294,8 +319,26 @@ export const searchProducts = async (req, res) => {
     }
 
     // Category filter
+    // 1. If 'category' (child) is specified -> filter by child only
+    // 2. Else if 'parent_category' is specified -> filter by parent + all children
+    // 3. Else -> show all products
     if (category) {
+      // console.log("Search filtering by child category:", category);
       query = query.eq("category_id", category);
+    } else if (parent_category) {
+      // console.log("Search filtering by parent category (including children):", parent_category);
+
+      // Get all child category IDs under this parent
+      const { data: childCategories } = await supabase.from("categories").select("id").eq("parent_id", parent_category);
+
+      const childIds = childCategories?.map((c) => c.id) || [];
+
+      // Include parent + all children
+      const allCategoryIds = [parent_category, ...childIds];
+
+      // console.log(`Searching in ${allCategoryIds.length} categories (parent + ${childIds.length} children)`);
+
+      query = query.in("category_id", allCategoryIds);
     }
 
     // Sorting
@@ -330,7 +373,7 @@ export const searchProducts = async (req, res) => {
       meta: { page: pageNum, limit: limitNum, total: count },
     });
   } catch (error) {
-    console.error("❌ Error searching products:", error);
+    //console.error("Error searching products:", error);
     res.status(500).json({ success: false, message: "Lỗi tìm kiếm sản phẩm" });
   }
 };
@@ -344,7 +387,7 @@ export const getCategories = async (req, res) => {
     if (error) throw error;
     res.json({ success: true, data });
   } catch (error) {
-    console.error("❌ Error getting categories:", error);
+    //console.error("Error getting categories:", error);
     res.status(500).json({ success: false, message: "Không thể lấy danh mục" });
   }
 };
@@ -357,7 +400,7 @@ export const getFeaturedProducts = async (req, res) => {
     // Lấy 5 sản phẩm cho mỗi nhóm
     const limitNum = 5;
 
-    console.log("🌟 Loading featured products...");
+    //console.log("Loading featured products...");
 
     // Lấy thời gian hiện tại để lọc sản phẩm còn đang đấu giá
     const now = new Date().toISOString();
@@ -370,7 +413,7 @@ export const getFeaturedProducts = async (req, res) => {
 
     if (error) throw error;
 
-    console.log("📦 Total active products (still ongoing):", allProducts?.length);
+    //console.log("Total active products (still ongoing):", allProducts?.length);
 
     // Enrich tất cả sản phẩm
     const enrichedAll = await enrichProducts(allProducts || []);
@@ -382,20 +425,6 @@ export const getFeaturedProducts = async (req, res) => {
 
     const highest_price_data = [...enrichedAll].sort((a, b) => (b.current_price || 0) - (a.current_price || 0)).slice(0, limitNum);
 
-    console.log("✅ Featured products sorted");
-    console.log(
-      "⏰ Top ending soon:",
-      ending_soon_data.map((p) => ({ name: p.title, end: p.end_time }))
-    );
-    console.log(
-      "🔥 Top most bids:",
-      most_bids_data.map((p) => ({ name: p.title, bids: p.bid_count }))
-    );
-    console.log(
-      "💎 Top highest price:",
-      highest_price_data.map((p) => ({ name: p.title, price: p.current_price }))
-    );
-
     // Tạo object data mà frontend mong đợi
     const responseData = {
       ending_soon: ending_soon_data || [],
@@ -406,7 +435,6 @@ export const getFeaturedProducts = async (req, res) => {
     // Trả về object này trong thuộc tính 'data'
     res.json({ success: true, data: responseData });
   } catch (error) {
-    console.error("❌ Error getting featured products:", error);
     res.status(500).json({ success: false, message: "Không thể lấy sản phẩm nổi bật" });
   }
 };
@@ -433,7 +461,6 @@ export const getSellerProfile = async (req, res) => {
 
     res.json({ success: true, data: seller });
   } catch (error) {
-    console.error("❌ Error getting seller profile:", error);
     res.status(500).json({ success: false, message: "Không thể lấy thông tin người bán" });
   }
 };
@@ -455,7 +482,6 @@ export const getPublicSettings = async (req, res) => {
 
     res.json({ success: true, data: { settings } });
   } catch (error) {
-    console.error("❌ Error getting public settings:", error);
     res.status(500).json({ success: false, message: "Không thể lấy cài đặt hệ thống" });
   }
 };
@@ -472,11 +498,7 @@ export const getUserProfile = async (req, res) => {
       return res.status(400).json({ success: false, message: "Thiếu mã người dùng" });
     }
 
-    const { data: userProfile, error } = await supabase
-      .from("profiles")
-      .select("id, full_name, avatar_url, rating_positive, rating_negative, role")
-      .eq("id", userId)
-      .maybeSingle();
+    const { data: userProfile, error } = await supabase.from("profiles").select("id, full_name, avatar_url, rating_positive, rating_negative, role").eq("id", userId).maybeSingle();
 
     if (error) throw error;
 
@@ -486,7 +508,6 @@ export const getUserProfile = async (req, res) => {
 
     res.json({ success: true, data: userProfile });
   } catch (error) {
-    console.error("❌ Error getting user profile:", error);
     res.status(500).json({ success: false, message: "Không thể lấy thông tin người dùng" });
   }
 };
@@ -505,7 +526,8 @@ export const getUserRatings = async (req, res) => {
 
     const { data: ratings, error } = await supabase
       .from("ratings")
-      .select(`
+      .select(
+        `
         id,
         rating,
         comment,
@@ -521,14 +543,15 @@ export const getUserRatings = async (req, res) => {
           id,
           full_name
         )
-      `)
+      `
+      )
       .eq("to_user_id", userId)
       .order("created_at", { ascending: false });
 
     if (error) throw error;
 
     // Transform data
-    const transformedRatings = (ratings || []).map(r => ({
+    const transformedRatings = (ratings || []).map((r) => ({
       id: r.id,
       rating: r.rating,
       comment: r.comment,
@@ -537,18 +560,16 @@ export const getUserRatings = async (req, res) => {
       product_name: r.products?.name,
       product_thumbnail_url: r.products?.thumbnail_url,
       rater_id: r.rater?.id,
-      rater_name: r.rater?.full_name
+      rater_name: r.rater?.full_name,
     }));
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       data: {
-        ratings: transformedRatings
-      }
+        ratings: transformedRatings,
+      },
     });
   } catch (error) {
-    console.error("❌ Error getting user ratings:", error);
     res.status(500).json({ success: false, message: "Không thể lấy đánh giá" });
   }
 };
-

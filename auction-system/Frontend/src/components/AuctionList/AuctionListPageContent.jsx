@@ -18,7 +18,8 @@ function AuctionListPageContent({ user }) {
 
   // params
   const q = searchParams.get("q") || "";
-  const category = searchParams.get("category") || "";
+  const category = searchParams.get("category") || ""; // Child category
+  const parent_category = searchParams.get("parent_category") || ""; // Parent category
   const sort = searchParams.get("sort") || "";
   const page = parseInt(searchParams.get("page")) || 1;
   const limit = parseInt(searchParams.get("limit")) || 12;
@@ -26,6 +27,10 @@ function AuctionListPageContent({ user }) {
   const priceMin = searchParams.get("price_min") || "";
   const priceMax = searchParams.get("price_max") || "";
   const timeRemaining = searchParams.get("time_remaining") || "";
+
+  // Get parent and child categories
+  const parentCategories = categories.filter((cat) => !cat.parent_id);
+  const childCategories = parent_category ? categories.filter((cat) => cat.parent_id === parent_category) : [];
 
   useEffect(() => {
     fetchProducts();
@@ -40,7 +45,8 @@ function AuctionListPageContent({ user }) {
     try {
       const params = {
         q,
-        category,
+        category, // Child category
+        parent_category, // Parent category
         sort,
         page,
         limit,
@@ -138,7 +144,7 @@ function AuctionListPageContent({ user }) {
             </button>
 
             {/* Clear Filters */}
-            {(q || category || sort !== "" || priceMin || priceMax || timeRemaining) && (
+            {(q || category || parent_category || sort !== "" || priceMin || priceMax || timeRemaining) && (
               <button onClick={() => setSearchParams({})} className="px-4 py-2 text-sm text-red-600 border border-red-600 rounded-lg hover:bg-red-50 transition">
                 Xóa bộ lọc
               </button>
@@ -171,18 +177,40 @@ function AuctionListPageContent({ user }) {
                 </select>
               </div>
 
-              {/* Category Filter */}
+              {/* Parent Category Filter */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Danh mục</label>
-                <select value={category} onChange={(e) => updateParams({ category: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Danh mục cha</label>
+                <select
+                  value={parent_category}
+                  onChange={(e) => {
+                    const newParent = e.target.value;
+                    // When changing parent, reset child category
+                    updateParams({ parent_category: newParent, category: "" });
+                  }}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                   <option value="">Tất cả danh mục</option>
-                  {categories.map((cat) => (
+                  {parentCategories.map((cat) => (
                     <option key={cat.id} value={cat.id}>
                       {cat.name}
                     </option>
                   ))}
                 </select>
               </div>
+
+              {/* Child Category Filter (only show when parent is selected) */}
+              {parent_category && childCategories.length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Danh mục con</label>
+                  <select value={category} onChange={(e) => updateParams({ category: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="">Tất cả sản phẩm thuộc {parentCategories.find((c) => c.id === parent_category)?.name}</option>
+                    {childCategories.map((cat) => (
+                      <option key={cat.id} value={cat.id}>
+                        {cat.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -202,7 +230,6 @@ function AuctionListPageContent({ user }) {
           </div>
         ) : (
           <div className="text-center py-16">
-            <div className="text-6xl mb-4">🔍</div>
             <h3 className="text-2xl font-bold text-gray-800 mb-2">Không tìm thấy sản phẩm</h3>
             <p className="text-gray-500 mb-6">Thử điều chỉnh bộ lọc hoặc tìm kiếm khác</p>
             <button onClick={() => setSearchParams({})} className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
