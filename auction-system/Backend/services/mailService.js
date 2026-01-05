@@ -314,10 +314,71 @@ export const notifyQuestionAnswered = async ({ product, seller, question, answer
   }
 }
 
+// ============================================
+// NEW: YÊU CẦU QUYỀN ĐẤU GIÁ
+// ============================================
+/**
+ * Gửi thông báo cho seller khi có bidder điểm thấp muốn bid
+ */
+export const notifyBidPermissionRequest = async ({ product, bidder, seller }) => {
+  try {
+    if (!seller?.email) return
+
+    const ratingPositive = bidder.rating_positive || 0
+    const ratingNegative = bidder.rating_negative || 0
+    const totalRatings = ratingPositive + ratingNegative
+    const ratingPercent = totalRatings > 0 
+      ? Math.round((ratingPositive / totalRatings) * 100)
+      : 0
+
+    const { subject, html } = templates.bidPermissionRequestToSeller({
+      sellerName: seller.full_name,
+      bidderName: bidder.full_name,
+      bidderEmail: bidder.email,
+      bidderRating: ratingPercent,
+      productName: product.name,
+      productImage: product.thumbnail_url,
+      productId: product.id
+    })
+
+    await sendMail(seller.email, subject, html)
+    console.log(`✅ Bid permission request sent to seller ${seller.email}`)
+  } catch (error) {
+    console.error('❌ Error sending bid permission request:', error)
+  }
+}
+
+/**
+ * Gửi thông báo cho bidder khi seller phê duyệt/từ chối
+ */
+export const notifyBidPermissionResponse = async ({ product, bidder, status }) => {
+  try {
+    if (!bidder?.email) return
+
+    const template = status === 'approved' 
+      ? templates.bidPermissionApprovedToBidder
+      : templates.bidPermissionRejectedToBidder
+
+    const { subject, html } = template({
+      bidderName: bidder.full_name,
+      productName: product.name,
+      productImage: product.thumbnail_url,
+      productId: product.id
+    })
+
+    await sendMail(bidder.email, subject, html)
+    console.log(`✅ Bid permission ${status} notification sent to ${bidder.email}`)
+  } catch (error) {
+    console.error('❌ Error sending bid permission response:', error)
+  }
+}
+
 export default {
   sendMail,
   notifyNewBid,
   notifyBidRejected,
+  notifyBidPermissionRequest,
+  notifyBidPermissionResponse,
   notifyAuctionEndedNoWinner,
   notifyAuctionEnded,
   notifyNewQuestion,

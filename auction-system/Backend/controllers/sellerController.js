@@ -182,7 +182,12 @@ export const getMyProducts = async (req, res) => {
           id,
           name
         ),
-        bids (count)
+        bids (count),
+        winner:winner_id (
+          id,
+          full_name,
+          email
+        )
       `)
       .eq('seller_id', seller_id)
       .order('created_at', { ascending: false })
@@ -1337,7 +1342,13 @@ export const updateBidRequestStatus = async (req, res) => {
     // Check request ownership via product
     const { data: request, error: reqError } = await supabase
       .from('product_allowed_bidders')
-      .select('id, product_id, products!inner(seller_id)')
+      .select(`
+        id, 
+        product_id, 
+        bidder_id,
+        products!inner(id, name, thumbnail_url, seller_id),
+        profiles!product_allowed_bidders_bidder_id_fkey(id, email, full_name)
+      `)
       .eq('id', requestId)
       .single()
 
@@ -1356,6 +1367,19 @@ export const updateBidRequestStatus = async (req, res) => {
       .eq('id', requestId)
 
     if (updateError) throw updateError
+
+    // Gửi email cho bidder
+    const product = {
+      id: request.products.id,
+      name: request.products.name,
+      thumbnail_url: request.products.thumbnail_url
+    }
+    const bidder = request.profiles
+
+    if (product && bidder) {
+      const mailService = await import('../services/mailService.js')
+      await mailService.notifyBidPermissionResponse({ product, bidder, status })
+    }
 
     res.json({
       success: true,

@@ -100,6 +100,13 @@ export const getOrder = async (req, res) => {
       supabase.from('profiles').select('id, full_name, email, phone, address, rating_positive, rating_negative').eq('id', product.winner_id).single()
     ])
 
+    if (sellerRes.error) {
+      console.error('❌ Error loading seller:', sellerRes.error)
+    }
+    if (buyerRes.error) {
+      console.error('❌ Error loading buyer:', buyerRes.error)
+    }
+
     // Lấy ratings của order này
     const { data: ratings } = await supabase
       .from('ratings')
@@ -116,8 +123,8 @@ export const getOrder = async (req, res) => {
       data: {
         product,
         order,
-        seller: sellerRes.data,
-        buyer: buyerRes.data,
+        seller: sellerRes.data || null,
+        buyer: buyerRes.data || null,
         ratings: {
           sellerRating,
           buyerRating

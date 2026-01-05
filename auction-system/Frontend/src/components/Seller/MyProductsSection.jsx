@@ -32,6 +32,7 @@ const MyProductsSection = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [statusFilter, setStatusFilter] = useState('all')
+  const [winnerFilter, setWinnerFilter] = useState('all') // 'all' | 'with_winner' | 'no_winner'
 
   const filteredEmptyMessage = useMemo(() => {
     switch (statusFilter) {
@@ -73,6 +74,20 @@ const MyProductsSection = () => {
     fetchProducts()
   }, [statusFilter])
 
+  // Filter products by winner status
+  const displayedProducts = useMemo(() => {
+    if (statusFilter !== 'completed' || winnerFilter === 'all') {
+      return products
+    }
+    if (winnerFilter === 'with_winner') {
+      return products.filter(p => p.winner_id)
+    }
+    if (winnerFilter === 'no_winner') {
+      return products.filter(p => !p.winner_id)
+    }
+    return products
+  }, [products, statusFilter, winnerFilter])
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap gap-3">
@@ -89,17 +104,51 @@ const MyProductsSection = () => {
         ))}
       </div>
 
+      {/* Winner Filter - Only show when "Đã kết thúc" is selected */}
+      {statusFilter === 'completed' && (
+        <div className="flex flex-wrap gap-2 items-center">
+          <span className="text-sm font-medium text-slate-600">Lọc theo người mua:</span>
+          <button
+            type="button"
+            onClick={() => setWinnerFilter('all')}
+            className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+              winnerFilter === 'all' ? 'bg-blue-500 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+            }`}
+          >
+            Tất cả
+          </button>
+          <button
+            type="button"
+            onClick={() => setWinnerFilter('with_winner')}
+            className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+              winnerFilter === 'with_winner' ? 'bg-blue-500 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+            }`}
+          >
+            Đã có người mua
+          </button>
+          <button
+            type="button"
+            onClick={() => setWinnerFilter('no_winner')}
+            className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+              winnerFilter === 'no_winner' ? 'bg-blue-500 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+            }`}
+          >
+            Chưa có người mua
+          </button>
+        </div>
+      )}
+
       {loading && <p className="text-sm text-slate-500">Đang tải danh sách sản phẩm...</p>}
       {error && !loading && <p className="text-sm text-red-500">{error}</p>}
 
-      {!loading && !products.length && (
+      {!loading && !displayedProducts.length && (
         <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-500">
           {filteredEmptyMessage}
         </div>
       )}
 
       <div className="grid gap-4 lg:grid-cols-2">
-        {products.map((product) => (
+        {displayedProducts.map((product) => (
           <article
             key={product.id}
             role="button"
@@ -137,6 +186,12 @@ const MyProductsSection = () => {
                 <InfoRow label="Giá mua ngay" value={product.buy_now_price ? formatCurrency(product.buy_now_price) : '—'} />
                 <InfoRow label="Thời gian kết thúc" value={formatDateTime(product.end_time)} />
                 <InfoRow label="Lượt bid" value={product.bids?.[0]?.count || 0} />
+                {product.status === 'completed' && (
+                  <InfoRow 
+                    label="Người mua" 
+                    value={product.winner?.full_name || '—'} 
+                  />
+                )}
               </div>
             </div>
           </article>

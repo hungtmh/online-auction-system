@@ -197,6 +197,31 @@ export const placeBid = async (req, res) => {
           bidder_id,
           status: 'pending'
         })
+
+        // Gửi email cho seller
+        const { data: product } = await supabase
+          .from('products')
+          .select('id, name, thumbnail_url, seller_id')
+          .eq('id', product_id)
+          .single()
+
+        const { data: seller } = await supabase
+          .from('profiles')
+          .select('id, email, full_name')
+          .eq('id', product.seller_id)
+          .single()
+
+        const { data: bidder } = await supabase
+          .from('profiles')
+          .select('id, email, full_name, rating_positive, rating_negative')
+          .eq('id', bidder_id)
+          .single()
+
+        if (product && seller && bidder) {
+          const mailService = await import('../services/mailService.js')
+          await mailService.notifyBidPermissionRequest({ product, bidder, seller })
+        }
+
         return res.status(403).json({
           success: false,
           message: 'Điểm đánh giá của bạn dưới 80%. Hệ thống đã gửi yêu cầu xin phép đến người bán. Vui lòng chờ phê duyệt.'

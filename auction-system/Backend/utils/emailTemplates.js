@@ -241,6 +241,101 @@ export const bidRejectedToBidder = (data) => {
 }
 
 // ============================================
+// NEW: YÊU CẦU QUYỀN ĐẤU GIÁ - GỬI CHO SELLER
+// ============================================
+export const bidPermissionRequestToSeller = (data) => {
+  const { sellerName, bidderName, bidderEmail, bidderRating, productName, productImage, productId, requestId } = data
+
+  const content = `
+    <h2>🔔 Yêu cầu quyền đấu giá mới</h2>
+    <p>Xin chào <strong>${sellerName}</strong>,</p>
+    <p>Một người mua có điểm đánh giá thấp muốn tham gia đấu giá sản phẩm của bạn:</p>
+    
+    <div class="product-card">
+      ${productImage ? `<img src="${productImage}" alt="${productName}">` : ''}
+      <h3>${productName}</h3>
+    </div>
+    
+    <div class="info-box warning">
+      <strong>Thông tin người mua:</strong><br>
+      📧 Email: ${bidderEmail}<br>
+      👤 Tên: ${bidderName}<br>
+      ⭐ Điểm đánh giá: ${bidderRating}%
+    </div>
+    
+    <p>Bạn có muốn cho phép người này đấu giá sản phẩm không?</p>
+    
+    <a href="${APP_URL}/seller/products/${productId}/requests" class="btn">Duyệt yêu cầu</a>
+  `
+
+  return {
+    subject: `[${APP_NAME}] Yêu cầu quyền đấu giá - "${productName}"`,
+    html: baseTemplate(content, 'Yêu cầu quyền đấu giá')
+  }
+}
+
+// ============================================
+// NEW: PHÊDUYỆT QUYỀN ĐẤU GIÁ - GỬI CHO BIDDER
+// ============================================
+export const bidPermissionApprovedToBidder = (data) => {
+  const { bidderName, productName, productImage, productId } = data
+
+  const content = `
+    <h2>✅ Yêu cầu đấu giá đã được phê duyệt!</h2>
+    <p>Xin chào <strong>${bidderName}</strong>,</p>
+    <p>Người bán đã phê duyệt yêu cầu của bạn. Bạn có thể đặt giá cho sản phẩm:</p>
+    
+    <div class="product-card">
+      ${productImage ? `<img src="${productImage}" alt="${productName}">` : ''}
+      <h3>${productName}</h3>
+    </div>
+    
+    <div class="info-box success">
+      <strong>✨ Hãy đặt giá ngay!</strong><br>
+      Bạn giờ đây có thể tham gia đấu giá sản phẩm này. Đừng bỏ lỡ cơ hội!
+    </div>
+    
+    <a href="${APP_URL}/products/${productId}" class="btn">Đặt giá ngay</a>
+  `
+
+  return {
+    subject: `[${APP_NAME}] Được phép đấu giá - "${productName}"`,
+    html: baseTemplate(content, 'Được phép đấu giá')
+  }
+}
+
+// ============================================
+// NEW: TỪ CHỐI QUYỀN ĐẤU GIÁ - GỬI CHO BIDDER
+// ============================================
+export const bidPermissionRejectedToBidder = (data) => {
+  const { bidderName, productName, productImage, productId } = data
+
+  const content = `
+    <h2>❌ Yêu cầu đấu giá bị từ chối</h2>
+    <p>Xin chào <strong>${bidderName}</strong>,</p>
+    <p>Rất tiếc, người bán đã từ chối yêu cầu tham gia đấu giá của bạn cho sản phẩm:</p>
+    
+    <div class="product-card">
+      ${productImage ? `<img src="${productImage}" alt="${productName}">` : ''}
+      <h3>${productName}</h3>
+    </div>
+    
+    <div class="info-box danger">
+      <strong>Lưu ý:</strong> Bạn sẽ không thể đặt giá cho sản phẩm này.
+    </div>
+    
+    <p>Để cải thiện cơ hội được chấp nhận trong tương lai, hãy tăng điểm đánh giá của bạn bằng cách hoàn thành các giao dịch thành công.</p>
+    
+    <a href="${APP_URL}/auctions" class="btn">Xem các sản phẩm khác</a>
+  `
+
+  return {
+    subject: `[${APP_NAME}] Yêu cầu đấu giá bị từ chối - "${productName}"`,
+    html: baseTemplate(content, 'Yêu cầu bị từ chối')
+  }
+}
+
+// ============================================
 // 5. ĐẤU GIÁ KẾT THÚC - KHÔNG CÓ NGƯỜI MUA (GỬI SELLER)
 // ============================================
 export const auctionEndedNoWinner = (data) => {
@@ -413,6 +508,9 @@ export default {
   outbidNotification,
   auctionUpdateNotification,
   bidRejectedToBidder,
+  bidPermissionRequestToSeller,
+  bidPermissionApprovedToBidder,
+  bidPermissionRejectedToBidder,
   auctionEndedNoWinner,
   auctionEndedToSeller,
   auctionEndedToWinner,
