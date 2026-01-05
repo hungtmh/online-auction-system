@@ -25,10 +25,13 @@ export default function ProductDescriptionCard({
     <div className="bg-white rounded-xl shadow-md p-6">
       <h2 className="text-2xl font-bold text-gray-900 mb-4">Mô tả chi tiết sản phẩm</h2>
       
-      {/* Original description without label */}
+      {/* Original description with (gốc) label */}
       {descriptionHtml && (
-        <div className="prose max-w-none mb-4">
-          <div dangerouslySetInnerHTML={{ __html: descriptionHtml }} />
+        <div className="mb-4">
+          <p className="text-sm font-semibold text-gray-700 mb-1">
+            📝 {formatDateTime(productCreatedAt)} <span className="text-blue-600">(gốc)</span>
+          </p>
+          <div className="prose max-w-none" dangerouslySetInnerHTML={{ __html: descriptionHtml }} />
         </div>
       )}
 

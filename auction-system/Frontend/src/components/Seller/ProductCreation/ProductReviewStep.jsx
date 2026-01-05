@@ -64,7 +64,7 @@ const ProductReviewStep = ({
           className="mt-1 h-4 w-4 rounded border-slate-300"
         />
         <span>
-          Tôi xác nhận thông tin chính xác, đồng ý các điều khoản đấu giá và chấp nhận việc mô tả bổ sung sẽ được nối tiếp.
+          Tôi xác nhận thông tin chính xác, đồng ý các điều khoản đấu giá và hiểu rằng mô tả bổ sung sẽ được lưu riêng.
         </span>
       </label>
       {errors.agreementAccepted && <p className="mt-2 text-red-500">{errors.agreementAccepted}</p>}

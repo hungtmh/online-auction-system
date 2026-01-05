@@ -338,27 +338,10 @@ export const updateProduct = async (req, res) => {
 
     let mergedDescription = product.description
 
+    // KHÔNG cho phép sửa description gốc qua update
+    // Chỉ cho phép bổ sung qua append_description
     if (append_description) {
-      mergedDescription = `${product.description}\n\n${append_description}`
-      updateData.description = mergedDescription
-    }
-
-    if (Object.keys(updateData).length === 0) {
-      return res.status(400).json({ success: false, message: 'Không có nội dung cần cập nhật.' })
-    }
-
-    updateData.updated_at = new Date().toISOString()
-
-    const { data: updated, error: updateError } = await supabase
-      .from('products')
-      .update(updateData)
-      .eq('id', id)
-      .select()
-      .single()
-
-    if (updateError) throw updateError
-
-    if (append_description) {
+      // Lưu vào bảng product_descriptions thay vì merge vào description gốc
       const { error: appendError } = await supabase.from('product_descriptions').insert({
         product_id: id,
         description: append_description
@@ -366,14 +349,39 @@ export const updateProduct = async (req, res) => {
 
       if (appendError) {
         console.warn('⚠️  Không thể lưu bổ sung mô tả:', appendError.message)
+        return res.status(500).json({ 
+          success: false, 
+          message: 'Không thể lưu bổ sung mô tả. Vui lòng thử lại.' 
+        })
       }
+    }
+
+    if (Object.keys(updateData).length === 0 && !append_description) {
+      return res.status(400).json({ success: false, message: 'Không có nội dung cần cập nhật.' })
+    }
+
+    // Chỉ update nếu có thay đổi khác ngoài description
+    let updated = product
+    if (Object.keys(updateData).length > 0) {
+      updateData.updated_at = new Date().toISOString()
+
+      const { data: updatedProduct, error: updateError } = await supabase
+        .from('products')
+        .update(updateData)
+        .eq('id', id)
+        .select()
+        .single()
+
+      if (updateError) throw updateError
+      updated = updatedProduct
     }
 
     res.json({
       success: true,
-      message: 'Cập nhật sản phẩm thành công.',
-      data: updated,
-      mergedDescription
+      message: append_description 
+        ? 'Đã bổ sung mô tả mới thành công. Mô tả gốc được giữ nguyên.' 
+        : 'Cập nhật sản phẩm thành công.',
+      data: updated
     })
   } catch (error) {
     console.error('❌ Error updating product:', error)
