@@ -111,7 +111,6 @@ export default function SellerExpiredModal({ isOpen, onClose, expirationData }) 
               <div className="space-y-2 text-sm">
                 <p className="text-blue-900 font-medium">Cách gia hạn:</p>
                 <ul className="text-blue-800 space-y-1 list-disc list-inside">
-                  <li>Liên hệ Admin qua email hoặc hotline</li>
                   <li>Yêu cầu gia hạn quyền Seller</li>
                   <li>Admin sẽ xử lý trong 24-48 giờ</li>
                 </ul>
