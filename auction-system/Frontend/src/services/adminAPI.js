@@ -315,6 +315,35 @@ const adminAPI = {
     const response = await api.get('/admin/spam-stats')
     return response.data
   },
+
+  // ============= EXTENSION REQUEST MANAGEMENT =============
+
+  /**
+   * Lấy danh sách yêu cầu gia hạn seller
+   * @param {string} status - 'pending' | 'approved' | 'rejected' | 'all'
+   */
+  getExtensionRequests: async (status = 'pending') => {
+    const response = await api.get('/admin/extension-requests', { params: { status } })
+    return response.data
+  },
+
+  /**
+   * Duyệt yêu cầu gia hạn seller
+   * @param {string} requestId
+   */
+  approveExtensionRequest: async (requestId) => {
+    const response = await api.post(`/admin/extension-requests/${requestId}/approve`)
+    return response.data
+  },
+
+  /**
+   * Từ chối yêu cầu gia hạn seller
+   * @param {string} requestId
+   */
+  rejectExtensionRequest: async (requestId) => {
+    const response = await api.post(`/admin/extension-requests/${requestId}/reject`)
+    return response.data
+  },
 }
 
 export default adminAPI

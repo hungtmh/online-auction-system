@@ -1460,7 +1460,7 @@ export const getMyRatings = async (req, res) => {
         created_at,
         product_id,
         from_user_id,
-        products (
+        products!ratings_product_id_fkey (
           id,
           name,
           thumbnail_url

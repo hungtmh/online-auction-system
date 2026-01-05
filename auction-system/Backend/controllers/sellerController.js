@@ -1421,7 +1421,7 @@ export const getMyRatings = async (req, res) => {
         created_at,
         product_id,
         from_user_id,
-        products (
+        products!ratings_product_id_fkey (
           id,
           name,
           thumbnail_url
@@ -1458,6 +1458,122 @@ export const getMyRatings = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Không thể lấy danh sách đánh giá'
+    })
+  }
+}
+
+/**
+ * @route   GET /api/seller/expiration-status
+ * @desc    Kiểm tra trạng thái hết hạn seller
+ * @access  Private (Seller)
+ */
+export const getExpirationStatus = async (req, res) => {
+  try {
+    const sellerId = req.user.id
+
+    const { data: seller, error } = await supabase
+      .from('profiles')
+      .select('id, role, seller_expired_at')
+      .eq('id', sellerId)
+      .single()
+
+    if (error || !seller) {
+      return res.status(404).json({
+        success: false,
+        message: 'Seller not found'
+      })
+    }
+
+    const now = new Date()
+    const expiredAt = seller.seller_expired_at ? new Date(seller.seller_expired_at) : null
+    const isExpired = !expiredAt || now > expiredAt
+    const daysRemaining = expiredAt && !isExpired 
+      ? Math.ceil((expiredAt - now) / (1000 * 60 * 60 * 24))
+      : 0
+
+    res.json({
+      success: true,
+      data: {
+        seller_expired_at: seller.seller_expired_at,
+        is_expired: isExpired,
+        days_remaining: daysRemaining,
+        can_create_product: !isExpired
+      }
+    })
+  } catch (error) {
+    console.error('❌ Error getting expiration status:', error)
+    res.status(500).json({
+      success: false,
+      message: 'Không thể kiểm tra trạng thái'
+    })
+  }
+}
+
+/**
+ * @route   POST /api/seller/extension-request
+ * @desc    Tạo yêu cầu gia hạn quyền seller
+ * @access  Private (Seller)
+ */
+export const requestExtension = async (req, res) => {
+  try {
+    const sellerId = req.user.id
+    const { reason } = req.body
+
+    // Kiểm tra role seller
+    const { data: seller, error: roleError } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', sellerId)
+      .single()
+
+    if (roleError || seller?.role !== 'seller') {
+      return res.status(403).json({
+        success: false,
+        message: 'Chỉ seller mới có thể yêu cầu gia hạn'
+      })
+    }
+
+    // Kiểm tra xem đã có yêu cầu gia hạn pending chưa
+    const { data: existingRequest, error: checkError } = await supabase
+      .from('upgrade_requests')
+      .select('*')
+      .eq('user_id', sellerId)
+      .eq('status', 'pending')
+      .is('reviewed_at', null)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single()
+
+    if (existingRequest) {
+      return res.status(400).json({
+        success: false,
+        message: 'Bạn đã có yêu cầu gia hạn đang chờ duyệt'
+      })
+    }
+
+    // Tạo yêu cầu gia hạn mới
+    const { data, error } = await supabase
+      .from('upgrade_requests')
+      .insert({
+        user_id: sellerId,
+        reason: reason || '',
+        status: 'pending'
+      })
+      .select()
+      .single()
+
+    if (error) throw error
+
+    res.json({
+      success: true,
+      message: 'Đã gửi yêu cầu gia hạn thành công',
+      data
+    })
+  } catch (error) {
+    console.error('❌ Error requesting extension:', error)
+    res.status(500).json({
+      success: false,
+      message: 'Không thể gửi yêu cầu gia hạn'
     })
   }
 }
