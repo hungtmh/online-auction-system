@@ -99,7 +99,7 @@ const ProductFormStep = ({
             name="parent_category_id"
             value={formData.parent_category_id}
             onChange={handleParentChange}
-            className={`w-full rounded-lg border px-4 py-2 ${errors.category_id ? 'border-red-400 bg-red-50' : 'border-slate-200'}`}
+            className={`w-full rounded-lg border px-4 py-2 ${errors.parent_category_id ? 'border-red-400 bg-red-50' : 'border-slate-200'}`}
           >
             <option value="">-- Chọn danh mục cha --</option>
             {parentCategories.map((category) => (
@@ -108,6 +108,11 @@ const ProductFormStep = ({
               </option>
             ))}
           </select>
+        )}
+        {fieldErrors.parent_category_id && (
+          <div className="absolute left-0 right-0 top-full z-10 mt-1 animate-fade-in rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 shadow-md">
+            <span className="mr-1">⚠️</span>{fieldErrors.parent_category_id}
+          </div>
         )}
       </div>
 
@@ -190,7 +195,6 @@ const ProductFormStep = ({
         label="Giá khởi điểm *"
         name="starting_price"
         value={formData.starting_price}
-        min={0}
         error={errors.starting_price}
         fieldError={fieldErrors?.starting_price}
         onChange={onInputChange}
@@ -206,7 +210,6 @@ const ProductFormStep = ({
         </label>
         <input
           type="number"
-          min={1}
           name="step_price"
           value={formData.step_price}
           onChange={onInputChange}
@@ -227,7 +230,6 @@ const ProductFormStep = ({
         label="Giá mua ngay"
         name="buy_now_price"
         value={formData.buy_now_price}
-        min={0}
         error={errors.buy_now_price}
         fieldError={fieldErrors?.buy_now_price}
         onChange={onInputChange}
@@ -303,12 +305,11 @@ const ProductFormStep = ({
   )
 }
 
-const NumberInput = ({ label, name, value, min, onChange, error, fieldError }) => (
+const NumberInput = ({ label, name, value, onChange, error, fieldError }) => (
   <div className="relative">
     <label className="mb-1 block text-sm font-semibold text-slate-600">{label}</label>
     <input
       type="number"
-      min={min}
       name={name}
       value={value}
       onChange={onChange}
