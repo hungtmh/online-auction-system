@@ -38,7 +38,9 @@ const ProductCreation = ({ categories, loadingCategories }) => {
     if (!Array.isArray(categories)) return []
     return categories.map((category) => ({
       id: category.id || category.value,
-      label: category.name || category.label
+      label: category.name || category.label,
+      parent_id: category.parent_id || null,
+      icon: category.icon || null
     }))
   }, [categories])
 
@@ -131,17 +133,31 @@ const ProductCreation = ({ categories, loadingCategories }) => {
       nextErrors.name = 'Vui lòng nhập tên sản phẩm.'
     } else if (formData.name.trim().length < 5) {
       nextErrors.name = 'Tên sản phẩm phải có ít nhất 5 ký tự.'
+    } else if (formData.name.trim().length > 200) {
+      nextErrors.name = 'Tên sản phẩm không được vượt quá 200 ký tự.'
     }
 
-    if (!formData.category_id) nextErrors.category_id = 'Vui lòng chọn danh mục.'
+    if (!formData.parent_category_id) {
+      nextErrors.parent_category_id = 'Vui lòng chọn danh mục cha.'
+    }
+
+    if (!formData.category_id) {
+      nextErrors.category_id = 'Vui lòng chọn danh mục con.'
+    }
 
     if (!stripHtml(formData.description)) {
       nextErrors.description = 'Mô tả sản phẩm không được để trống.'
+    } else if (stripHtml(formData.description).length < 20) {
+      nextErrors.description = 'Mô tả sản phẩm phải có ít nhất 20 ký tự.'
     }
 
     // 2. Validate Giá
     if (!formData.starting_price || Number(formData.starting_price) < 0) {
       nextErrors.starting_price = 'Giá khởi điểm không hợp lệ.'
+    } else if (Number(formData.starting_price) < 1000) {
+      nextErrors.starting_price = 'Giá khởi điểm phải ít nhất 1,000 VND.'
+    } else if (Number(formData.starting_price) > 10000000000) {
+      nextErrors.starting_price = 'Giá khởi điểm không được vượt quá 10 tỷ VND.'
     }
 
     if (!formData.step_price || Number(formData.step_price) <= 0) {

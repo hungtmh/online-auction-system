@@ -138,32 +138,36 @@ const ProductInfoCard = ({ product, finalPrice }) => (
 );
 
 // User Info Card
-const UserInfoCard = ({ title, user, isCurrentUser }) => (
-  <div className={`bg-white rounded-2xl shadow-sm p-6 ${isCurrentUser ? "ring-2 ring-blue-500" : ""}`}>
-    <div className="flex items-center justify-between mb-4">
-      <h3 className="text-lg font-bold text-gray-900">{title}</h3>
-      {isCurrentUser && <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs font-medium rounded-full">Bạn</span>}
-    </div>
-    <div className="space-y-2 text-sm">
-      <p>
-        <span className="text-gray-500">Tên:</span> <span className="font-medium">{user?.full_name || "—"}</span>
-      </p>
-      <p>
-        <span className="text-gray-500">Email:</span> <span className="font-medium">{user?.email || "—"}</span>
-      </p>
-      <p>
-        <span className="text-gray-500">SĐT:</span> <span className="font-medium">{user?.phone || "Chưa cập nhật"}</span>
-      </p>
-      <p>
-        <span className="text-gray-500">Địa chỉ:</span> <span className="font-medium">{user?.address || "Chưa cập nhật"}</span>
-      </p>
-      <div className="flex items-center gap-4 mt-3 pt-3 border-t">
-        <span className="text-emerald-600 font-medium">👍 {user?.rating_positive || 0}</span>
-        <span className="text-red-600 font-medium">👎 {user?.rating_negative || 0}</span>
+const UserInfoCard = ({ title, user, isCurrentUser }) => {
+  console.log(`🔍 UserInfoCard - ${title}:`, user);
+  
+  return (
+    <div className={`bg-white rounded-2xl shadow-sm p-6 ${isCurrentUser ? "ring-2 ring-blue-500" : ""}`}>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-bold text-gray-900">{title}</h3>
+        {isCurrentUser && <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs font-medium rounded-full">Bạn</span>}
+      </div>
+      <div className="space-y-2 text-sm">
+        <p>
+          <span className="text-gray-500">Tên:</span> <span className="font-medium">{user?.full_name || "—"}</span>
+        </p>
+        <p>
+          <span className="text-gray-500">Email:</span> <span className="font-medium">{user?.email || "—"}</span>
+        </p>
+        <p>
+          <span className="text-gray-500">SĐT:</span> <span className="font-medium">{user?.phone || "Chưa cập nhật"}</span>
+        </p>
+        <p>
+          <span className="text-gray-500">Địa chỉ:</span> <span className="font-medium">{user?.address || "Chưa cập nhật"}</span>
+        </p>
+        <div className="flex items-center gap-4 mt-3 pt-3 border-t">
+          <span className="text-emerald-600 font-medium">👍 {user?.rating_positive || 0}</span>
+          <span className="text-red-600 font-medium">👎 {user?.rating_negative || 0}</span>
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 // Step 1: Buyer Payment Form
 const Step1BuyerForm = ({ order, onSubmit, loading }) => {
@@ -526,6 +530,9 @@ export default function OrderCompletionPage({ user }) {
     setError(null);
     try {
       const res = await orderAPI.getOrder(productId);
+      console.log('📦 Order data loaded:', res?.data);
+      console.log('👤 Seller:', res?.data?.seller);
+      console.log('👤 Buyer:', res?.data?.buyer);
       setData(res?.data || null);
     } catch (err) {
       const message = err?.response?.data?.message || "Không thể tải thông tin đơn hàng";

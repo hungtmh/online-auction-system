@@ -6,7 +6,18 @@ const ProductReviewStep = ({
   onBack,
   onSubmit,
   onAgreementToggle
-}) => (
+}) => {
+  // Tìm category đầy đủ để hiển thị cả cha và con
+  const selectedCategory = categoryOptions.find((item) => item.id === formData.category_id)
+  const parentCategory = formData.parent_category_id 
+    ? categoryOptions.find((item) => item.id === formData.parent_category_id)
+    : null
+  
+  const categoryDisplay = selectedCategory 
+    ? (parentCategory ? `${parentCategory.label} > ${selectedCategory.label}` : selectedCategory.label)
+    : '—'
+
+  return (
   <div className="space-y-6">
     <div className="rounded-lg border border-slate-200 p-4">
       <h3 className="mb-4 text-lg font-semibold text-slate-700">Thông tin sản phẩm</h3>
@@ -14,7 +25,7 @@ const ProductReviewStep = ({
         <InfoRow label="Tên sản phẩm" value={formData.name} />
         <InfoRow
           label="Danh mục"
-          value={categoryOptions.find((item) => item.id === formData.category_id)?.label || '—'}
+          value={categoryDisplay}
         />
         <InfoRow label="Giá khởi điểm" value={`${formData.starting_price} đ`} />
         <InfoRow label="Bước giá" value={`${formData.step_price} đ`} />
@@ -53,7 +64,7 @@ const ProductReviewStep = ({
           className="mt-1 h-4 w-4 rounded border-slate-300"
         />
         <span>
-          Tôi xác nhận thông tin chính xác, đồng ý các điều khoản đấu giá và chấp nhận việc mô tả bổ sung sẽ được nối tiếp.
+          Tôi xác nhận thông tin chính xác, đồng ý các điều khoản đấu giá và hiểu rằng mô tả bổ sung sẽ được lưu riêng.
         </span>
       </label>
       {errors.agreementAccepted && <p className="mt-2 text-red-500">{errors.agreementAccepted}</p>}
@@ -77,7 +88,8 @@ const ProductReviewStep = ({
       </button>
     </div>
   </div>
-)
+  )
+}
 
 const InfoRow = ({ label, value }) => (
   <div>

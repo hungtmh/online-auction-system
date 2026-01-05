@@ -40,7 +40,15 @@ import {
   getSpamReportById,
   resolveSpamReport,
   dismissSpamReport,
-  getSpamStats
+  getSpamStats,
+  // Seller Expiration Management
+  extendSellerExpiration,
+  getSellerExtensionHistory,
+  getExpiringSellers,
+  // Extension Request Management
+  getExtensionRequests,
+  approveExtensionRequest,
+  rejectExtensionRequest
 } from '../controllers/adminController.js'
 
 const router = express.Router()
@@ -300,5 +308,54 @@ router.post('/spam-reports/:id/dismiss', dismissSpamReport)
  * @access  Private (Admin)
  */
 router.get('/spam-stats', getSpamStats)
+
+// ============================================
+// SELLER EXPIRATION MANAGEMENT
+// ============================================
+
+/**
+ * @route   POST /api/admin/sellers/:sellerId/extend
+ * @desc    Gia hạn quyền seller thêm N ngày (mặc định 7)
+ * @body    { days: 7, reason: 'lý do gia hạn' }
+ * @access  Private (Admin)
+ */
+router.post('/sellers/:sellerId/extend', extendSellerExpiration)
+
+/**
+ * @route   GET /api/admin/sellers/:sellerId/extension-history
+ * @desc    Xem lịch sử gia hạn của seller
+ * @access  Private (Admin)
+ */
+router.get('/sellers/:sellerId/extension-history', getSellerExtensionHistory)
+
+/**
+ * @route   GET /api/admin/sellers/expiring
+ * @desc    Lấy danh sách seller sắp hết hạn (trong N ngày, mặc định 3)
+ * @query   { days: 3 }
+ * @access  Private (Admin)
+ */
+router.get('/sellers/expiring', getExpiringSellers)
+
+/**
+ * @route   GET /api/admin/extension-requests
+ * @desc    Lấy danh sách yêu cầu gia hạn seller
+ * @query   { status: 'pending' | 'approved' | 'rejected' | 'all' }
+ * @access  Private (Admin)
+ */
+router.get('/extension-requests', getExtensionRequests)
+
+/**
+ * @route   POST /api/admin/extension-requests/:id/approve
+ * @desc    Duyệt yêu cầu gia hạn seller (tự động gia hạn 7 ngày)
+ * @access  Private (Admin)
+ */
+router.post('/extension-requests/:id/approve', approveExtensionRequest)
+
+/**
+ * @route   POST /api/admin/extension-requests/:id/reject
+ * @desc    Từ chối yêu cầu gia hạn seller
+ * @access  Private (Admin)
+ */
+router.post('/extension-requests/:id/reject', rejectExtensionRequest)
 
 export default router

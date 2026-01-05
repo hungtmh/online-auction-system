@@ -7,6 +7,7 @@
 
 import express from 'express'
 import { authenticateToken, requireRole } from '../middleware/auth.js'
+import { checkSellerExpiration } from '../middleware/checkSellerExpiration.js'
 import {
   createProduct,
   getMyProducts,
@@ -26,7 +27,9 @@ import {
   reopenAuction,
   getBidRequests,
   updateBidRequestStatus,
-  getMyRatings
+  getMyRatings,
+  getExpirationStatus,
+  requestExtension
 } from '../controllers/sellerController.js'
 import { productImageUpload, avatarImageUpload } from '../utils/upload.js'
 
@@ -51,9 +54,9 @@ router.post('/uploads/images', productImageUpload.single('image'), uploadProduct
  * @route   POST /api/seller/products
  * @desc    Đăng sản phẩm mới
  * @body    { title, description, category_id, starting_price, step_price, buy_now_price, end_time, image_url, auto_renew }
- * @access  Private (Seller)
+ * @access  Private (Seller) - Requires valid seller_expired_at
  */
-router.post('/products', createProduct)
+router.post('/products', checkSellerExpiration, createProduct)
 
 /**
  * @route   GET /api/seller/products
@@ -120,5 +123,19 @@ router.post('/requests/:requestId/approve', updateBidRequestStatus)
  * @access  Private (Seller)
  */
 router.get('/ratings', getMyRatings)
+
+/**
+ * @route   GET /api/seller/expiration-status
+ * @desc    Kiểm tra trạng thái hết hạn seller
+ * @access  Private (Seller)
+ */
+router.get('/expiration-status', getExpirationStatus)
+
+/**
+ * @route   POST /api/seller/extension-request
+ * @desc    Tạo yêu cầu gia hạn quyền seller
+ * @access  Private (Seller)
+ */
+router.post('/extension-request', requestExtension)
 
 export default router

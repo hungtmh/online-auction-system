@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { authAPI, clearAccessToken } from "../../services/api";
+import SellerExpiredModal from "./SellerExpiredModal";
 
 /**
  * UnifiedNavbar - Navbar thống nhất cho tất cả role (guest, bidder, seller)
@@ -12,6 +13,8 @@ import { authAPI, clearAccessToken } from "../../services/api";
  */
 function UnifiedNavbar({ user }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [showExpiredModal, setShowExpiredModal] = useState(false);
+  const [expirationData, setExpirationData] = useState(null);
   const menuRef = useRef(null);
   const navigate = useNavigate();
 
@@ -36,7 +39,26 @@ function UnifiedNavbar({ user }) {
     }
   };
 
-  const handleMenuSelect = (action) => {
+  const handleMenuSelect = async (action) => {
+    // Check seller expiration trước khi navigate đến add-product
+    if (action === 'add-product' && user?.role === 'seller') {
+      try {
+        const { default: sellerAPI } = await import('../../services/sellerAPI');
+        const response = await sellerAPI.getExpirationStatus();
+        
+        if (!response?.data?.can_create_product) {
+          // Hiển thị modal hết hạn
+          setExpirationData(response.data);
+          setShowExpiredModal(true);
+          setMenuOpen(false);
+          return;
+        }
+      } catch (error) {
+        console.error('Error checking seller expiration:', error);
+        // Nếu API lỗi, cho phép navigate (fallback)
+      }
+    }
+
     // Các action của bidder (seller kế thừa bidder)
     const bidderActions = ['profile', 'watchlist', 'my-bids', 'password'];
     
@@ -80,6 +102,7 @@ function UnifiedNavbar({ user }) {
                       (user?.role === 'seller' ? 'S' : 'B');
 
   return (
+    <>
     <header className="bg-white shadow-sm sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
@@ -193,6 +216,14 @@ function UnifiedNavbar({ user }) {
         </div>
       </div>
     </header>
+
+    {/* Seller Expired Modal */}
+    <SellerExpiredModal 
+      isOpen={showExpiredModal}
+      onClose={() => setShowExpiredModal(false)}
+      expirationData={expirationData}
+    />
+    </>
   );
 }
 

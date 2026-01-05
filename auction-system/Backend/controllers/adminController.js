@@ -731,11 +731,16 @@ export const approveUpgrade = async (req, res) => {
       });
     }
 
-    // Cập nhật role của user thành 'seller'
+    // Tính ngày hết hạn seller (now + 7 ngày)
+    const now = new Date();
+    const sellerExpiredAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+    // Cập nhật role của user thành 'seller' và set seller_expired_at
     const { error: roleError } = await supabase
       .from("profiles")
       .update({
         role: "seller",
+        seller_expired_at: sellerExpiredAt.toISOString(),
         updated_at: new Date().toISOString(),
       })
       .eq("id", request.user_id);
@@ -1183,13 +1188,15 @@ export const updateCategory = async (req, res) => {
 };
 
 /**
- * @route   DELETE /api/admin/categories/:id
- * @desc    Xóa category (soft delete - đánh dấu is_active = false)
+ * @route   DELETE /api/admin/categories/:id?hard=true
+ * @desc    Xóa category (soft delete hoặc hard delete với CASCADE)
  * @access  Private (Admin)
+ * @query   hard=true để xóa cứng (CASCADE xóa luôn products và dữ liệu liên quan)
  */
 export const deleteCategory = async (req, res) => {
   try {
     const { id } = req.params;
+    const { hard } = req.query; // ?hard=true để xóa cứng
 
     // Kiểm tra xem category có sản phẩm không
     const { count: productCount, error: countError } = await supabase.from("products").select("id", { count: "exact", head: true }).eq("category_id", id);
@@ -1199,15 +1206,15 @@ export const deleteCategory = async (req, res) => {
       throw countError;
     }
 
-    // Không được xóa danh mục đã có sản phẩm
+    // XÓA MỀM (SOFT DELETE) - CHỈ ẨN ĐI
     if (productCount && productCount > 0) {
       return res.status(400).json({
         success: false,
-        message: `Không thể xóa danh mục này vì đang có ${productCount} sản phẩm. Vui lòng xóa hoặc chuyển các sản phẩm sang danh mục khác trước.`,
+        message: `Không thể xóa mềm danh mục này vì đang có ${productCount} sản phẩm. Dùng ?hard=true để xóa cứng (CASCADE) hoặc chuyển sản phẩm sang danh mục khác.`,
       });
     }
 
-    // Soft delete: đánh dấu category là không hoạt động thay vì xóa thật
+    // Soft delete: đánh dấu category là không hoạt động
     const { data, error } = await supabase
       .from("categories")
       .update({
@@ -1222,7 +1229,7 @@ export const deleteCategory = async (req, res) => {
 
     res.json({
       success: true,
-      message: "Đã xóa category (soft delete)",
+      message: "Đã ẩn category (soft delete)",
       data: data,
     });
   } catch (error) {
@@ -1845,3 +1852,335 @@ export const getSpamStats = async (req, res) => {
     });
   }
 };
+
+/**
+ * @route   POST /api/admin/sellers/:sellerId/extend
+ * @desc    Gia hạn quyền seller thêm 7 ngày
+ * @access  Private (Admin)
+ */
+export const extendSellerExpiration = async (req, res) => {
+  try {
+    const { sellerId } = req.params
+    const adminId = req.user.id
+    const { reason, days = 7 } = req.body
+
+    // Kiểm tra seller tồn tại
+    const { data: seller, error: sellerError } = await supabase
+      .from('profiles')
+      .select('id, role, seller_expired_at, full_name, email')
+      .eq('id', sellerId)
+      .single()
+
+    if (sellerError || !seller) {
+      return res.status(404).json({
+        success: false,
+        message: 'Seller not found'
+      })
+    }
+
+    if (seller.role !== 'seller') {
+      return res.status(400).json({
+        success: false,
+        message: 'User is not a seller'
+      })
+    }
+
+    // Tính new_expired_at
+    const now = new Date()
+    const previousExpiredAt = seller.seller_expired_at
+    
+    // Nếu còn hạn, gia hạn từ thời điểm hết hạn cũ
+    // Nếu đã hết hạn, gia hạn từ bây giờ
+    const baseDate = previousExpiredAt && new Date(previousExpiredAt) > now
+      ? new Date(previousExpiredAt)
+      : now
+    
+    const newExpiredAt = new Date(baseDate.getTime() + days * 24 * 60 * 60 * 1000)
+
+    // Insert vào seller_extension_history (trigger sẽ tự động update profiles)
+    const { error: historyError } = await supabase
+      .from('seller_extension_history')
+      .insert({
+        seller_id: sellerId,
+        extended_by: adminId,
+        previous_expired_at: previousExpiredAt,
+        new_expired_at: newExpiredAt.toISOString(),
+        extension_days: days,
+        reason: reason || null
+      })
+
+    if (historyError) {
+      console.error('❌ Error inserting extension history:', historyError)
+      throw historyError
+    }
+
+    res.json({
+      success: true,
+      message: `Đã gia hạn seller thêm ${days} ngày`,
+      data: {
+        seller_id: sellerId,
+        previous_expired_at: previousExpiredAt,
+        new_expired_at: newExpiredAt.toISOString(),
+        extension_days: days
+      }
+    })
+  } catch (error) {
+    console.error('❌ Error extending seller expiration:', error)
+    res.status(500).json({
+      success: false,
+      message: 'Không thể gia hạn seller'
+    })
+  }
+}
+
+/**
+ * @route   GET /api/admin/sellers/:sellerId/extension-history
+ * @desc    Xem lịch sử gia hạn của seller
+ * @access  Private (Admin)
+ */
+export const getSellerExtensionHistory = async (req, res) => {
+  try {
+    const { sellerId } = req.params
+
+    const { data, error } = await supabase
+      .from('seller_extension_history')
+      .select(`
+        *,
+        admin:extended_by (
+          id,
+          full_name,
+          email
+        )
+      `)
+      .eq('seller_id', sellerId)
+      .order('created_at', { ascending: false })
+
+    if (error) throw error
+
+    res.json({
+      success: true,
+      data: data || []
+    })
+  } catch (error) {
+    console.error('❌ Error getting extension history:', error)
+    res.status(500).json({
+      success: false,
+      message: 'Không thể lấy lịch sử gia hạn'
+    })
+  }
+}
+
+/**
+ * @route   GET /api/admin/sellers/expiring
+ * @desc    Lấy danh sách seller sắp hết hạn
+ * @access  Private (Admin)
+ */
+export const getExpiringSellers = async (req, res) => {
+  try {
+    const { days = 3 } = req.query
+    const now = new Date()
+    const futureDate = new Date(now.getTime() + days * 24 * 60 * 60 * 1000)
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, full_name, email, seller_expired_at')
+      .eq('role', 'seller')
+      .not('seller_expired_at', 'is', null)
+      .gte('seller_expired_at', now.toISOString())
+      .lte('seller_expired_at', futureDate.toISOString())
+      .order('seller_expired_at', { ascending: true })
+
+    if (error) throw error
+
+    res.json({
+      success: true,
+      data: data || [],
+      count: data?.length || 0
+    })
+  } catch (error) {
+    console.error('❌ Error getting expiring sellers:', error)
+    res.status(500).json({
+      success: false,
+      message: 'Không thể lấy danh sách seller sắp hết hạn'
+    })
+  }
+}
+
+/**
+ * @route   GET /api/admin/extension-requests
+ * @desc    Lấy danh sách yêu cầu gia hạn seller
+ * @access  Private (Admin)
+ */
+export const getExtensionRequests = async (req, res) => {
+  try {
+    const { status = 'pending' } = req.query
+
+    let query = supabase
+      .from('upgrade_requests')
+      .select(`
+        *,
+        user:profiles!upgrade_requests_user_id_fkey (
+          id,
+          full_name,
+          email,
+          role,
+          seller_expired_at
+        )
+      `)
+      .eq('profiles.role', 'seller')
+      .order('created_at', { ascending: false })
+
+    if (status && status !== 'all') {
+      query = query.eq('status', status)
+    }
+
+    const { data, error } = await query
+
+    if (error) {
+      console.error('❌ Supabase error:', error)
+      throw error
+    }
+
+    // Filter only sellers
+    const sellerRequests = data?.filter(req => req.user?.role === 'seller') || []
+
+    res.json({
+      success: true,
+      data: sellerRequests
+    })
+  } catch (error) {
+    console.error('❌ Error getting extension requests:', error)
+    res.status(500).json({
+      success: false,
+      message: 'Không thể lấy yêu cầu gia hạn'
+    })
+  }
+}
+
+/**
+ * @route   POST /api/admin/extension-requests/:id/approve
+ * @desc    Duyệt yêu cầu gia hạn seller (tự động gia hạn 7 ngày)
+ * @access  Private (Admin)
+ */
+export const approveExtensionRequest = async (req, res) => {
+  try {
+    const { id } = req.params
+
+    // Lấy thông tin yêu cầu
+    const { data: request, error: reqError } = await supabase
+      .from('upgrade_requests')
+      .select(`
+        *,
+        user:profiles!upgrade_requests_user_id_fkey (
+          id,
+          role,
+          seller_expired_at
+        )
+      `)
+      .eq('id', id)
+      .single()
+
+    if (reqError || !request) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy yêu cầu'
+      })
+    }
+
+    // Kiểm tra user có phải seller
+    if (request.user?.role !== 'seller') {
+      return res.status(400).json({
+        success: false,
+        message: 'Yêu cầu này không phải từ seller'
+      })
+    }
+
+    // Tính toán new_expired_at (7 ngày từ bây giờ hoặc từ expired_at cũ nếu chưa hết hạn)
+    const now = new Date()
+    const currentExpiredAt = request.user.seller_expired_at ? new Date(request.user.seller_expired_at) : null
+    const baseDate = currentExpiredAt && currentExpiredAt > now ? currentExpiredAt : now
+    const newExpiredAt = new Date(baseDate.getTime() + 7 * 24 * 60 * 60 * 1000)
+
+    // Insert vào seller_extension_history (trigger sẽ tự động update profiles.seller_expired_at)
+    const { error: historyError } = await supabase
+      .from('seller_extension_history')
+      .insert({
+        seller_id: request.user.id,
+        extended_by: req.user.id,
+        previous_expired_at: request.user.seller_expired_at,
+        new_expired_at: newExpiredAt.toISOString(),
+        extension_days: 7,
+        reason: request.reason || 'Admin approved extension request'
+      })
+
+    if (historyError) throw historyError
+
+    // Cập nhật status của upgrade_request
+    const { data, error } = await supabase
+      .from('upgrade_requests')
+      .update({
+        status: 'approved',
+        reviewed_at: new Date().toISOString(),
+        reviewed_by: req.user.id,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (error) throw error
+
+    res.json({
+      success: true,
+      message: 'Đã duyệt yêu cầu gia hạn, seller được gia hạn 7 ngày',
+      data: {
+        request: data,
+        new_expired_at: newExpiredAt.toISOString()
+      }
+    })
+  } catch (error) {
+    console.error('❌ Error approving extension request:', error)
+    res.status(500).json({
+      success: false,
+      message: 'Không thể duyệt yêu cầu gia hạn'
+    })
+  }
+}
+
+/**
+ * @route   POST /api/admin/extension-requests/:id/reject
+ * @desc    Từ chối yêu cầu gia hạn seller
+ * @access  Private (Admin)
+ */
+export const rejectExtensionRequest = async (req, res) => {
+  try {
+    const { id } = req.params
+
+    const { data, error } = await supabase
+      .from('upgrade_requests')
+      .update({
+        status: 'rejected',
+        reviewed_at: new Date().toISOString(),
+        reviewed_by: req.user.id,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (error) throw error
+
+    res.json({
+      success: true,
+      message: 'Đã từ chối yêu cầu gia hạn',
+      data: data
+    })
+  } catch (error) {
+    console.error('❌ Error rejecting extension request:', error)
+    res.status(500).json({
+      success: false,
+      message: 'Không thể từ chối yêu cầu'
+    })
+  }
+}
+

@@ -1,69 +1,61 @@
 import { useState, useEffect } from 'react';
 import adminAPI from '../../services/adminAPI';
 import { useDialog } from '../../context/DialogContext.jsx';
-import ExtensionRequests from './ExtensionRequests';
 
-function UpgradeRequests() {
+function ExtensionRequests() {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState('pending'); // pending, approved, rejected, all
+  const [filter, setFilter] = useState('pending');
   const [error, setError] = useState(null);
   const [selectedRequests, setSelectedRequests] = useState([]);
   const { confirm, alert } = useDialog();
 
   useEffect(() => {
     fetchRequests();
-    setSelectedRequests([]); // Reset selection khi đổi filter
+    setSelectedRequests([]);
   }, [filter]);
 
   const fetchRequests = async () => {
     try {
       setLoading(true);
-      // Nếu filter là 'all', gọi API với status = 'all' hoặc không có filter
       const status = filter === 'all' ? 'all' : filter;
-      const response = await adminAPI.getUpgradeRequests(status);
-      // Normalize data từ backend (join với profiles)
+      const response = await adminAPI.getExtensionRequests(status);
+      
       const normalizedData = (response.data || []).map(request => ({
         ...request,
-        user_email: request.profiles?.email || request.user_email || 'N/A',
-        current_role: request.profiles?.role || request.current_role || 'N/A',
-        requested_role: request.requested_role || 'seller',
-        full_name: request.profiles?.full_name || 'N/A'
+        user_email: request.user?.email || 'N/A',
+        user_name: request.user?.full_name || 'N/A',
+        seller_expired_at: request.user?.seller_expired_at || null
       }));
       
-      // Chỉ hiển thị yêu cầu từ bidder (không phải seller)
-      const bidderRequests = normalizedData.filter(req => req.current_role !== 'seller');
-      setRequests(bidderRequests);
+      setRequests(normalizedData);
       setError(null);
     } catch (err) {
       setError(err.response?.data?.message || 'Lỗi khi tải danh sách yêu cầu');
-      console.error('Error fetching upgrade requests:', err);
+      console.error('Error fetching extension requests:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleApprove = async (requestId, userEmail, requestedRole) => {
+  const handleApprove = async (requestId, userEmail) => {
     const confirmed = await confirm({
-      icon: '🚀',
-      title: 'Duyệt nâng cấp',
-      message: `Bạn có chắc muốn DUYỆT yêu cầu lên "${requestedRole}" cho "${userEmail}"?`,
+      icon: '✅',
+      title: 'Duyệt yêu cầu gia hạn',
+      message: `Bạn có chắc muốn DUYỆT yêu cầu gia hạn cho "${userEmail}"? Seller sẽ được gia hạn thêm 7 ngày.`,
       confirmText: 'Duyệt yêu cầu',
     });
     if (!confirmed) return;
     
     try {
-      await adminAPI.approveUpgrade(requestId);
-      // Xóa khỏi selection
+      await adminAPI.approveExtensionRequest(requestId);
       setSelectedRequests(prev => prev.filter(id => id !== requestId));
-      // Đợi một chút để backend cập nhật xong
       await new Promise(resolve => setTimeout(resolve, 300));
-      // Refresh data
       await fetchRequests();
       await alert({
         icon: '✅',
         title: 'Đã duyệt yêu cầu',
-        message: 'User đã được nâng cấp role. Yêu cầu đã được chuyển sang tab "Đã duyệt".',
+        message: 'Seller đã được gia hạn thêm 7 ngày.',
       });
     } catch (err) {
       await alert({
@@ -78,23 +70,20 @@ function UpgradeRequests() {
     const confirmed = await confirm({
       icon: '❌',
       title: 'Từ chối yêu cầu',
-      message: `Bạn có chắc muốn TỪ CHỐI yêu cầu của "${userEmail}"?`,
+      message: `Bạn có chắc muốn TỪ CHỐI yêu cầu gia hạn của "${userEmail}"?`,
       confirmText: 'Từ chối',
     });
     if (!confirmed) return;
     
     try {
-      await adminAPI.rejectUpgrade(requestId);
-      // Xóa khỏi selection
+      await adminAPI.rejectExtensionRequest(requestId);
       setSelectedRequests(prev => prev.filter(id => id !== requestId));
-      // Đợi một chút để backend cập nhật xong
       await new Promise(resolve => setTimeout(resolve, 300));
-      // Refresh data
       await fetchRequests();
       await alert({
         icon: '❌',
         title: 'Đã từ chối',
-        message: 'Yêu cầu đã bị từ chối. Yêu cầu đã được chuyển sang tab "Đã từ chối".',
+        message: 'Yêu cầu gia hạn đã bị từ chối.',
       });
     } catch (err) {
       await alert({
@@ -105,7 +94,6 @@ function UpgradeRequests() {
     }
   };
 
-  // Xử lý checkbox
   const handleSelectRequest = (requestId) => {
     setSelectedRequests(prev => 
       prev.includes(requestId) 
@@ -123,7 +111,6 @@ function UpgradeRequests() {
     }
   };
 
-  // Xử lý hàng loạt
   const handleBatchApprove = async () => {
     if (selectedRequests.length === 0) {
       await alert({
@@ -135,27 +122,23 @@ function UpgradeRequests() {
     }
 
     const confirmed = await confirm({
-      icon: '🚀',
+      icon: '✅',
       title: 'Phê duyệt hàng loạt',
-      message: `Bạn có muốn phê duyệt yêu cầu đã chọn?`,
+      message: `Bạn có muốn phê duyệt ${selectedRequests.length} yêu cầu gia hạn đã chọn?`,
       confirmText: 'Phê duyệt',
     });
     if (!confirmed) return;
 
     try {
-      const count = selectedRequests.length;
-      const promises = selectedRequests.map(id => adminAPI.approveUpgrade(id));
+      const promises = selectedRequests.map(id => adminAPI.approveExtensionRequest(id));
       await Promise.all(promises);
-      // Đợi một chút để backend cập nhật xong
       await new Promise(resolve => setTimeout(resolve, 300));
-      // Clear selection
       setSelectedRequests([]);
-      // Refresh data
       await fetchRequests();
       await alert({
         icon: '✅',
         title: 'Đã phê duyệt',
-        message: `Đã phê duyệt yêu cầu thành công.`,
+        message: `Đã phê duyệt ${selectedRequests.length} yêu cầu gia hạn thành công.`,
       });
     } catch (err) {
       await alert({
@@ -179,25 +162,21 @@ function UpgradeRequests() {
     const confirmed = await confirm({
       icon: '❌',
       title: 'Từ chối hàng loạt',
-      message: `Bạn có muốn từ chối yêu cầu đã chọn?`,
+      message: `Bạn có muốn từ chối ${selectedRequests.length} yêu cầu gia hạn đã chọn?`,
       confirmText: 'Từ chối',
     });
     if (!confirmed) return;
 
     try {
-      const count = selectedRequests.length;
-      const promises = selectedRequests.map(id => adminAPI.rejectUpgrade(id));
+      const promises = selectedRequests.map(id => adminAPI.rejectExtensionRequest(id));
       await Promise.all(promises);
-      // Đợi một chút để backend cập nhật xong
       await new Promise(resolve => setTimeout(resolve, 300));
-      // Clear selection
       setSelectedRequests([]);
-      // Refresh data
       await fetchRequests();
       await alert({
         icon: '❌',
         title: 'Đã từ chối',
-        message: `Đã từ chối yêu cầu thành công.`,
+        message: `Đã từ chối ${selectedRequests.length} yêu cầu gia hạn.`,
       });
     } catch (err) {
       await alert({
@@ -226,24 +205,45 @@ function UpgradeRequests() {
     );
   };
 
+  const formatExpiredDate = (dateStr) => {
+    if (!dateStr) return 'Chưa có';
+    const date = new Date(dateStr);
+    const now = new Date();
+    const isExpired = date < now;
+    const formatted = date.toLocaleString('vi-VN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+    return (
+      <span className={isExpired ? 'text-red-600 font-semibold' : 'text-gray-600'}>
+        {formatted}
+        {isExpired && ' (Đã hết hạn)'}
+      </span>
+    );
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-600"></div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-8">
-      {/* Yêu cầu nâng cấp từ Bidder lên Seller */}
-      <div className="space-y-6">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-gray-800">Yêu cầu nâng cấp tài khoản</h2>
+        <div>
+          <h3 className="text-xl font-bold text-amber-800">Yêu cầu gia hạn quyền được bán trong 7 ngày</h3>
+          <p className="text-sm text-gray-600 mt-1">Quản lý yêu cầu gia hạn từ các seller</p>
+        </div>
         <button
           onClick={fetchRequests}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors"
         >
           🔄 Làm mới
         </button>
@@ -264,7 +264,7 @@ function UpgradeRequests() {
             onClick={() => setFilter(status)}
             className={`px-4 py-2 rounded-lg font-medium ${
               filter === status
-                ? 'bg-blue-600 text-white'
+                ? 'bg-amber-600 text-white'
                 : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
             }`}
           >
@@ -276,10 +276,10 @@ function UpgradeRequests() {
         ))}
       </div>
 
-      {/* Requests List */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
+      {/* Requests Table */}
+      <div className="bg-white rounded-lg shadow overflow-hidden border border-amber-200">
         <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
+          <thead className="bg-amber-50">
             <tr>
               <th className="px-6 py-3 text-left">
                 <input
@@ -287,21 +287,15 @@ function UpgradeRequests() {
                   checked={requests.filter(r => r.status === 'pending').length > 0 && 
                           selectedRequests.length === requests.filter(r => r.status === 'pending').length}
                   onChange={handleSelectAll}
-                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  className="w-4 h-4 text-amber-600 border-gray-300 rounded focus:ring-amber-500"
                   disabled={requests.filter(r => r.status === 'pending').length === 0}
                 />
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                ID
+                Seller
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                User Email
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                Role hiện tại
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                Role yêu cầu
+                Hết hạn hiện tại
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                 Lý do
@@ -312,59 +306,80 @@ function UpgradeRequests() {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                 Ngày tạo
               </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                Thao tác
+              </th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {requests.length === 0 ? (
               <tr>
-                <td colSpan="8" className="px-6 py-8 text-center text-gray-500">
-                  Không có yêu cầu nào
+                <td colSpan="7" className="px-6 py-8 text-center text-gray-500">
+                  Không có yêu cầu gia hạn nào
                 </td>
               </tr>
             ) : (
               requests.map((request) => (
-                <tr key={request.id} className="hover:bg-gray-50">
+                <tr key={request.id} className="hover:bg-amber-50/50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     {request.status === 'pending' ? (
                       <input
                         type="checkbox"
                         checked={selectedRequests.includes(request.id)}
                         onChange={() => handleSelectRequest(request.id)}
-                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        className="w-4 h-4 text-amber-600 border-gray-300 rounded focus:ring-amber-500"
                       />
                     ) : (
                       <span className="text-gray-300">-</span>
                     )}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {request.id}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  <td className="px-6 py-4 whitespace-nowrap">
                     <div>
-                      <div className="font-medium">{request.user_email || 'N/A'}</div>
-                      {request.full_name && request.full_name !== 'N/A' && (
-                        <div className="text-xs text-gray-500">{request.full_name}</div>
+                      <div className="text-sm font-medium text-gray-900">{request.user_email}</div>
+                      {request.user_name && request.user_name !== 'N/A' && (
+                        <div className="text-xs text-gray-500">{request.user_name}</div>
                       )}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    <span className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg font-medium text-xs">
-                      {request.current_role?.toUpperCase() || 'N/A'}
-                    </span>
+                    {formatExpiredDate(request.seller_expired_at)}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    <span className="px-3 py-1.5 bg-blue-100 text-blue-800 rounded-lg font-medium text-xs">
-                      {request.requested_role?.toUpperCase() || 'SELLER'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-600 max-w-xs truncate">
-                    {request.reason || 'N/A'}
+                  <td className="px-6 py-4 text-sm text-gray-600 max-w-xs">
+                    <div className="line-clamp-2" title={request.reason}>
+                      {request.reason || 'Không có lý do'}
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     {getStatusBadge(request.status)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {new Date(request.created_at).toLocaleDateString('vi-VN')}
+                    {new Date(request.created_at).toLocaleString('vi-VN', {
+                      year: 'numeric',
+                      month: '2-digit',
+                      day: '2-digit',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm">
+                    {request.status === 'pending' ? (
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleApprove(request.id, request.user_email)}
+                          className="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600 transition-colors text-xs font-medium"
+                        >
+                          ✅ Duyệt
+                        </button>
+                        <button
+                          onClick={() => handleReject(request.id, request.user_email)}
+                          className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition-colors text-xs font-medium"
+                        >
+                          ❌ Từ chối
+                        </button>
+                      </div>
+                    ) : (
+                      <span className="text-gray-400 text-xs">-</span>
+                    )}
                   </td>
                 </tr>
               ))
@@ -373,13 +388,13 @@ function UpgradeRequests() {
         </table>
       </div>
 
-      {/* Action Buttons - Chỉ hiển thị khi có yêu cầu pending và có checkbox được chọn */}
+      {/* Batch Actions */}
       {filter === 'pending' && selectedRequests.length > 0 && (
-        <div className="bg-white rounded-lg shadow p-4 border-t-2 border-blue-500">
+        <div className="bg-amber-50 rounded-lg shadow p-4 border-2 border-amber-400">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <span className="text-sm font-medium text-gray-700">
-                Đã chọn: <strong className="text-blue-600">{selectedRequests.length}</strong> yêu cầu
+                Đã chọn: <strong className="text-amber-600">{selectedRequests.length}</strong> yêu cầu
               </span>
             </div>
             <div className="flex items-center gap-3">
@@ -403,20 +418,13 @@ function UpgradeRequests() {
       )}
 
       {/* Stats */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <p className="text-sm text-blue-800">
-          📊 Tổng số yêu cầu: <strong>{requests.length}</strong>
+      <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+        <p className="text-sm text-amber-800">
+          📊 Tổng số yêu cầu gia hạn: <strong>{requests.length}</strong>
         </p>
       </div>
-      </div>
-
-      {/* Separator */}
-      <div className="border-t-4 border-gray-200"></div>
-
-      {/* Yêu cầu gia hạn quyền Seller */}
-      <ExtensionRequests />
     </div>
   );
 }
 
-export default UpgradeRequests;
+export default ExtensionRequests;

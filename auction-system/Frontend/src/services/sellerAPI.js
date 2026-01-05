@@ -169,6 +169,23 @@ const sellerAPI = {
   getMyRatings: async () => {
     const response = await api.get('/seller/ratings')
     return response.data
+  },
+
+  /**
+   * Kiểm tra trạng thái hết hạn seller
+   */
+  getExpirationStatus: async () => {
+    const response = await api.get('/seller/expiration-status')
+    return response.data
+  },
+
+  /**
+   * Tạo yêu cầu gia hạn quyền seller
+   * @param {Object} data - { reason }
+   */
+  requestExtension: async (data) => {
+    const response = await api.post('/seller/extension-request', data)
+    return response.data
   }
 }
 
