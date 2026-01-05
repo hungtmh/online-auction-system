@@ -1,5 +1,6 @@
 export const initialFormState = {
   name: '',
+  parent_category_id: '',
   category_id: '',
   description: '',
   starting_price: '',

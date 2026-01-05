@@ -1,5 +1,23 @@
 import QuillEditor from './QuillEditor'
 import { quillModules } from './constants'
+import { useMemo, useEffect } from 'react'
+
+// Map icon names to emoji
+const iconMap = {
+  'smartphone': '📱',
+  'laptop': '💻',
+  'cpu': '🖥️',
+  'shirt': '👕',
+  'footprints': '👟',
+  'watch': '⌚',
+  'home': '🏠',
+  'sofa': '🛋️',
+  'book': '📚',
+  'palette': '🎨',
+  'dumbbell': '🏋️',
+  'car': '🚗',
+  'recycle': '♻️'
+}
 
 const ProductFormStep = ({
   formData,
@@ -21,6 +39,35 @@ const ProductFormStep = ({
   const startingPrice = Number(formData.starting_price) || 0
   const minStepPrice = startingPrice > 0 ? Math.ceil(startingPrice * minPercent / 100) : 0
 
+  // Lọc danh mục cha (parent_id = null)
+  const parentCategories = useMemo(() => {
+    return categoryOptions.filter(cat => !cat.parent_id)
+  }, [categoryOptions])
+
+  // Lọc danh mục con dựa trên parent được chọn
+  const childCategories = useMemo(() => {
+    if (!formData.parent_category_id) return []
+    return categoryOptions.filter(cat => cat.parent_id === formData.parent_category_id)
+  }, [categoryOptions, formData.parent_category_id])
+
+  // Reset child category khi parent thay đổi
+  useEffect(() => {
+    if (formData.parent_category_id && formData.category_id) {
+      const selectedChild = categoryOptions.find(cat => cat.id === formData.category_id)
+      if (!selectedChild || selectedChild.parent_id !== formData.parent_category_id) {
+        // Category hiện tại không thuộc parent mới -> reset
+        onInputChange({ target: { name: 'category_id', value: '' } })
+      }
+    }
+  }, [formData.parent_category_id])
+
+  const handleParentChange = (e) => {
+    const parentId = e.target.value
+    onInputChange({ target: { name: 'parent_category_id', value: parentId } })
+    // Reset category_id khi đổi parent
+    onInputChange({ target: { name: 'category_id', value: '' } })
+  }
+
   return (
   <div className="space-y-6">
     <div className="relative">
@@ -40,9 +87,33 @@ const ProductFormStep = ({
       )}
     </div>
 
+    {/* PHẦN DANH MỤC MỚI - 2 DROPDOWN */}
     <div className="grid gap-6 md:grid-cols-2">
+      {/* Danh mục cha */}
       <div className="relative">
-        <label className="mb-1 block text-sm font-semibold text-slate-600">Danh mục *</label>
+        <label className="mb-1 block text-sm font-semibold text-slate-600">Danh mục cha *</label>
+        {loadingCategories ? (
+          <p className="text-sm text-slate-500">Đang tải danh mục...</p>
+        ) : (
+          <select
+            name="parent_category_id"
+            value={formData.parent_category_id}
+            onChange={handleParentChange}
+            className={`w-full rounded-lg border px-4 py-2 ${errors.category_id ? 'border-red-400 bg-red-50' : 'border-slate-200'}`}
+          >
+            <option value="">-- Chọn danh mục cha --</option>
+            {parentCategories.map((category) => (
+              <option key={category.id} value={category.id}>
+                {category.label}
+              </option>
+            ))}
+          </select>
+        )}
+      </div>
+
+      {/* Danh mục con */}
+      <div className="relative">
+        <label className="mb-1 block text-sm font-semibold text-slate-600">Danh mục con *</label>
         {loadingCategories ? (
           <p className="text-sm text-slate-500">Đang tải danh mục...</p>
         ) : (
@@ -50,10 +121,24 @@ const ProductFormStep = ({
             name="category_id"
             value={formData.category_id}
             onChange={onInputChange}
-            className={`w-full rounded-lg border px-4 py-2 ${errors.category_id ? 'border-red-400 bg-red-50' : 'border-slate-200'}`}
+            disabled={!formData.parent_category_id}
+            className={`w-full rounded-lg border px-4 py-2 ${
+              !formData.parent_category_id 
+                ? 'cursor-not-allowed bg-slate-100 text-slate-400' 
+                : errors.category_id 
+                  ? 'border-red-400 bg-red-50' 
+                  : 'border-slate-200'
+            }`}
           >
-            <option value="">Chọn danh mục</option>
-            {categoryOptions.map((category) => (
+            <option value="">
+              {!formData.parent_category_id 
+                ? '-- Chọn danh mục cha trước --' 
+                : childCategories.length === 0
+                  ? '-- Không có danh mục con --'
+                  : '-- Chọn danh mục con --'
+              }
+            </option>
+            {childCategories.map((category) => (
               <option key={category.id} value={category.id}>
                 {category.label}
               </option>
@@ -66,20 +151,21 @@ const ProductFormStep = ({
           </div>
         )}
       </div>
+    </div>
 
-      <div>
-        <label className="mb-1 block text-sm font-semibold text-slate-600">Cho phép bidder chưa có rating</label>
-        <label className="flex items-center gap-2 text-sm text-slate-600">
-          <input
-            type="checkbox"
-            name="allow_unrated_bidders"
-            checked={formData.allow_unrated_bidders}
-            onChange={onCheckboxChange}
-            className="h-4 w-4 rounded border-slate-300"
-          />
-          Mở cho tất cả bidder
-        </label>
-      </div>
+    {/* Checkbox allow unrated bidders */}
+    <div>
+      <label className="mb-1 block text-sm font-semibold text-slate-600">Cho phép bidder chưa có rating</label>
+      <label className="flex items-center gap-2 text-sm text-slate-600">
+        <input
+          type="checkbox"
+          name="allow_unrated_bidders"
+          checked={formData.allow_unrated_bidders}
+          onChange={onCheckboxChange}
+          className="h-4 w-4 rounded border-slate-300"
+        />
+        Mở cho tất cả bidder
+      </label>
     </div>
 
     <div className="relative">

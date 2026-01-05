@@ -38,7 +38,9 @@ const ProductCreation = ({ categories, loadingCategories }) => {
     if (!Array.isArray(categories)) return []
     return categories.map((category) => ({
       id: category.id || category.value,
-      label: category.name || category.label
+      label: category.name || category.label,
+      parent_id: category.parent_id || null,
+      icon: category.icon || null
     }))
   }, [categories])
 

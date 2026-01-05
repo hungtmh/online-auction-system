@@ -1183,13 +1183,15 @@ export const updateCategory = async (req, res) => {
 };
 
 /**
- * @route   DELETE /api/admin/categories/:id
- * @desc    Xóa category (soft delete - đánh dấu is_active = false)
+ * @route   DELETE /api/admin/categories/:id?hard=true
+ * @desc    Xóa category (soft delete hoặc hard delete với CASCADE)
  * @access  Private (Admin)
+ * @query   hard=true để xóa cứng (CASCADE xóa luôn products và dữ liệu liên quan)
  */
 export const deleteCategory = async (req, res) => {
   try {
     const { id } = req.params;
+    const { hard } = req.query; // ?hard=true để xóa cứng
 
     // Kiểm tra xem category có sản phẩm không
     const { count: productCount, error: countError } = await supabase.from("products").select("id", { count: "exact", head: true }).eq("category_id", id);
@@ -1199,15 +1201,15 @@ export const deleteCategory = async (req, res) => {
       throw countError;
     }
 
-    // Không được xóa danh mục đã có sản phẩm
+    // XÓA MỀM (SOFT DELETE) - CHỈ ẨN ĐI
     if (productCount && productCount > 0) {
       return res.status(400).json({
         success: false,
-        message: `Không thể xóa danh mục này vì đang có ${productCount} sản phẩm. Vui lòng xóa hoặc chuyển các sản phẩm sang danh mục khác trước.`,
+        message: `Không thể xóa mềm danh mục này vì đang có ${productCount} sản phẩm. Dùng ?hard=true để xóa cứng (CASCADE) hoặc chuyển sản phẩm sang danh mục khác.`,
       });
     }
 
-    // Soft delete: đánh dấu category là không hoạt động thay vì xóa thật
+    // Soft delete: đánh dấu category là không hoạt động
     const { data, error } = await supabase
       .from("categories")
       .update({
@@ -1222,7 +1224,7 @@ export const deleteCategory = async (req, res) => {
 
     res.json({
       success: true,
-      message: "Đã xóa category (soft delete)",
+      message: "Đã ẩn category (soft delete)",
       data: data,
     });
   } catch (error) {
