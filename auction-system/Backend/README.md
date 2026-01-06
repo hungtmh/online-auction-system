@@ -1,103 +1,241 @@
 # 🚀 Auction Backend API
 
-Backend API cho hệ thống đấu giá trực tuyến, sử dụng Node.js + Express + Supabase.
+Backend API cho hệ thống đấu giá trực tuyến - Node.js + Express + Supabase
 
-## 📋 Cài đặt
+## 📦 Cài đặt
 
-### 1. Cài dependencies
+### 1. Install Dependencies
 
 ```bash
-cd Backend
 npm install
-npm install passport passport-google-oauth20
 ```
 
 ### 2. Cấu hình Environment Variables
 
-Cập nhật file `.env`:
+Tạo file `.env` trong thư mục Backend:
 
 ```env
 # Supabase Configuration
-SUPABASE_URL=https://ojbcqlntvkdpdetmttuu.supabase.co
-SUPABASE_SERVICE_KEY=your-service-role-key-here  # ⚠️ Cần thay đổi!
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_ANON_KEY=your-anon-key
+SUPABASE_SERVICE_KEY=your-service-role-key
 
-# JWT Secret
+# JWT Secret (đổi thành chuỗi bảo mật mạnh)
 JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
 
 # Server
 PORT=5000
 NODE_ENV=development
 
-# Frontend URL
+# Frontend URL (cho CORS)
 FRONTEND_URL=http://localhost:5173
+
+# Email Configuration (Gmail SMTP)
+EMAIL_USER=your-email@gmail.com
+EMAIL_APP_PASSWORD=your-gmail-app-password
+
+# OAuth (Optional - nếu dùng Google/Facebook login)
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+FACEBOOK_APP_ID=your-facebook-app-id
+FACEBOOK_APP_SECRET=your-facebook-app-secret
+
+# OAuth Callback URLs
+GOOGLE_CALLBACK_URL=http://localhost:5000/api/auth/google/callback
+FACEBOOK_CALLBACK_URL=http://localhost:5000/api/auth/facebook/callback
 ```
 
-**⚠️ LƯU Ý:**
-
-- Lấy `SUPABASE_SERVICE_KEY` từ: Supabase Dashboard → Settings → API → `service_role` key
+**📝 Lưu ý:**
+- Lấy Supabase keys từ: Dashboard → Settings → API
+- Email App Password: Google Account → Security → 2-Step Verification → App Passwords
 - **KHÔNG** commit file `.env` lên Git!
 
-### 3. Tạo bảng trên Supabase
-
-Xem file `DATABASE-SETUP.md` để có SQL script tạo bảng `users`.
-
-### 4. Chạy server
+### 3. Chạy Server
 
 ```bash
-# Development mode (auto-restart khi có thay đổi)
+# Development mode (auto-reload với nodemon)
 npm run dev
 
 # Production mode
 npm start
 ```
 
-Server sẽ chạy tại: **http://localhost:5000**
+Server chạy tại: **http://localhost:5000**
 
 ---
 
-## 🔌 API Endpoints
-
-### 1. Health Check
+## 🏗 Cấu trúc thư mục
 
 ```
-GET /api/health
-```
-
-**Response:**
-
-```json
-{
-  "status": "OK",
-  "message": "Auction Backend API is running!",
-  "timestamp": "2025-11-01T10:00:00.000Z"
-}
+Backend/
+├── config/
+│   ├── supabase.js       # Supabase client
+│   ├── passport.js       # OAuth strategies
+│   └── mail.js           # Email configuration
+├── controllers/
+│   ├── authController.js     # Auth logic
+│   ├── guestController.js    # Guest/public endpoints
+│   ├── bidderController.js   # Bidder features
+│   ├── sellerController.js   # Seller features
+│   ├── adminController.js    # Admin management
+│   └── orderController.js    # Order handling
+├── middleware/
+│   ├── auth.js                     # JWT verification
+│   └── checkSellerExpiration.js   # Seller subscription check
+├── routes/
+│   ├── auth.js           # Authentication routes
+│   ├── guest.js          # Public routes
+│   ├── bidder.js         # Bidder routes
+│   ├── seller.js         # Seller routes
+│   ├── admin.js          # Admin routes
+│   └── order.js          # Order routes
+├── services/
+│   ├── mailService.js         # Email sending
+│   └── auctionScheduler.js    # Auto-close auctions
+├── utils/
+│   ├── emailTemplates.js      # Email HTML templates
+│   ├── otpHelper.js           # OTP generation
+│   ├── systemSettings.js      # System configs
+│   └── upload.js              # File upload handling
+├── server.js             # Main entry point
+└── package.json
 ```
 
 ---
 
-### 2. Đăng ký (Register)
+## 🔌 API Endpoints Overview
 
+### Authentication (`/api/auth`)
+- `POST /register` - Đăng ký tài khoản
+- `POST /verify-email` - Xác thực email với OTP
+- `POST /login` - Đăng nhập
+- `POST /logout` - Đăng xuất
+- `POST /refresh-token` - Làm mới access token
+- `POST /forgot-password` - Quên mật khẩu
+- `POST /reset-password` - Đặt lại mật khẩu
+- `GET /google` - OAuth Google
+- `GET /facebook` - OAuth Facebook
+
+### Guest (`/api/guest`)
+- `GET /products` - Danh sách sản phẩm đấu giá
+- `GET /products/:id` - Chi tiết sản phẩm
+- `GET /categories` - Danh mục sản phẩm
+
+### Bidder (`/api/bidder`) - Yêu cầu JWT
+- `POST /bids` - Đặt giá thầu
+- `GET /my-bids` - Lịch sử đấu giá
+- `POST /watchlist` - Theo dõi sản phẩm
+- `GET /watchlist` - Danh sách theo dõi
+- `POST /auto-bid` - Thiết lập đấu giá tự động
+
+### Seller (`/api/seller`) - Yêu cầu JWT
+- `POST /products` - Đăng sản phẩm
+- `PUT /products/:id` - Cập nhật sản phẩm
+- `DELETE /products/:id` - Xóa sản phẩm
+- `GET /my-products` - Sản phẩm của tôi
+- `POST /upgrade` - Nâng cấp tài khoản Seller
+
+### Admin (`/api/admin`) - Yêu cầu JWT + Admin role
+- `GET /users` - Quản lý người dùng
+- `PUT /users/:id` - Cập nhật user
+- `GET /products/pending` - Duyệt sản phẩm
+- `PUT /products/:id/approve` - Phê duyệt sản phẩm
+- `GET /reports` - Xem báo cáo spam
+
+### Orders (`/api/orders`)
+- `POST /:orderId/complete` - Hoàn thành đơn hàng
+- `POST /:orderId/rate` - Đánh giá người bán
+
+---
+
+## 🔐 Authentication Flow
+
+1. **Register**: Email → Gửi OTP → Xác thực → Tạo tài khoản
+2. **Login**: Email/Password → JWT Access Token (1h) + Refresh Token (7 days)
+3. **Token Refresh**: Access token hết hạn → Gửi refresh token → Nhận access token mới
+4. **OAuth**: Google/Facebook → Auto-create account → Trả về tokens
+
+---
+
+## 📧 Email Templates
+
+Email được gửi cho các trường hợp:
+- Xác thực tài khoản (OTP)
+- Quên mật khẩu (OTP)
+- Thông báo thắng đấu giá
+- Thông báo bị overbid
+- Câu hỏi từ người mua
+
+---
+
+## ⚙️ Scheduler (Cron Jobs)
+
+Server tự động chạy scheduler để:
+- Đóng đấu giá khi hết thời gian
+- Xác định người thắng
+- Gửi email thông báo
+- Xử lý auto-bid
+
+---
+
+## 🐛 Troubleshooting
+
+### Port 5000 đã bị chiếm
+```bash
+# Đổi port trong .env
+PORT=5001
 ```
-POST /api/auth/register
-Content-Type: application/json
-```
 
-**Request Body:**
+### Email không gửi được
+- Kiểm tra `EMAIL_USER` và `EMAIL_APP_PASSWORD` đúng
+- Bật "Less secure app access" hoặc dùng "App Password"
+- Kiểm tra firewall/antivirus không chặn SMTP
 
-```json
-{
-  "email": "user@example.com",
-  "password": "123456",
-  "fullName": "Nguyễn Văn A"
-}
-```
+### JWT Token invalid
+- Kiểm tra `JWT_SECRET` giống nhau giữa các lần khởi động
+- Xóa cookies và login lại
 
-**Response Success (201):**
+### Supabase connection error
+- Kiểm tra `SUPABASE_URL` và `SUPABASE_SERVICE_KEY` đúng
+- Kiểm tra internet connection
+- Xác nhận Supabase project chưa bị pause (free tier)
 
-```json
-{
-  "message": "Đăng ký thành công!",
-  "user": {
+---
+
+## 📚 Dependencies chính
+
+- `express` - Web framework
+- `@supabase/supabase-js` - Database client
+- `jsonwebtoken` - JWT authentication
+- `bcrypt` - Password hashing
+- `nodemailer` - Email sending
+- `passport` - OAuth strategies
+- `multer` - File upload
+- `express-validator` - Input validation
+- `cookie-parser` - Cookie handling
+
+---
+
+## 🚀 Deployment
+
+**Production checklist:**
+1. Đổi `NODE_ENV=production`
+2. Dùng JWT_SECRET mạnh (ít nhất 32 ký tự)
+3. Bật HTTPS
+4. Cấu hình CORS chính xác
+5. Set up proper logging
+6. Use process manager (PM2, Docker)
+7. Set up database backup
+
+---
+
+## 📖 API Documentation
+
+Xem chi tiết API endpoints, request/response examples trong các file controller hoặc dùng Postman collection.
+
+---
+
+**Developed by TayDuKy Team**
     "id": "uuid-here",
     "email": "user@example.com",
     "full_name": "Nguyễn Văn A",

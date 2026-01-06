@@ -1,103 +1,131 @@
-# 🏆 Online Auction System - Hệ thống Đấu giá Trực tuyến
+# 🏆 Online Auction System
 
-> **Dự án**: Hệ thống đấu giá trực tuyến với React + Node.js + Supabase  
-> **Team**: Nhóm phát triển web  
-> **Tech Stack**: React, Vite, Express.js, JWT, Supabase PostgreSQL
+Hệ thống đấu giá trực tuyến đầy đủ tính năng với React + Node.js + Supabase PostgreSQL.
 
----
+## 🎯 Tính năng chính
 
-## 📋 Mục lục
+- **👤 Bidder (Người đấu giá)**: Tìm kiếm, đấu giá sản phẩm, theo dõi đấu giá, xem lịch sử
+- **🏪 Seller (Người bán)**: Đăng sản phẩm, quản lý đấu giá, xử lý đơn hàng
+- **⚙️ Admin**: Quản lý người dùng, phê duyệt sản phẩm, xử lý báo cáo
+- **🔐 Authentication**: JWT + Refresh Token, OAuth (Google/Facebook)
+- **📧 Email**: Xác thực tài khoản, OTP, thông báo đấu giá
+- **💳 Payment**: Tích hợp thanh toán và xử lý đơn hàng
 
-- [Tổng quan dự án](#-tổng-quan-dự-án)
-- [Cấu trúc thư mục](#-cấu-trúc-thư-mục)
-- [Công nghệ sử dụng](#-công-nghệ-sử-dụng)
-- [Cài đặt & Chạy dự án](#-cài-đặt--chạy-dự-án)
-- [Kiến trúc hệ thống](#-kiến-trúc-hệ-thống)
-- [Flow xác thực (Authentication)](#-flow-xác-thực-authentication)
-- [API Endpoints](#-api-endpoints)
-- [Database Schema](#-database-schema)
-- [Giải thích các file quan trọng](#-giải-thích-các-file-quan-trọng)
-- [Troubleshooting](#-troubleshooting)
+## 🛠 Tech Stack
 
----
+- **Frontend**: React 19, Vite, TailwindCSS, React Router
+- **Backend**: Node.js, Express, JWT, Passport
+- **Database**: Supabase PostgreSQL
+- **Email**: Nodemailer với Gmail SMTP
 
-## 🎯 Tổng quan dự án
-
-### **Mô tả**
-Hệ thống đấu giá trực tuyến cho phép:
-- 👤 **Bidder (Người đấu giá)**: Tham gia đấu giá sản phẩm, theo dõi sản phẩm yêu thích
-- 🏪 **Seller (Người bán)**: Đăng sản phẩm lên đấu giá, quản lý sản phẩm
-- ⚙️ **Admin**: Quản lý toàn bộ hệ thống
-
-### **Tính năng chính**
-- ✅ Đăng ký/Đăng nhập với email verification
-- ✅ JWT Authentication (Access Token + Refresh Token)
-- ✅ Auto-refresh token khi hết hạn
-- ✅ Dashboard cho Bidder với các tab (Khám phá, Đấu giá của tôi, Theo dõi, Hồ sơ)
-- ✅ Đấu giá realtime (TODO)
-- ✅ Quản lý sản phẩm (TODO)
-
----
-
-## 📁 Cấu trúc thư mục
+## 📁 Cấu trúc dự án
 
 ```
 online-auction-system/
 ├── auction-system/
-│   ├── Backend/                    # Node.js + Express API
-│   │   ├── config/
-│   │   │   └── supabase.js        # Supabase client config
-│   │   ├── controllers/
-│   │   │   └── authController.js  # Xử lý đăng ký, đăng nhập, refresh token
-│   │   ├── middleware/
-│   │   │   └── auth.js            # Middleware xác thực JWT
-│   │   ├── routes/
-│   │   │   └── auth.js            # Routes cho authentication
-│   │   ├── .env                   # Environment variables (KHÔNG push lên Git)
-│   │   ├── .env.example           # Template cho .env
-│   │   ├── server.js              # Entry point của Backend
-│   │   └── package.json
-│   │
-│   └── Frontend/                   # React + Vite
-│       ├── src/
-│       │   ├── components/
-│       │   │   ├── Auth/
-│       │   │   │   ├── Login.jsx           # Form đăng nhập
-│       │   │   │   └── Register.jsx        # Form đăng ký
-│       │   │   └── GuestHomePage/
-│       │   │       └── GuestHomePageContent.jsx  # Trang chủ chưa đăng nhập
-│       │   ├── pages/
-│       │   │   ├── GuestHomePage.jsx       # Trang chủ guest
-│       │   │   ├── BidderDashboard.jsx     # Dashboard của Bidder
-│       │   │   └── AuctionListPage.jsx     # Danh sách đấu giá
-│       │   ├── services/
-│       │   │   └── api.js                  # Axios client + API functions
-│       │   ├── App.jsx                     # Main app với routing
-│       │   └── main.jsx                    # Entry point
-│       ├── .env                   # Environment variables (KHÔNG push lên Git)
-│       ├── .env.example           # Template
-│       └── package.json
-│
-├── MVP-demo/                      # Demo cũ (Express + EJS + SQLite)
-├── .gitignore                     # Git ignore file
-└── README.md                      # File này
+│   ├── Backend/          # Node.js API Server
+│   └── Frontend/         # React Web App
+├── package.json          # Root workspace config
+└── README.md             # Tài liệu này
 ```
 
 ---
 
-## 🛠 Công nghệ sử dụng
+## 🚀 Hướng dẫn cài đặt
 
-### **Frontend**
-| Công nghệ | Phiên bản | Mục đích |
-|-----------|-----------|----------|
-| React | 18.3.1 | UI Framework |
-| Vite | 7.1.12 | Build tool (nhanh hơn Webpack) |
-| React Router | 7.1.1 | Routing |
-| Tailwind CSS | 3.4.17 | Styling |
-| Axios | 1.7.9 | HTTP client |
+### Bước 1: Cài đặt Database (Supabase)
 
-### **Backend**
-| Công nghệ | Phiên bản | Mục đích |
+1. **Tạo project trên Supabase**
+   - Truy cập [supabase.com](https://supabase.com)
+   - Tạo project mới và lưu lại:
+     - `SUPABASE_URL`
+     - `SUPABASE_ANON_KEY`
+     - `SUPABASE_SERVICE_KEY`
+
+2. **Chạy SQL**
+   
+   Trong Supabase Dashboard → SQL Editor, chạy file db.sql
+
+### Bước 2: Cài đặt Backend
+
+```bash
+cd auction-system/Backend
+npm install
+```
+
+**Cấu hình `.env` file:**
+   
+   Đã gửi đính kèm trong thư mục src.zip
+
+**Chạy Backend:**
+
+```bash
+npm run dev    # Development mode (auto-reload)
+npm start      # Production mode
+```
+
+Backend chạy tại: **http://localhost:5000**
+
+### Bước 3: Cài đặt Frontend
+
+```bash
+cd auction-system/Frontend
+npm install
+```
+
+**Cấu hình `.env` file:**
+   
+   Đã gửi đính kèm trong thư mục src.zip
+
+**Chạy Frontend:**
+
+```bash
+npm run dev    # Development mode
+npm run build  # Build for production
+```
+
+Frontend chạy tại: **http://localhost:5173**
+
+---
+
+## 🔧 Troubleshooting
+
+### Backend không start được
+- Kiểm tra tất cả biến trong `.env` đã được cấu hình đúng
+- Xác nhận Supabase đang hoạt động
+- Chạy `npm install` lại nếu thiếu dependencies
+
+### Frontend không kết nối được Backend
+- Kiểm tra Backend đang chạy tại port 5000
+- Xác nhận `VITE_API_BASE_URL` trong Frontend `.env` đúng
+- Kiểm tra CORS settings trong Backend
+
+### Email không gửi được
+- Kiểm tra `EMAIL_USER` và `EMAIL_APP_PASSWORD` đúng
+- Bật "App Password" trong Google Account Security
+- Kiểm tra Gmail SMTP không bị chặn
+
+### Database lỗi
+- Kiểm tra Supabase project còn hoạt động
+- Xác nhận đã chạy hết SQL migrations
+- Kiểm tra `SUPABASE_SERVICE_KEY` có quyền đầy đủ
+
+---
+
+## 📚 Tài liệu chi tiết
+
+- **Backend API**: Xem [Backend/README.md](auction-system/Backend/README.md)
+- **Frontend App**: Xem [Frontend/README.md](auction-system/Frontend/README.md)
+
+---
+
+## 👥 Team
+
+Dự án phát triển bởi nhóm TayDuKy
+
+## 📄 License
+
+ISC License
 |-----------|-----------|----------|
 | Node.js | 22.20.0 | Runtime |
 | Express | 4.18.2 | Web framework |
@@ -111,107 +139,6 @@ online-auction-system/
 |-----------|----------|
 | Supabase PostgreSQL | Database chính |
 | Supabase Auth | Quản lý users (chỉ dùng database, không dùng Auth SDK) |
-
----
-
-## 🚀 Cài đặt & Chạy dự án
-
-### **Yêu cầu hệ thống**
-- Node.js >= 18.0.0
-- npm >= 9.0.0
-- Git
-
-### **Bước 1: Clone repo**
-```bash
-git clone https://github.com/hungtmh/online-auction-system.git
-cd online-auction-system/auction-system
-```
-
-### **Bước 2: Setup Backend**
-
-```bash
-cd Backend
-
-# Cài dependencies
-npm install
-
-# Tạo file .env từ template
-cp .env.example .env
-
-# Sửa file .env, điền các giá trị:
-# SUPABASE_URL=https://your-project.supabase.co
-# SUPABASE_SERVICE_KEY=your-service-role-key
-# JWT_SECRET=your-random-secret-key
-# JWT_REFRESH_SECRET=your-refresh-secret-key
-# PORT=5000
-# FRONTEND_URL=http://localhost:5173
-
-# Chạy Backend
-npm run dev
-```
-
-**Backend chạy tại:** http://localhost:5000
-
-### **Bước 3: Setup Frontend**
-
-```bash
-cd ../Frontend
-
-# Cài dependencies
-npm install
-
-# Tạo file .env từ template
-cp .env.example .env
-
-# Sửa file .env:
-# VITE_API_URL=http://localhost:5000/api
-
-# Chạy Frontend
-npm run dev
-```
-
-**Frontend chạy tại:** http://localhost:5173
-
-### **Bước 4: Setup Database (Supabase)**
-
-1. Vào https://supabase.com → Tạo project mới
-2. Vào **SQL Editor** → Chạy script tạo bảng:
-
-```sql
--- Tạo bảng profiles (tự động tạo khi user đăng ký)
-CREATE TABLE IF NOT EXISTS profiles (
-  id UUID REFERENCES auth.users(id) PRIMARY KEY,
-  full_name TEXT,
-  role TEXT DEFAULT 'bidder',
-  rating_positive INTEGER DEFAULT 0,
-  rating_negative INTEGER DEFAULT 0,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- Trigger tự động tạo profile khi user đăng ký
-CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS TRIGGER AS $$
-BEGIN
-  INSERT INTO public.profiles (id, full_name, role)
-  VALUES (
-    NEW.id,
-    NEW.raw_user_meta_data->>'full_name',
-    'bidder'
-  );
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
-CREATE TRIGGER on_auth_user_created
-  AFTER INSERT ON auth.users
-  FOR EACH ROW
-  EXECUTE FUNCTION public.handle_new_user();
-```
-
-3. Lấy **Service Role Key**:
-   - Vào **Settings** → **API**
-   - Copy `service_role` key
-   - Paste vào `Backend/.env` → `SUPABASE_SERVICE_KEY`
 
 ---
 
